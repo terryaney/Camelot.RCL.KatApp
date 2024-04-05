@@ -1549,8 +1549,8 @@ Type 'help' to see available options displayed in the console.`;
 	private addUnexpectedError(errorResponse: any): void {
 		this.state.errors.push(
 			errorResponse.requestId != undefined
-				? { "@id": "System", text: this.getLocalizedString("We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.  Please contact Customer Service and provide the following Request ID: {{requestId}}", errorResponse)! }
-				: { "@id": "System", text: this.getLocalizedString("We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.")! }
+				? { "@id": "System", text: this.getLocalizedString("KatApps.AddUnexpectedErrorWithRequestId", undefined, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.  Please contact Customer Service and provide the following Request ID: {{requestId}}", errorResponse)! }
+				: { "@id": "System", text: this.getLocalizedString("KatApps.AddUnexpectedError", undefined, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.")! }
 		);
 	}
 
