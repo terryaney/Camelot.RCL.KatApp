@@ -33,6 +33,7 @@
                 "ts - no comments"
             ],
             "problemMatcher": "$tsc",
+            "dependsOrder": "sequence"
         },
         {
             "label": "ts - comments",
