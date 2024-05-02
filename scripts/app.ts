@@ -34,8 +34,8 @@ class KatApp implements IKatApp {
 	}
 
 	public static remove(item: KatApp): void {
-		if (item.vueApp != undefined) {
-			item.vueApp.unmount();
+		if (item.isMounted) {
+			item.vueApp!.unmount();
 		}
 		$("template[id$='" + item.id + "']").remove();
 		this.applications = this.applications.filter(a => a.id != item.id);
