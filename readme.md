@@ -2832,6 +2832,7 @@ The `v-ka-highchart` directive is responsible for creating HTML/javascript based
 - [v-ka-highchart Series Data Options](#v-ka-highchart-series-data-options) - Explains how to set properties on individual data points for each series.
 - [v-ka-highchart Property Value Parsing](#v-ka-highchart-property-value-parsing) - Explains how the RBLe Framework parses values from the CalcEngine to convert them into Highcharts property values.
 - [v-ka-highchart Language Support](#v-ka-highchart-language-support) - Explains how to control the UI culture/localization of the chart.
+- [v-ka-highchart Format String Examples](#v-ka-highchart-format-string-examples) - Examples of common 'format strings' used in Highcharts.
 
 ### v-ka-highchart Model
 
@@ -3105,6 +3106,20 @@ numeric | numeric | If the value returned can be parsed into a number, a numeric
 ### v-ka-highchart Language Support
 
 The 'culture' of the table can be set via the CalcEngine.  If the results have a `variable` row with `id` of 'culture', then the language preference will be set to the `value` column of this row.  This enables culture specific number and date formatting and is in the format of `languagecode2-country/regioncode2`.  By default, `en-US` is used.
+
+### v-ka-highchart Format String Examples
+
+Highcharts has two mechanisms for customizing the rendering of data in charts.  There are `*Format` [template strings](https://www.highcharts.com/docs/chart-concepts/templating) and `*Formatter` callback functions that can be used when the template strings are not sufficient.
+
+> Highcharts supports templating in format strings. Since v11.1 (2023) the templates support logic, and are generally recommended over formatter callbacks when the configuration needs to be secure and JSON compatible. The Highcharts templating style is inspired by well-proven languages like Handlebars and Mustache, but is more focused on numeric operations since charting is all about numeric data.
+
+The issue with using the `*Formatter` versions to customize the rendering is that when the Highcharts chart is rendered on the server, all functionality might not be supported, therefore it is recommended to use the `*Format` template strings when possible.  One custom property that is available to the rendering of Highcharts is the `options.lang.currencySymbol` property.  This is not a built-in Highcharts property, but is a custom property that injected via Camelot framework and is used to render currency symbol in the charts when displaying labels such as `stackLabels`, `xAxis`, `yAxis`, etc.
+
+Property | Template String | Sample Output
+---|---|---
+`yAxis.stackLabels.format` | `{axis.chart.options.lang.currencySymbol} {total:,.2f}` | `$1,234.56`
+`yAxis.labels.format` | `{chart.options.lang.currencySymbol} {value:,.2f}` | `$1,234.56`
+`tooltip.pointFormat` | `<span style="color:{point.color}">●</span> {series.name}: <b>{series.chart.options.lang.currencySymbol} {point.y:,.2f}</b><br/>` | `● Series XYZ: $1,234.56`
 
 ## v-ka-attributes
 
