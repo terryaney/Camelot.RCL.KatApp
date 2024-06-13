@@ -128,11 +128,35 @@ templates | Attribute; Comma delimitted list of Kaml Template Files required by 
 local-kaml-package | Attribute; When a Kaml file has been broken into individual files to be packaged up as a single Kaml file when requested, if a developer is working in [debugResourcesDomain](#IKatAppDebugOptions) mode, to minimize the noise of 404 errors present in the browser console, the supporting file types to process must be specified as a comma delimitted list.  The available types are `js` (file for Kaml javascript), `css` (file for Kaml CSS), `templates` (file for Kaml templates), or `template.items` (process all templates in file looking for `script`, `script.setup`, or `css` attributes which point to a supporting file).  Note: Since `Template.*` files do not require a `rbl-config` element, they are always processed looking for supporting file attributes when requested.
 calc&#x2011;engine | Element; If one or more CalcEngines are used in Kaml View, specify each one via a `calc-engine` element.
 key | Attribute; When more than one CalcEngine is provided (or if you need to access [Manual Results](#imanualtabdef)), a CalcEngine is referenced by this key; usually via a `ce` property passed into a Vue directive.
-name | Attribute; The name of the CalcEngine.
+name | Attribute; The name of the CalcEngine.  [Input Token Substition](#input-token-substition) is supported.
 input&#x2011;tab | Attribute; The name of the tab where KatApp framework should inject inputs. Default is `RBLInput`.
-result&#x2011;tabs | Attribute; Comma delimitted list of result tabs to process during RBLe Calculation. When more than one result tab is provided, the tab is referenced by name; usually via a `tab` property passed into a Vue directive. Default is `RBLResult`.
+result&#x2011;tabs | Attribute; Comma delimitted list of result tabs to process during RBLe Calculation. When more than one result tab is provided, the tab is referenced by name; usually via a `tab` property passed into a Vue directive. Default is `RBLResult`.  [Input Token Substition](#input-token-substition) is supported.
 configure&#x2011;ui | Attribute; Whether or not this CalcEngine should run during the Kaml View's original [Configure UI Calculation](#IKatApp.configureUICalculation). Default is `true`.
+enabled | Attribute; Whether or not this CalcEngine should run during calculation processing. Default is `true`.  [Input Token Substition](#input-token-substition) and [Attribute Evaluation](#attribute-evaluation) are supported.
 pipeline | Element; One or more 'CalcEngines' to use in a [Calculation Pipelines](#calculation-pipelines) for the current CalcEngine.  Only the `name`, `input-tab`, and `result-tab` attributes are supported.  By default, if only a `name` is provided, the input and the result tab with the *same* name as the tabs configured on the primary CalcEngine will be used.
+
+### Input Token Substition
+
+If the application is given [inputs](#IKatAppOptions), those input values can be used via subsitution tokens.  In the sample below, the `iSiteKey` input passed during initialization is substituted into the `result-tabs` attribute.
+
+```html
+<rbl-config templates="Nexgen:Templates/Shared,Nexgen:Templates/Inputs" local-kaml-package="js">
+	<calc-engine key="Messages" name="Conduent_Nexgen_Message_SE" result-tabs="RBLMessages,{iSiteKey}Messages"></calc-engine>
+</rbl-config>
+```
+
+### Attribute Evaluation
+
+Some attributes can be evaluated to generate a 'string' value and are usually used in conjunction with [Input Token Substition](#input-token-substition).  To enable attribute evaluation, the attribute value must start with `!!` followed by the string expression to evaluate.  In the sample below, the `iApiDomain` input passed during initialization is used in an expression to determine if the CalcEngine should be enabled.
+
+```html
+<rbl-config templates="Nexgen:Templates/Shared,Nexgen:Templates/Inputs" local-kaml-package="js">
+	<calc-engine key="Home" name="Conduent_Nexgen_Home_SE" result-tabs="RBLHome"></calc-engine>
+
+	<calc-engine key="Pension" name="Conduent_Nexgen_DBC_SE" enabled="!!'{iApiDomain}'.split(',').includes('db') ? 'true' : 'false'"></calc-engine>
+	<calc-engine key="RetPlanning" name="Conduent_Nexgen_Sharkfin_SE" enabled="!!'{iApiDomain}'.split(',').includes('db') ? 'true' : 'false'"></calc-engine>
+</rbl-config>
+```
 
 # Kaml View Specifications
 

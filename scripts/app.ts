@@ -661,6 +661,8 @@ class KatApp implements IKatApp {
 
 			function calcEngineFactory(c: Element, pipelineIndex?: number): ICalcEngine | IPipelineCalcEngine
 			{
+				var enabled = processInputTokens(c.getAttribute("enabled"));
+
 				return pipelineIndex == undefined
 					? {
 						key: c.getAttribute("key") ?? "default",
@@ -670,7 +672,7 @@ class KatApp implements IKatApp {
 						pipeline: Array.from(c.querySelectorAll("pipeline")).map((p, i) => calcEngineFactory(p, i + 1)),
 						allowConfigureUi: c.getAttribute("configure-ui") != "false",
 						manualResult: false,
-						enabled: processInputTokens(c.getAttribute("enabled")) != "false"
+						enabled: ( ( enabled?.startsWith("!!") ?? false ) ? eval(enabled!.substring(2)) : enabled ) != "false"
 					} as ICalcEngine
 					: {
 						key: `pipeline${pipelineIndex}`,
