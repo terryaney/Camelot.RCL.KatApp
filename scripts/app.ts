@@ -1524,17 +1524,17 @@ Type 'help' to see available options displayed in the console.`;
 				}
 			}
 
-			if (this.state.errors.length == 0) {
-				this.addUnexpectedError(errorResponse);
-			}
-
 			if (errorResponse.warnings != undefined) {
 				for (var id in errorResponse.warnings) {
                     this.state.warnings.push({ "@id": id, text: this.getLocalizedString(errorResponse.warnings[id][0])!, dependsOn: errorResponse.warningsDependsOn?.[id] });
 				}
 			}
 
-			Utils.trace(this, "KatApp", "apiAsync", "Unable to process " + endpoint, TraceVerbosity.None, errorResponse!.errors != undefined ? [errorResponse, this.state.errors] : errorResponse );
+			if (this.state.errors.length == 0 && this.state.warnings.length == 0) {
+				this.addUnexpectedError(errorResponse);
+			}
+
+			Utils.trace(this, "KatApp", "apiAsync", "Unable to process " + endpoint, TraceVerbosity.None, errorResponse!.errors != undefined ? [errorResponse, this.state.errors] : errorResponse);
 
 			await this.triggerEventAsync("apiFailed", apiUrl.endpoint, errorResponse, trigger, apiOptions);
 
