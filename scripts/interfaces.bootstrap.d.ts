@@ -34,7 +34,7 @@ interface BootstrapTooltipOptions {
 	html: boolean;
 	sanitize: boolean;
 	trigger: "click" | "hover" | "focus" | "manual" | "click hover" | "click focus" | "hover focus" | "click hover focus";
-	container: string | false;
+	container: string | HTMLElement | false;
 	template: string;
 	placement: (tooltip: HTMLElement, trigger: HTMLElement) => "auto" | "top" | "bottom" | "left" | "right";
 	fallbackPlacements?: string[];
