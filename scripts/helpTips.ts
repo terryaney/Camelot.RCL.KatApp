@@ -160,8 +160,8 @@
 						trigger: tipElement.attr('data-bs-trigger') as any ?? "hover",
 						// https://github.com/twbs/bootstrap/issues/22249#issuecomment-289069771
 						// There were some <a/> in popup from a kaModal that would not function properly until I changed the container.
-						// UPDATE: For 508 compliance, if they don't provide a container, default to the tip so it just appends it after the tip.
-						container: tipElement.attr('data-bs-container') ?? tip,
+						// UPDATE: For 508 compliance, if they don't provide a container, default to the tip.parent/tip so it just appends it after the tip.
+						container: tipElement.attr('data-bs-container') ?? tip.parentElement ?? tip,
 						template: isTooltip
 							? '<div class="tooltip katapp-css" role="tooltip"><div class="tooltip-arrow arrow"></div><div class="tooltip-inner"></div></div>'
 							: '<div v-scope class="popover katapp-css" role="tooltip"><div class="popover-arrow arrow"></div><h3 class="popover-header"></h3><div class="popover-body"></div></div>',
