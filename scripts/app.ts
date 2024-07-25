@@ -1043,7 +1043,7 @@ Type 'help' to see available options displayed in the console.`;
 						<div v-if="uiBlocked" class="ui-blocker"></div>\
 						<div v-if="title != undefined || hasHeaderTemplate"
 							:class="['modal-header', { 'invalid-content': hasInitializationError, 'valid-content': !hasInitializationError }]">\
-							<h5 class="modal-title" v-html="title ?? ''"></h5>\
+							<h2 class="modal-title" v-html="title ?? ''"></h2>\
 							<button v-if="application.options.modalAppOptions.allowKeyboardDismiss != false" type="button" class="btn-close" aria-label="Close"></button>\
 						</div>\
 						<div class="modal-body"></div>\
