@@ -1030,7 +1030,7 @@ Type 'help' to see available options displayed in the console.`;
 			(this.options.modalAppOptions.contentSelector != undefined ? `selector: ${this.options.modalAppOptions.contentSelector}` : "static content");
 		
 		const modal = $(
-			`<div v-scope class="modal fade kaModal" tabindex="-1" role="dialog" data-bs-backdrop="static"
+			`<div v-scope class="modal fade kaModal" tabindex="-1" aria-modal="true" aria-labelledby="kaModalLabel" role="dialog" data-bs-backdrop="static"
 				:data-bs-keyboard="application.options.modalAppOptions.labels.title != undefined && application.options.modalAppOptions.allowKeyboardDismiss != false"
 				data-view-name="${viewName}">\
                 
@@ -1043,7 +1043,7 @@ Type 'help' to see available options displayed in the console.`;
 						<div v-if="uiBlocked" class="ui-blocker"></div>\
 						<div v-if="title != undefined || hasHeaderTemplate"
 							:class="['modal-header', { 'invalid-content': hasInitializationError, 'valid-content': !hasInitializationError }]">\
-							<h2 class="modal-title" v-html="title ?? ''"></h2>\
+							<h2 id="kaModalLabel" class="modal-title" v-html="title ?? ''"></h2>\
 							<button v-if="application.options.modalAppOptions.allowKeyboardDismiss != false" type="button" class="btn-close" :aria-label="application.getLocalizedString('Close')"></button>\
 						</div>\
 						<div class="modal-body"></div>\
