@@ -118,6 +118,7 @@ class InputComponent extends InputComponentBase {
 			get display() { return typeof props.isDisplay == "boolean" ? props.isDisplay : props.isDisplay?.(base) ?? base.display; },
 			get noCalc() { return noCalc(name); },
 			get label() { return label(name); },
+			get labelledBy() { return props.labelledBy; },
 			get hideLabel() { return getInputCeValue("label") == "-1" || (props.hideLabel ?? false); },
 			get placeHolder() {
 				const ph = getInputCeValue("placeholder") ?? props.placeHolder;

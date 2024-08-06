@@ -494,6 +494,7 @@ interface IKaInputModel {
 	type?: "radio" | "checkbox" | "text" | "date" | "range";
 	value?: string;
 	label?: string;
+	labelledBy?: string;
 	placeHolder?: string;
 	hideLabel?: boolean;
 	help?: IKaInputModelHelp;
@@ -545,6 +546,7 @@ interface IKaInputScope {
 	readonly noCalc: boolean; // from isNoCalc ?? ce
 
 	readonly label: string; // from ce ?? markup
+	readonly labelledBy?: string; // from markup
 	readonly hideLabel: boolean; // from ce (value=-1) ?? markup
 	readonly placeHolder: string | undefined; // from ce ?? markup
 	readonly iconHtml: string; // from markup
