@@ -168,29 +168,31 @@
 	): Promise<IRblCalculationSuccessResponses> {
 		try {
 
-			let calculationResults: IRblCalculationSuccessResponses = await $.ajax({
-				url: serviceUrl,
-				data: JSON.stringify(submitData),
+			let calculationResults: IRblCalculationSuccessResponses = await fetch(serviceUrl, {
 				method: "POST",
-				contentType: "application/json"
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(submitData)
+			}).then(async response => {
+				let result: any;
+				try {
+					result = await response.json();
+				} catch (e) {
+					result = JSON.parse(await response.text());
+				}
+				  
+				if (!response.ok) {
+					throw result ?? { exceptions: [{ message: "No additional details available." } as IExceptionDetail] } as IApiErrorResponse;
+				}
+
+				return result;
 			});
-
+			
 			Utils.trace(application, "Calculation", "calculateAsync", "Received Success Response", TraceVerbosity.Detailed);
-
-			if (typeof calculationResults == "string") {
-				calculationResults = JSON.parse(calculationResults);
-			}
 
 			return calculationResults;
 
 		} catch (e) {
-			Utils.trace(application, "Calculation", "calculateAsync", "Received Error Response", TraceVerbosity.Detailed);
-
-			const errorResponse: IApiErrorResponse =
-				(e as JQuery.jqXHR<any>).responseJSON ??
-				(((e as JQuery.jqXHR<any>).responseText?.startsWith("{") ?? false) ? JSON.parse((e as JQuery.jqXHR<any>).responseText) : undefined) ??
-				{ exceptions: [{ message: "No additional details available." }] };
-
+			const errorResponse = e as IApiErrorResponse;
 			const exceptions = errorResponse.exceptions ?? [];
 
 			const response: ICalculationFailedResponse = {

@@ -692,7 +692,17 @@ class KatApp implements IKatApp {
 				const apiUrl = this.getApiUrl(this.options.resourceStringsEndpoint);
 
 				try {
-					this.options.resourceStrings = await $.ajax({ method: "GET", url: apiUrl.url, cache: true, headers: { 'Cache-Control': 'max-age=0' } });
+					const response = await fetch(apiUrl.url, {
+						method: "GET",
+						headers: { 'Cache-Control': 'max-age=0' },
+						cache: 'default'
+					});
+					
+					if (!response.ok) {
+						throw await response.json();
+					}
+	
+					this.options.resourceStrings = await response.json();
 					Utils.trace(this, "KatApp", "mountAsync", `Resource Strings downloaded`, TraceVerbosity.Detailed);
 				} catch (e) {
 					Utils.trace(this, "KatApp", "mountAsync", `Error downloading resourceStrings ${this.options.resourceStringsEndpoint}`, TraceVerbosity.None, e);
@@ -714,7 +724,17 @@ class KatApp implements IKatApp {
 				const apiUrl = this.getApiUrl(this.options.manualResultsEndpoint);
 
 				try {
-					this.options.manualResults = await $.ajax({ method: "GET", url: apiUrl.url, cache: true, headers: { 'Cache-Control': 'max-age=0' } });
+					const response = await fetch(apiUrl.url, {
+						method: "GET",
+						headers: { 'Cache-Control': 'max-age=0' },
+						cache: 'default'
+					});
+					
+					if (!response.ok) {
+						throw await response.json();
+					}
+	
+					this.options.manualResults = await response.json();
 					Utils.trace(this, "KatApp", "mountAsync", `Manual Results downloaded`, TraceVerbosity.Detailed);
 				} catch (e) {
 					Utils.trace(this, "KatApp", "mountAsync", `Error downloading manualResults ${this.options.manualResultsEndpoint}`, TraceVerbosity.None, e);
@@ -1397,14 +1417,6 @@ Type 'help' to see available options displayed in the console.`;
 		apiOptions = apiOptions ?? {};
 
 		const isDownload = apiOptions.isDownload ?? false;
-		const xhr = new XMLHttpRequest();
-
-		xhr.onreadystatechange = function (): void {
-			// https://stackoverflow.com/a/29039823/166231
-			if (xhr.readyState == 2 && isDownload && xhr.status == 200) {
-				xhr.responseType = "blob";
-			}
-		};
 
 		this.blockUI();
 		this.state.errors = [];
@@ -1477,32 +1489,28 @@ Type 'help' to see available options displayed in the console.`;
 					});
 			}
 
-			successResponse = await $.ajax({
-				method: "POST",
-				url: apiUrl.url,
-				data: formData,
-				xhr: function () { return xhr; },
-				contentType: false,
-				processData: false,
-				headers: { "Content-Type": undefined }
-				/*, 
-				beforeSend: function (_xhr, settings) {
-					// Enable jquery to assign 'binary' results so I can grab later.
-					(settings as IStringAnyIndexer)["responseFields"]["binary"] = "responseBinary";
-				},*/
-			});
-
-			if (isDownload) {
-				const blob = successResponse as Blob;
-
-				let filename = "Download.pdf";
-				const disposition = xhr.getResponseHeader('Content-Disposition');
-				if (disposition && disposition.indexOf('attachment') !== -1) {
-					filename = disposition.split('filename=')[1].split(';')[0];
-				}
-
-				this.downloadBlob(blob, filename);				
-			}
+            const response = await fetch(apiUrl.url, {
+                method: "POST",
+                body: formData
+            });
+    
+			if (!response.ok) {
+				throw await response.json();
+            }
+    
+			const successResponse = isDownload
+				? await response.blob()
+				: await response.json();
+    
+            if (isDownload) {
+                const blob = successResponse;
+                let filename = "Download.pdf";
+                const disposition = response.headers.get('Content-Disposition');
+                if (disposition && disposition.indexOf('attachment') !== -1) {
+                    filename = disposition.split('filename=')[1].split(';')[0].replace(/"/g, '');
+                }
+                this.downloadBlob(blob);
+            }
 			else if ( apiOptions.calculateOnSuccess != undefined ) {
 				const calculateOnSuccess = (typeof apiOptions.calculateOnSuccess == 'boolean') ? apiOptions.calculateOnSuccess : true;
 				const calculationInputs = (typeof apiOptions.calculateOnSuccess == 'object') ? apiOptions.calculateOnSuccess : undefined;
@@ -1516,7 +1524,7 @@ Type 'help' to see available options displayed in the console.`;
 				return successResponse;
 			}
 		} catch (e) {
-			errorResponse = (e as JQuery.jqXHR<any>).responseJSON as IApiErrorResponse ?? {};
+			errorResponse = e as IApiErrorResponse ?? {};
 
 			if (errorResponse.errors != undefined) {
 				for (var id in errorResponse.errors) {
@@ -1534,7 +1542,7 @@ Type 'help' to see available options displayed in the console.`;
 				this.addUnexpectedError(errorResponse);
 			}
 
-			Utils.trace(this, "KatApp", "apiAsync", "Unable to process " + endpoint, TraceVerbosity.None, errorResponse!.errors != undefined ? [errorResponse, this.state.errors] : errorResponse);
+			Utils.trace(this, "KatApp", "apiAsync", "Unable to process " + endpoint, TraceVerbosity.None, errorResponse.errors != undefined ? [errorResponse, this.state.errors] : errorResponse);
 
 			await this.triggerEventAsync("apiFailed", apiUrl.endpoint, errorResponse, trigger, apiOptions);
 
@@ -1556,24 +1564,15 @@ Type 'help' to see available options displayed in the console.`;
 		);
 	}
 
-	private downloadBlob(blob: Blob, filename: string): void {
+	private downloadBlob(blob: Blob): void {
 		const tempEl = document.createElement("a");
 		tempEl.classList.add("d-none");
 		const url = window.URL.createObjectURL(blob);
 		tempEl.href = url;
-
-		filename = filename.replace(/ /g, '+');
-		if (filename.startsWith("\"")) {
-			filename = filename.substring(1);
-		}
-		if (filename.endsWith("\"")) {
-			filename = filename.substring(0, filename.length - 1);
-		}
-
 		tempEl.target = "_blank";
-		tempEl.download = filename;
 		tempEl.click();
-		window.URL.revokeObjectURL(url);
+		// Android Webviews throw when revokeObjectURL is called
+		// window.URL.revokeObjectURL(url);
 	}
 
 	private getApiUrl(endpoint: string): { url: string, endpoint: string } {
@@ -2444,7 +2443,7 @@ Type 'help' to see available options displayed in the console.`;
 					const base64 = r["content"];
 					const contentType = r["content-type"];
 					const blob = base64toBlob(base64, contentType);
-					this.downloadBlob(blob, fileName);
+					this.downloadBlob(blob);
 				}
 			});
 			Utils.trace(this, "KatApp", "processDocGenResults", `Complete`, TraceVerbosity.Detailed);
@@ -2460,15 +2459,19 @@ Type 'help' to see available options displayed in the console.`;
 			const apiUrl = this.getApiUrl(`${this.options.kamlVerifyUrl}?applicationId=${view}&currentId=${this.options.hostApplication!.options.currentPage}` );
 
 			try {
-				const response: IKamlVerifyResult = await $.ajax({ method: "GET", url: apiUrl.url, dataType: "json" });
-
-				Utils.extend( this.options, { view: response.path, currentPath: view } );
-
-				if (response.manualInputs != undefined) {
-					Utils.extend(this.state.inputs, response.manualInputs);
+				const response = await fetch(apiUrl.url, { method: "GET" });
+			  
+				if (!response.ok) {
+					throw await response.json();
 				}
+			  
+				const data: IKamlVerifyResult = await response.json();
+			  
+				Utils.extend(this.options, { view: data.path, currentPath: view });
+				Utils.extend(this.state.inputs, data.manualInputs);
 			} catch (e) {
 				Utils.trace(this, "KatApp", "getViewElementAsync", `Error verifying KatApp ${view}`, TraceVerbosity.None, e);
+				throw new KamlResourceDownloadError("View verification request failed.", view);
 			}
 		}
 

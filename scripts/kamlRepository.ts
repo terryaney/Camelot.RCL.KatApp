@@ -112,59 +112,34 @@
 	}
 
 	private static async downloadResourceAsync(url: string, tryLocalWebServer: boolean): Promise<{ data?: string, errorMessage?: string }> {
-		const requestHeaders: IStringAnyIndexer = {};
-		const getResponseHeaders = function( jqXHR: XMLHttpRequest): IStringIndexer<string> {
-			const headers = jqXHR.getAllResponseHeaders().split( "\r\n" ).filter( h => ( h ?? "" ).length > 0 );
-			const result: IStringIndexer<string> = {};
-			headers.forEach(h => {
-				const pos = h.indexOf(":");
-				result[h.substring(0, pos)] = h.substring(pos + 1).trim();
-			});
-			return result;
-		}
 
-		const requestConfig: IStringAnyIndexer = {
-			converters: {
-				'text script': function (text: string): string {
-					return text;
-				}
-			},
-			url: url,
-			cache: !tryLocalWebServer,
-			xhr: function () {
-				const xhr = new XMLHttpRequest();
-				const originalSetRequestHeader = xhr.setRequestHeader;
-				xhr.setRequestHeader = function (header, value) {
-					requestHeaders[header] = value;
-					originalSetRequestHeader.call(this, header, value);
-				};
-				return xhr;
-			}
-		};
+		const requestHeaders = new Headers(!tryLocalWebServer ? { 'Cache-Control': 'max-age=0' } : {});
+		const response = await fetch(url, {
+			method: "GET",
+			headers: requestHeaders,
+			cache: !tryLocalWebServer ? 'default' : undefined
+		});
+		
+		if (!response.ok) {
+			const statusText =
+				response.status == 404 ? "Resource not found." :
+				response.status == 400 ? ( await response.json() ).detail :
+				response.statusText;
 
-		if (!tryLocalWebServer) {
-			// https://stackoverflow.com/a/38690731/166231
-			// requestConfig[ "ifModified" ] = true; // !tryLocalWebServer;
-			requestConfig["headers"] = { 'Cache-Control': 'max-age=0' };
-		}
-
-        try {
-			const result = await $.ajax(requestConfig);
-			return { data: result };
-		} catch (error) {
-			const jqXHR = error as XMLHttpRequest;
 			console.log(
 				{
-					url: requestConfig.url,
-					cache: requestConfig.cache,
-					status: jqXHR.status,
-					statusText: jqXHR.statusText,
-					requestHeaders: requestHeaders,
-					responseHeaders: getResponseHeaders(jqXHR)
+					url: url,
+					cache: !tryLocalWebServer,
+					status: response.status,
+					statusText: statusText,
+					requestHeaders: Object.fromEntries(requestHeaders.entries()),
+					responseHeaders: Object.fromEntries(response.headers.entries())
 				}
 			);
-			return { errorMessage: jqXHR.statusText };
+			return { errorMessage: statusText };
 		}
+
+		return { data: await response.text() };
 	};
 
 	private static async getResourceAsync(currentOptions: IKatAppRepositoryOptions, resourceKey: string, tryLocalWebServer: boolean): Promise<IKamlResourceResponse> {

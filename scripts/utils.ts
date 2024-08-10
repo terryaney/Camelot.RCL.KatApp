@@ -136,20 +136,30 @@
 
 	public static async downloadLocalServerAsync(debugResourcesDomain: string, relativePath: string, secure?: boolean ): Promise<any | undefined> {
 		const url = "https://" + debugResourcesDomain + relativePath;
-		try {
-			return await $.ajax({
-				converters: {
-					'text script': function (text: string): string {
-						return text;
-					}
-				},
-				url: !secure ? url.substring(0, 4) + url.substring(5) : url,
-				timeout: 1000,
-			});
-		} catch (error) {
+
+		const response = await (async () => {
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 1000);
+		  
+			try {
+				const response = await fetch(
+					!secure ? url.substring(0, 4) + url.substring(5) : url,
+					{ method: "GET", signal: controller.signal }
+				);
+				clearTimeout(timeoutId);
+				return response;
+			} catch (error) {
+				clearTimeout(timeoutId);
+				return { ok: false } as Response;
+			}
+		})();
+		
+		if ( !response.ok ) {
 			return !secure
 				? await this.downloadLocalServerAsync(debugResourcesDomain, relativePath, true)
 				: undefined;
 		}
+
+		return await response.text();
 	};
 }
