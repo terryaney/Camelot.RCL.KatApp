@@ -173,13 +173,9 @@
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(submitData)
 			}).then(async response => {
-				let result: any;
-				try {
-					result = await response.json();
-				} catch (e) {
-					result = JSON.parse(await response.text());
-				}
-				  
+				const responseText = await response.text();
+				const result = responseText == "" ? undefined : JSON.parse(responseText);
+
 				if (!response.ok) {
 					throw result ?? { exceptions: [{ message: "No additional details available." } as IExceptionDetail] } as IApiErrorResponse;
 				}

@@ -1498,10 +1498,13 @@ Type 'help' to see available options displayed in the console.`;
 				throw await response.json();
             }
     
-			const successResponse = isDownload
-				? await response.blob()
-				: await response.json();
-    
+			let successResponse = isDownload ? await response.blob() : undefined;
+
+			if (!isDownload) {
+				const responseText = await response.text();
+				successResponse = JSON.parse(responseText == "" ? "{}" : responseText);
+			}
+				
             if (isDownload) {
                 const blob = successResponse;
                 let filename = "Download.pdf";
