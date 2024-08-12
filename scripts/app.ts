@@ -1506,7 +1506,7 @@ Type 'help' to see available options displayed in the console.`;
 			}
 				
             if (isDownload) {
-                const blob = successResponse;
+                const blob = successResponse!;
                 let filename = "Download.pdf";
                 const disposition = response.headers.get('Content-Disposition');
                 if (disposition && disposition.indexOf('attachment') !== -1) {
