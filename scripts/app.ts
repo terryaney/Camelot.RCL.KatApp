@@ -1119,6 +1119,7 @@ Type 'help' to see available options displayed in the console.`;
 			modalBS5.hide();
 			that.el.remove();
 			KatApp.remove(that);
+			options.triggerLink?.[0].focus();
 		}
 
 		// If response if of type Event, 'confirmedAsync/cancelled' was just attached to a button and default processing occurred and the first param was
@@ -1216,7 +1217,7 @@ Type 'help' to see available options displayed in the console.`;
 			});
 
 		const modalBS5 = new bootstrap.Modal(this.el[0]);
-		modalBS5.show();
+		modalBS5.show(options.triggerLink?.[0]);
 
 		if (options.triggerLink != undefined) {
 			options.triggerLink.prop("disabled", false).removeClass("disabled kaModalInit");

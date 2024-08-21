@@ -17,7 +17,7 @@ interface BootstrapStatic {
 
 interface BootstrapModal {
 	hide: () => void;
-	show: () => void;
+	show: (el?: HTMLElement) => void;
 }
 
 interface BootstrapPopover {
