@@ -1072,7 +1072,7 @@ Type 'help' to see available options displayed in the console.`;
 								<button type="button" :class="[\'${cssContinue}\', \'continueButton\']">${this.getLocalizedString("Close")}</button>\
 	                        </div>\
 							<div v-if="!hasInitializationError" class="modal-footer-buttons text-center d-none">\
-								<button v-if="application.options.modalAppOptions.showCancel" type="button" :class="[\'${cssCancel}\', \'cancelButton\', { disabled: uiBlocked}]" aria-hidden="true">${options.labels!.cancel}</button>\
+								<button v-if="application.options.modalAppOptions.showCancel" type="button" :class="[\'${cssCancel}\', \'cancelButton\', { disabled: uiBlocked}]">${options.labels!.cancel}</button>\
 								<button type="button" :class="[\'${cssContinue}\', \'continueButton\', { disabled: uiBlocked}]">${options.labels!.continue}</button>\
 	                        </div>\
                         </div>\
