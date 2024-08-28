@@ -386,10 +386,8 @@ ${conditions.map(c => `\t${c}`).join("\r\n")}\r\n\
 			// Element
 			const el = node as Element;
 
-			// Walk children before processing attributes (not sure why but petite-vue does same)
-			if (!el.hasAttribute("v-pre")) {
-				this.inspectChildren(el);
-			}
+			// Walk children before processing attributes
+			this.inspectChildren(el);
 			
 			const isFlag = (name: string): boolean => ["ka-inspector-rbl-no-calc", "ka-inspector-rbl-exclude", "ka-inspector-unmount-clears-inputs"].indexOf(name) != -1;
 			const isComponent = (attribute: string): boolean => ["v-ka-needs-calc", "v-ka-input", "v-ka-input-group", "v-ka-template"].indexOf(attribute) != -1;
