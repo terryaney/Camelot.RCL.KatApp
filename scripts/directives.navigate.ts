@@ -68,7 +68,9 @@
 				return false;
 			};
 
-			ctx.el.setAttribute("href", "#");
+			if (ctx.el.tagName == "A") {
+				ctx.el.setAttribute("href", "#");
+			}
 			$(ctx.el).on("click.ka-navigate", navigate);
 
 			return () => {

@@ -101,19 +101,28 @@ class InputComponentBase extends TemplateBase {
 		}
 
 		const removeError = () => this.removeValidations(application, name);
-		const inputEventAsync = async (calculate: boolean) => {
+
+		let debounceTimeout: number | undefined;
+
+		const inputEventAsync = async (calculate: boolean, calculateAfterDelay = false) => {
 			removeError();
 
 			if (!exclude) {
 				application.state.lastInputChange = Date.now();
 				application.state.inputsChanged = true;
 				application.state.inputs[name] = application.getInputValue(name);
-
+				
 				if (!skipCalc && !noCalc(name)) {
 					// Don't trigger calc if ka-rbl-no-calc/ka-rbl-exclude attribute as well
 					if (calculate) {
 						application.state.inputs.iInputTrigger = name;
-						await application.calculateAsync(undefined, true, undefined, false);
+						
+						if (debounceTimeout) {
+							clearTimeout(debounceTimeout);
+						}
+						debounceTimeout = setTimeout(async () => {
+							await application.calculateAsync(undefined, true, undefined, false);
+						}, calculateAfterDelay ? 750 : 0);
 					}
 					else {
 						application.state.needsCalculation = true;
@@ -446,7 +455,7 @@ class InputComponentBase extends TemplateBase {
 
 	static percentFormat = /([/s/S]*?){0:p\d*}/;
 
-	private bindRangeEvents(name: string, input: HTMLInputElement, refs: IStringIndexer<HTMLElement>, displayFormat: (name: string) => string | undefined, inputEventAsync: (calculate: boolean) => Promise<void>): void {
+	private bindRangeEvents(name: string, input: HTMLInputElement, refs: IStringIndexer<HTMLElement>, displayFormat: (name: string) => string | undefined, inputEventAsync: (calculate: boolean, calculateOnDelay?: boolean) => Promise<void>): void {
 		// https://css-tricks.com/value-bubbles-for-range-inputs/
 		let bubbleTimer: number | undefined;
 		const bubble = refs.bubble != undefined ? $(refs.bubble) : undefined;
@@ -516,12 +525,8 @@ class InputComponentBase extends TemplateBase {
 			await inputEventAsync(false);
 			setRangeValues(true);
 		});
-		input.addEventListener("rangeset.ka", () => {
-			setRangeValues(false);
-		});
-		input.addEventListener("change", async () => {
-			await inputEventAsync(true);
-		});
+		input.addEventListener("rangeset.ka", () => setRangeValues(false) );
+		input.addEventListener("change", async () => await inputEventAsync(true, true) );
 
 		if (bubble != undefined) {
 			input.addEventListener("mouseenter", () => {
