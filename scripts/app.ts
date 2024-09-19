@@ -1082,6 +1082,7 @@ Type 'help' to see available options displayed in the console.`;
 
 		if (options.scrollable) {
 			$(".modal-dialog", modal).addClass("modal-dialog-scrollable");
+			$(".modal-body", modal).attr("tabindex", "0");
 		}
 		if (options.size != undefined) {
 			$(".modal-dialog", modal).addClass("modal-dialog-centered modal-" + options.size);
