@@ -714,7 +714,7 @@ class KatApp implements IKatApp {
 					if (currentOptions.useLocalRepository) {
 						const devResourceStrings = await Utils.downloadLocalServerAsync(currentOptions.debug.debugResourcesDomain!, "/js/dev.ResourceStrings.json");
 						if (devResourceStrings != undefined) {
-							this.options.resourceStrings = Utils.extend(this.options.resourceStrings ?? {}, devResourceStrings);
+							this.options.resourceStrings = Utils.extend(this.options.resourceStrings ?? {}, JSON.parse(devResourceStrings));
 						}
 					}
 				}
