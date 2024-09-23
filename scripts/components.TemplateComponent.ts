@@ -16,10 +16,6 @@ class TemplateComponent extends TemplateBase {
 			return {};
 		}
 
-		TemplateComponent.templateRenderedCount[templateId] = TemplateComponent.templateRenderedCount[templateId] == undefined
-			? 1
-			: TemplateComponent.templateRenderedCount[templateId] + 1;
-
 		if (this.props.source instanceof Array) {
 			const that = this;
 			return {

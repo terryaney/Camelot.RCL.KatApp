@@ -215,7 +215,7 @@
                         const jsResult = resourceTypesToProcess.indexOf("js") == -1 ? undefined : await this.downloadResourceAsync(resourceUrl.replace(fileName, fileName + ".js"), true);
                         const cssResult = resourceTypesToProcess.indexOf("css") == -1 ? undefined : await this.downloadResourceAsync(resourceUrl.replace(fileName, fileName + ".css"), true);
                         const templateResult = resourceTypesToProcess.indexOf("templates") == -1 ? undefined : await this.downloadResourceAsync(resourceUrl.replace(fileName, fileName + ".templates"), true);
-
+						
 						const lines = content.split("\n");
 						const templateScriptPattern = /^\s*<template[^>]* id="[^"]+"([^>]* script="(?<script>[^"]+)")?([^>]* script\.setup="(?<setup>[^"]+)")?([^>]* css="(?<css>[^"]+)")?[^>]*>\s*$/;
 						let templateMatch: RegExpMatchArray | null = null;
