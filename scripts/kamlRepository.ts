@@ -111,7 +111,7 @@
 		delete this.resourceRequests[resourceKey];
 	}
 
-	private static async downloadResourceAsync(url: string, tryLocalWebServer: boolean): Promise<{ data?: string, errorMessage?: string }> {
+	private static async downloadResourceAsync(url: string, tryLocalWebServer: boolean, isRetry: boolean = false): Promise<{ data?: string, errorMessage?: string }> {
 
 		const requestHeaders = new Headers(!tryLocalWebServer ? { 'Cache-Control': 'max-age=0' } : {});
 		const response = await fetch(url, {
@@ -136,7 +136,10 @@
 					responseHeaders: Object.fromEntries(response.headers.entries())
 				}
 			);
-			return { errorMessage: statusText };
+
+			return !isRetry && (response.status == 500 || response.status == 415)
+				? await this.downloadResourceAsync(url, tryLocalWebServer, true)
+				: { errorMessage: statusText };
 		}
 
 		return { data: await response.text() };
