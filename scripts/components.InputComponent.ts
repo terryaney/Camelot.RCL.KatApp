@@ -26,6 +26,7 @@ class InputComponent extends InputComponentBase {
 		}
 
 		const getInputCeValue = function(columnName: string, legacyTable?: string, legacyId?: string): string | undefined {
+			if (application.calcEngines.length == 0) return undefined;
 			return application.state.rbl.value("rbl-input", name, columnName, undefined, calcEngine, tab) ??
 				( legacyTable != undefined && legacyId != undefined ? application.state.rbl.value(legacyTable, legacyId, undefined, undefined, calcEngine, tab) : undefined );
 		};
@@ -58,7 +59,7 @@ class InputComponent extends InputComponentBase {
 		const displayFormat = (name: string) => {
 			let ceFormat = getInputCeValue("display-format") ?? "";
 
-			if (ceFormat == "") {
+			if (ceFormat == "" && application.calcEngines.length > 0) {
 				const format = application.state.rbl.value("rbl-sliders", name, 'format', undefined, calcEngine, tab)
 				const decimals = application.state.rbl.value("rbl-sliders", name, 'decimals', undefined, calcEngine, tab)
 				if (format != undefined && decimals != undefined) {
@@ -145,7 +146,7 @@ class InputComponent extends InputComponentBase {
 			get error() { return /* props.isError?.(base) ?? */ base.error; },
 			get warning() { return base.warning; },
 			get list() {
-				const table = props.list == undefined
+				const table = props.list == undefined && application.calcEngines.length > 0
 					? getInputCeValue("list") ?? application.state.rbl.value("rbl-listcontrol", name, "table", undefined, calcEngine, tab)
 					: undefined;
 				const list = table != undefined
@@ -156,10 +157,13 @@ class InputComponent extends InputComponentBase {
 			get prefix() { return getInputCeValue("prefix") ?? props.prefix; },
 			get suffix() { return getInputCeValue("suffix") ?? props.suffix; },
 			get maxLength() { return maxLength(name); },
-			get min() { return getInputCeValue("min") ?? application.state.rbl.value("rbl-sliders", name, "min", undefined, calcEngine, tab) ?? props.min?.toString(); },
-			get max() { return getInputCeValue("max") ?? application.state.rbl.value("rbl-sliders", name, "max", undefined, calcEngine, tab) ?? props.max?.toString(); },
+			get min() { return (application.calcEngines.length == 0 ? undefined : getInputCeValue("min") ?? application.state.rbl.value("rbl-sliders", name, "min", undefined, calcEngine, tab)) ?? props.min?.toString(); },
+			get max() { return (application.calcEngines.length == 0 ? undefined : getInputCeValue("max") ?? application.state.rbl.value("rbl-sliders", name, "max", undefined, calcEngine, tab)) ?? props.max?.toString(); },
 			get step() {
-				const v = getInputCeValue("step") ?? application.state.rbl.value("rbl-sliders", name, "step", undefined, calcEngine, tab);
+				const v = application.calcEngines.length == 0
+					? undefined
+					: getInputCeValue("step") ?? application.state.rbl.value("rbl-sliders", name, "step", undefined, calcEngine, tab);
+
 				return (v != undefined ? +v : undefined) ?? props.step ?? 1;
 			},
 

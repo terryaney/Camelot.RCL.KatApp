@@ -46,7 +46,8 @@ class TemplateMultipleInputComponent extends InputComponentBase {
 		const tab = props.tab;
 
 		const getInputCeValue = function (index: number, columnName: string, legacyTable?: string, legacyId?: string): string | undefined {
-			return application.state.rbl.value("rbl-input", names[ index ], columnName, undefined, calcEngine, tab) ??
+			if (application.calcEngines.length == 0) return undefined;
+			return application.state.rbl.value("rbl-input", names[index], columnName, undefined, calcEngine, tab) ??
 				(legacyTable != undefined && legacyId != undefined ? application.state.rbl.value(legacyTable, legacyId, undefined, undefined, calcEngine, tab) : undefined);
 		};
 
@@ -91,7 +92,7 @@ class TemplateMultipleInputComponent extends InputComponentBase {
 			const index = names.indexOf(name);
 			let ceFormat = getInputCeValue(index, "display-format") ?? "";
 
-			if (ceFormat == "") {
+			if (ceFormat == "" && application.calcEngines.length > 0) {
 				const format = application.state.rbl.value("rbl-sliders", name, 'format', undefined, calcEngine, tab)
 				const decimals = application.state.rbl.value("rbl-sliders", name, 'decimals', undefined, calcEngine, tab)
 				if (format != undefined && decimals != undefined) {
@@ -139,9 +140,9 @@ class TemplateMultipleInputComponent extends InputComponentBase {
 			error: (index: number) => /* props.isError?.(index, base) ?? */ base.error(index),
 			warning: (index: number) => base.warning(index),
 			list: function (index: number) {
-				const table =
-					getInputCeValue(index, "list") ??
-					application.state.rbl.value("rbl-listcontrol", names[index], "table", undefined, calcEngine, tab);
+				const table = application.calcEngines.length == 0
+					? undefined
+					: getInputCeValue(index, "list") ?? application.state.rbl.value("rbl-listcontrol", names[index], "table", undefined, calcEngine, tab);
 				
 				const list = table != undefined
 					? application.state.rbl.source<IKaInputModelListRow>(table, calcEngine, tab)
@@ -151,10 +152,10 @@ class TemplateMultipleInputComponent extends InputComponentBase {
 			},
 			hideLabel: (index: number) => { return getInputCeValue(index, "label") == "-1" || ( hideLabels[index] ?? false ); },
 			maxLength: (index: number) => maxLength(names[index]),
-			min: (index: number) => getInputCeValue(index, "min") ?? application.state.rbl.value("rbl-sliders", names[index], "min", undefined, calcEngine, tab) ?? mins[index],
-			max: (index: number) => getInputCeValue(index, "max") ?? application.state.rbl.value("rbl-sliders", names[index], "max", undefined, calcEngine, tab) ?? maxes[index],
+			min: (index: number) => (application.calcEngines.length == 0 ? undefined : getInputCeValue(index, "min") ?? application.state.rbl.value("rbl-sliders", names[index], "min", undefined, calcEngine, tab)) ?? mins[index],
+			max: (index: number) => (application.calcEngines.length == 0 ? undefined : getInputCeValue(index, "max") ?? application.state.rbl.value("rbl-sliders", names[index], "max", undefined, calcEngine, tab)) ?? maxes[index],
 			step: (index: number) => {
-				const v = getInputCeValue(index, "step") ?? application.state.rbl.value("rbl-sliders", names[index], "step", undefined, calcEngine, tab);
+				const v = application.calcEngines.length == 0 ? undefined : getInputCeValue(index, "step") ?? application.state.rbl.value("rbl-sliders", names[index], "step", undefined, calcEngine, tab);
 				return (v != undefined ? +v : undefined) ?? steps[index];
 			},
 			prefix: (index: number) => getInputCeValue(index, "prefix") ?? prefixes[index],
