@@ -124,7 +124,7 @@
 			const statusText =
 				response.status == 404 ? "Resource not found." :
 				response.status == 400 ? ( await response.json() ).detail :
-				response.statusText;
+				`Status: ${response.status}, StatusText: ${response.statusText}`;
 
 			console.log(
 				{
