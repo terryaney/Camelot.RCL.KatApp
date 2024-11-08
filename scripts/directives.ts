@@ -5,26 +5,28 @@
 
 // v-ka-input, v-ka-input-group, v-ka-template, [button | a].v-ka-needs-calc - pre-processed into 'scope'
 
-class Directives {
-	public static initializeCoreDirectives(vueApp: PetiteVueApp, application: KatApp): void {
-		[
-			new DirectiveKaAttributes(),
-			new DirectiveKaInline(),
-			new DirectiveKaResource(),
-			// new DirectiveKaTrigger(),
+namespace KatApps {
+	export class Directives {
+		public static initializeCoreDirectives(vueApp: PetiteVueApp, application: KatApp): void {
+			[
+				new DirectiveKaAttributes(),
+				new DirectiveKaInline(),
+				new DirectiveKaResource(),
+				// new DirectiveKaTrigger(),
 
-			new DirectiveKaHighchart(),
-			new DirectiveKaTable(),
+				new DirectiveKaHighchart(),
+				new DirectiveKaTable(),
 
-			new DirectiveKaValue(),
+				new DirectiveKaValue(),
 
-			new DirectiveKaNavigate(),
-			new DirectiveKaModal(),
-			new DirectiveKaApp(),
-			new DirectiveKaApi()
+				new DirectiveKaNavigate(),
+				new DirectiveKaModal(),
+				new DirectiveKaApp(),
+				new DirectiveKaApi()
 
-		].forEach(d => {
-			vueApp.directive(d.name, d.getDefinition(application));
-		});
+			].forEach(d => {
+				vueApp.directive(d.name, d.getDefinition(application));
+			});
+		}
 	}
 }

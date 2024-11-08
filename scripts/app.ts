@@ -26,7 +26,7 @@
 // TODO: Decide on modules vs iife? Modules seems better/recommended practices, but iife and static methods support console debugging better
 
 class KatApp implements IKatApp {
-	private static applications: Array<KatApp> = [];
+	public static applications: Array<KatApp> = [];
 	private static globalEventConfigurations: Array<{ selector: string, events: IKatAppEventsConfiguration }> = [];
 
 	public static getDirty(): Array<IKatApp> {
@@ -49,7 +49,7 @@ class KatApp implements IKatApp {
 			key = el.closest("[ka-id]")?.getAttribute("ka-id") ?? "";
 		}
 
-		if (typeof key == "string") {
+		if (typeof key == "string" && key != "") {
 			const app = this.applications.find(a => a.id == key || a.selector == key);
 
 			if (app != undefined) return app;
@@ -106,7 +106,7 @@ class KatApp implements IKatApp {
 	public traceLast: Date;
 	public missingResources: Array<string> = [];
 	public missingLanguageResources: Array<string> = [];
-	
+
 	private applicationCss: string;
 	private vueApp?: PetiteVueApp;
 	private viewTemplates?: string[];
@@ -126,7 +126,7 @@ class KatApp implements IKatApp {
 
 	private constructor(public selector: string, options: IKatAppOptions) {
 		this.traceStart = this.traceLast = new Date();		
-		const id = this.id = "ka" + Utils.generateId();
+		const id = this.id = "ka" + KatApps.Utils.generateId();
 		this.applicationCss = ".katapp-" + this.id.substring(2);
 		this.isCalculating = false;
 
@@ -139,13 +139,15 @@ class KatApp implements IKatApp {
 		*/
 		const defaultOptions: IKatAppDefaultOptions = {
 			inputCaching: false,
+			canProcessExternalHelpTips: false,
+
 			debug: {
-				traceVerbosity: Utils.pageParameters["tracekatapp"] === "1" ? TraceVerbosity.Diagnostic : TraceVerbosity.None,
-				showInspector: Utils.pageParameters["showinspector"] ?? ( Utils.pageParameters["localserver"] != undefined ? "1" : "0" ),
-				// refreshCalcEngine: Utils.pageParameters["expireCE"] === "1",
-				useTestCalcEngine: Utils.pageParameters["test"] === "1",
-				useTestView: Utils.pageParameters["testview"] === "1",
-				debugResourcesDomain: Utils.pageParameters["localserver"],
+				traceVerbosity: KatApps.Utils.pageParameters["tracekatapp"] === "1" ? TraceVerbosity.Diagnostic : TraceVerbosity.None,
+				showInspector: KatApps.Utils.pageParameters["showinspector"] ?? ( KatApps.Utils.pageParameters["localserver"] != undefined ? "1" : "0" ),
+				// refreshCalcEngine: KatApps.Utils.pageParameters["expireCE"] === "1",
+				useTestCalcEngine: KatApps.Utils.pageParameters["test"] === "1",
+				useTestView: KatApps.Utils.pageParameters["testview"] === "1",
+				debugResourcesDomain: KatApps.Utils.pageParameters["localserver"],
 			},
 			calculationUrl: "https://btr.lifeatworkportal.com/services/evolution/CalculationFunction.ashx",
 			katDataStoreUrl: "https://btr.lifeatworkportal.com/services/camelot/datalocker/api/kat-apps/{name}/download",
@@ -154,7 +156,7 @@ class KatApp implements IKatApp {
 			decryptCache: cipher => cipher.startsWith("{") ? JSON.parse(cipher) : cipher
 		};
 
-		this.options = Utils.extend<IKatAppOptions>(
+		this.options = KatApps.Utils.extend<IKatAppOptions>(
 			{},
 			defaultOptions,
 			options,
@@ -309,7 +311,7 @@ class KatApp implements IKatApp {
 			canSubmit( whenInputsHaveChanged ) { return ( whenInputsHaveChanged ? this.inputsChanged : this.isDirty! ) && this.errors.filter( r => r['@id'].startsWith('i')).length == 0 && !this.uiBlocked; },
 			needsCalculation: false,
 
-			inputs: Utils.extend(
+			inputs: KatApps.Utils.extend(
 				{
 					getOptionText: (inputId: string): string | undefined => {
 						return that.select(`.${inputId} option:selected`).text();
@@ -340,8 +342,8 @@ class KatApp implements IKatApp {
 				return values.find(v => (v ?? "") != "" && isTrue(v)) != undefined;
 			},
 			rbl: {
-				results: cloneApplication ? Utils.clone(cloneApplication.state.rbl.results) : {},
-				options: cloneApplication ? Utils.clone(cloneApplication.state.rbl.options) : {},
+				results: cloneApplication ? KatApps.Utils.clone(cloneApplication.state.rbl.results) : {},
+				options: cloneApplication ? KatApps.Utils.clone(cloneApplication.state.rbl.options) : {},
 				pushTo(tabDef, table, rows) {
 					const t = (tabDef[table] ?? (tabDef[table] = [])) as ITabDefTable;
 					const toPush = rows instanceof Array ? rows : [rows];
@@ -424,8 +426,8 @@ class KatApp implements IKatApp {
 				}
 			},
 
-			model: cloneApplication ? Utils.clone(cloneApplication.state.model) : {},
-			handlers: cloneApplication ? Utils.clone(cloneApplication.state.handlers ?? {}) : {},
+			model: cloneApplication ? KatApps.Utils.clone(cloneApplication.state.model) : {},
+			handlers: cloneApplication ? KatApps.Utils.clone(cloneApplication.state.handlers ?? {}) : {},
 			components: {},
 
 			// Private
@@ -513,7 +515,7 @@ class KatApp implements IKatApp {
 	}
 
 	public async triggerEventAsync(eventName: string, ...args: (object | string | undefined | unknown)[]): Promise<boolean | undefined> {
-		Utils.trace(this, "KatApp", "triggerEventAsync", `Start: ${eventName}.`, TraceVerbosity.Detailed);
+		 KatApps.Utils.trace(this, "KatApp", "triggerEventAsync", `Start: ${eventName}.`, TraceVerbosity.Detailed);
 
 		try {
 			if (eventName == "calculation" || eventName == "configureUICalculation") {
@@ -540,7 +542,7 @@ class KatApp implements IKatApp {
 				} catch (error) {
 					// apiAsync already traces error, so I don't need to do again
 					if (!(error instanceof ApiError)) {
-						Utils.trace(this, "KatApp", "triggerEventAsync", `Error calling ${eventName}: ${error}`, TraceVerbosity.None, error);
+						 KatApps.Utils.trace(this, "KatApp", "triggerEventAsync", `Error calling ${eventName}: ${error}`, TraceVerbosity.None, error);
 						this.addUnexpectedError(error);
 					}
 				}
@@ -585,14 +587,14 @@ class KatApp implements IKatApp {
 			} catch (error) {
 				// apiAsync already traces error, so I don't need to do again
 				if (!(error instanceof ApiError)) {
-					Utils.trace(this, "KatApp", "triggerEventAsync", `Error triggering ${eventName}`, TraceVerbosity.None, ( error as IStringAnyIndexer ).responseJSON ?? error);
+					 KatApps.Utils.trace(this, "KatApp", "triggerEventAsync", `Error triggering ${eventName}`, TraceVerbosity.None, ( error as IStringAnyIndexer ).responseJSON ?? error);
 				}
 			}
 			*/
 			
 			return true;
 		} finally {
-			Utils.trace(this, "KatApp", "triggerEventAsync", `Complete: ${eventName}.`, TraceVerbosity.Detailed);
+			 KatApps.Utils.trace(this, "KatApp", "triggerEventAsync", `Complete: ${eventName}.`, TraceVerbosity.Detailed);
 		}
 	}
 
@@ -632,7 +634,7 @@ class KatApp implements IKatApp {
 
 	private async mountAsync(): Promise<void> {
 		try {
-			Utils.trace(this, "KatApp", "mountAsync", `Start`, TraceVerbosity.Detailed);
+			 KatApps.Utils.trace(this, "KatApp", "mountAsync", `Start`, TraceVerbosity.Detailed);
 
 			if (this.options.view != undefined) {
 				this.el.attr("data-view-name", this.options.view);
@@ -645,7 +647,7 @@ class KatApp implements IKatApp {
 				? [...(await this.getViewTemplatesAsync(viewElement)), this.id].reverse()
 				: [this.id];
 
-			Utils.trace(this, "KatApp", "mountAsync", `View Templates Complete`, TraceVerbosity.Detailed);
+			 KatApps.Utils.trace(this, "KatApp", "mountAsync", `View Templates Complete`, TraceVerbosity.Detailed);
 
 			const inputs = this.options.inputs;
 			const processInputTokens = (value: string | null): string | null => {
@@ -686,7 +688,7 @@ class KatApp implements IKatApp {
 				? Array.from(viewElement.querySelectorAll("rbl-config > calc-engine")).map( c => calcEngineFactory( c ) as ICalcEngine)
 				: cloneApplication ? [...cloneApplication.calcEngines.filter( c => !c.manualResult)] : [];
 
-			Utils.trace(this, "KatApp", "mountAsync", `CalcEngines configured`, TraceVerbosity.Detailed);
+			 KatApps.Utils.trace(this, "KatApp", "mountAsync", `CalcEngines configured`, TraceVerbosity.Detailed);
 
 			if (this.options.resourceStrings == undefined && this.options.resourceStringsEndpoint != undefined) {
 				const apiUrl = this.getApiUrl(this.options.resourceStringsEndpoint);
@@ -703,18 +705,18 @@ class KatApp implements IKatApp {
 					}
 	
 					this.options.resourceStrings = await response.json();
-					Utils.trace(this, "KatApp", "mountAsync", `Resource Strings downloaded`, TraceVerbosity.Detailed);
+					 KatApps.Utils.trace(this, "KatApp", "mountAsync", `Resource Strings downloaded`, TraceVerbosity.Detailed);
 				} catch (e) {
-					Utils.trace(this, "KatApp", "mountAsync", `Error downloading resourceStrings ${this.options.resourceStringsEndpoint}`, TraceVerbosity.None, e);
+					 KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading resourceStrings ${this.options.resourceStringsEndpoint}`, TraceVerbosity.None, e);
 				}
 
 				if (this.options.debug.debugResourcesDomain) {
 					const currentOptions = this.options as IKatAppRepositoryOptions;
-					currentOptions.useLocalRepository = currentOptions.useLocalRepository || await Utils.checkLocalServerAsync(this.options);
+					currentOptions.useLocalRepository = currentOptions.useLocalRepository || await KatApps.Utils.checkLocalServerAsync(this.options);
 					if (currentOptions.useLocalRepository) {
-						const devResourceStrings = await Utils.downloadLocalServerAsync(currentOptions.debug.debugResourcesDomain!, "/js/dev.ResourceStrings.json");
+						const devResourceStrings = await KatApps.Utils.downloadLocalServerAsync(currentOptions.debug.debugResourcesDomain!, "/js/dev.ResourceStrings.json");
 						if (devResourceStrings != undefined) {
-							this.options.resourceStrings = Utils.extend(this.options.resourceStrings ?? {}, JSON.parse(devResourceStrings));
+							this.options.resourceStrings = KatApps.Utils.extend(this.options.resourceStrings ?? {}, JSON.parse(devResourceStrings));
 						}
 					}
 				}
@@ -735,9 +737,9 @@ class KatApp implements IKatApp {
 					}
 	
 					this.options.manualResults = await response.json();
-					Utils.trace(this, "KatApp", "mountAsync", `Manual Results downloaded`, TraceVerbosity.Detailed);
+					 KatApps.Utils.trace(this, "KatApp", "mountAsync", `Manual Results downloaded`, TraceVerbosity.Detailed);
 				} catch (e) {
-					Utils.trace(this, "KatApp", "mountAsync", `Error downloading manualResults ${this.options.manualResultsEndpoint}`, TraceVerbosity.None, e);
+					 KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading manualResults ${this.options.manualResultsEndpoint}`, TraceVerbosity.None, e);
 				}
 			}
 
@@ -770,7 +772,7 @@ class KatApp implements IKatApp {
 				}
 			}
 
-			Components.initializeCoreComponents(this, name => this.getTemplateId(name));
+			KatApps.Components.initializeCoreComponents(this, name => this.getTemplateId(name));
 
 			// Couldn't do this b/c the model passed in during configure() delegate was then reassigned so
 			// any references to 'model' in code 'inside' delegate was using old/original model.
@@ -779,7 +781,7 @@ class KatApp implements IKatApp {
 			// Couldn't do this b/c any reactivity coded against model was triggered
 			// i.e.Nexgen Common.Footer immediately triggered the get searchResults() because searchString was updated, but rbl.source
 			// was not yet valid b/c no calculation ran, so it threw an error.
-			// Utils.extend(this.state.model, this.configureOptions?.model ?? {});		
+			// KatApps.Utils.extend(this.state.model, this.configureOptions?.model ?? {});		
 
 			// Using below (copied from code in Petite Vue) and it seems to 'modify' model so that code inside configure() delegate that
 			// used it always had 'latest' model, but it also didn't trigger reactivity 'at this point'
@@ -791,10 +793,10 @@ class KatApp implements IKatApp {
 					this.state.components[propertyName] = this.configureOptions.components[propertyName];
 				}
 				if (this.configureOptions.options?.modalAppOptions != undefined && this.state.inputs.iModalApplication == "1") {
-					Utils.extend(this.options, { modalAppOptions: this.configureOptions.options.modalAppOptions });
+					KatApps.Utils.extend(this.options, { modalAppOptions: this.configureOptions.options.modalAppOptions });
 				}
 				if (this.configureOptions.options?.inputs != undefined) {
-					Utils.extend(this.state.inputs, this.configureOptions.options.inputs);
+					KatApps.Utils.extend(this.state.inputs, this.configureOptions.options.inputs);
 				}
 			}
 
@@ -860,7 +862,7 @@ class KatApp implements IKatApp {
 					events.calculationErrors = async (key, exception) => {
 						if (key == "SubmitCalculation.ConfigureUI") {
 							this.addUnexpectedError(exception);
-							Utils.trace(this, "KatApp", "mountAsync", isModalApplication ? "KatApp Modal Exception" : "KatApp Exception", TraceVerbosity.None, exception);
+							 KatApps.Utils.trace(this, "KatApp", "mountAsync", isModalApplication ? "KatApp Modal Exception" : "KatApp Exception", TraceVerbosity.None, exception);
 						}
 					};
 				});
@@ -884,7 +886,7 @@ class KatApp implements IKatApp {
 
 			this.vueApp = PetiteVue.createApp(this.state);
 
-			Directives.initializeCoreDirectives(this.vueApp, this);
+			KatApps.Directives.initializeCoreDirectives(this.vueApp, this);
 
 			if (this.configureOptions != undefined) {
 				for (const propertyName in this.configureOptions.directives) {
@@ -920,8 +922,8 @@ class KatApp implements IKatApp {
 				await ( this.options.hostApplication as KatApp ).triggerEventAsync("nestedAppRendered", this, initializationErrors ? this.state.errors : undefined);
 			}
 		} catch (ex) {
-			if (ex instanceof KamlRepositoryError) {
-				Utils.trace(this, "KatApp", "mountAsync", "Error during resource download", TraceVerbosity.None,
+			if (ex instanceof KatApps.KamlRepositoryError) {
+				 KatApps.Utils.trace(this, "KatApp", "mountAsync", "Error during resource download", TraceVerbosity.None,
 					...ex.results.map(r => `${r.resource}: ${r.errorMessage}` )
 				);
 			}
@@ -929,7 +931,7 @@ class KatApp implements IKatApp {
 			throw ex;
 		}
 		finally {
-			Utils.trace(this, "KatApp", "mountAsync", `Complete`, TraceVerbosity.Detailed);
+			 KatApps.Utils.trace(this, "KatApp", "mountAsync", `Complete`, TraceVerbosity.Detailed);
 		}
 	}
 	
@@ -987,8 +989,8 @@ class KatApp implements IKatApp {
 Enter a comma delimitted list of names or numbers.\r\n\r\n\
 Type 'help' to see available options displayed in the console.`;
 								
-								var defaultOptions = (Utils.pageParameters["showinspector"] ?? "1") != "1"
-									? Utils.pageParameters["showinspector"]
+								var defaultOptions = (KatApps.Utils.pageParameters["showinspector"] ?? "1") != "1"
+									? KatApps.Utils.pageParameters["showinspector"]
 									: "resource,value,modal,template,html,text";
 								return prompt(promptMessage, defaultOptions);
 							};
@@ -1019,7 +1021,7 @@ Type 'help' to see available options displayed in the console.`;
 
 	private createModalContainer(): JQuery {
 
-		const options = this.options.modalAppOptions = Utils.extend(
+		const options = this.options.modalAppOptions = KatApps.Utils.extend(
 			{
 				labels: {
 					cancel: "Cancel",
@@ -1116,7 +1118,7 @@ Type 'help' to see available options displayed in the console.`;
 
 		const closeModal = function () {
 			katAppModalClosing = true;
-			HelpTips.hideVisiblePopover();
+			KatApps.HelpTips.hideVisiblePopover();
 			modalBS5.hide();
 			that.el.remove();
 			KatApp.remove(that);
@@ -1210,7 +1212,7 @@ Type 'help' to see available options displayed in the console.`;
 			// Triggered when ESC is clicked (when programmatically closed, this isn't triggered)
 			// After modal is shown, resolve promise to caller to know modal is fully displayed
 			.on("hide.bs.modal", async e => {
-				if (HelpTips.hideVisiblePopover()) {
+				if (KatApps.HelpTips.hideVisiblePopover()) {
 					e.preventDefault();
 					return;
 				}
@@ -1243,7 +1245,7 @@ Type 'help' to see available options displayed in the console.`;
 			/*
 			const currentInputsJson = sessionStorage.getItem(cachingKey);
 			const currentInputs = currentInputsJson != undefined ? JSON.parse(currentInputsJson) : undefined;
-			Utils.extend(currentInputs, inputs);
+			KatApps.Utils.extend(currentInputs, inputs);
 			sessionStorage.setItem(cachingKey, JSON.stringify(currentInputs));
 			*/
 
@@ -1264,7 +1266,7 @@ Type 'help' to see available options displayed in the console.`;
 		if (!isConfigureUICalculation) {
 			this.traceStart = this.traceLast = new Date();
 		}
-		Utils.trace(this, "KatApp", "calculateAsync", `Start: ${(calcEngines ?? this.calcEngines).map( c => c.name ).join(", ")}`, TraceVerbosity.Detailed);
+		 KatApps.Utils.trace(this, "KatApp", "calculateAsync", `Start: ${(calcEngines ?? this.calcEngines).map( c => c.name ).join(", ")}`, TraceVerbosity.Detailed);
 
 		try {
 			const apiUrl = this.getApiUrl(this.options.calculationUrl);
@@ -1283,7 +1285,7 @@ Type 'help' to see available options displayed in the console.`;
 			getSubmitApiConfigurationResults.configuration.allowLogging = allowLogging;
 
 			if (!processResults) {
-				const calculationResults = await Calculation.calculateAsync(
+				const calculationResults = await KatApps.Calculation.calculateAsync(
 					this,
 					serviceUrl,
 					calcEngines ?? this.calcEngines,
@@ -1312,7 +1314,7 @@ Type 'help' to see available options displayed in the console.`;
 						return;
 					}
 
-					const calculationResults = await Calculation.calculateAsync(
+					const calculationResults = await KatApps.Calculation.calculateAsync(
 						this,
 						serviceUrl,
 						isConfigureUICalculation
@@ -1362,7 +1364,7 @@ Type 'help' to see available options displayed in the console.`;
 
 						if (!isConfigureUICalculation) {
 							// TODO: Check exception.detail: result.startsWith("<!DOCTYPE") and show diff error?
-							Utils.trace(this, "KatApp", "calculateAsync", `Exception: ${(error instanceof Error ? error.message : error + "")}`, TraceVerbosity.None, error);
+							 KatApps.Utils.trace(this, "KatApp", "calculateAsync", `Exception: ${(error instanceof Error ? error.message : error + "")}`, TraceVerbosity.None, error);
 						}
 					}
 
@@ -1379,7 +1381,7 @@ Type 'help' to see available options displayed in the console.`;
 				}
 			}
 		} finally {
-			Utils.trace(this, "KatApp", "calculateAsync", `Complete: ${(calcEngines ?? this.calcEngines).map(c => c.name).join(", ")}`, TraceVerbosity.Detailed);
+			 KatApps.Utils.trace(this, "KatApp", "calculateAsync", `Complete: ${(calcEngines ?? this.calcEngines).map(c => c.name).join(", ")}`, TraceVerbosity.Detailed);
 		}
 	}
 
@@ -1445,11 +1447,11 @@ Type 'help' to see available options displayed in the console.`;
 			const optionPropertiesToSkip = ["manualResults", "manualResultsEndpoint", "resourceStrings", "resourceStringsEndpoint", "modalAppOptions", "hostApplication", "relativePathTemplates", "handlers", "nextCalculation", "katAppNavigate", "decryptCache", "encryptCache"];
 
 			const submitData: ISubmitApiData = {
-				inputs: Utils.clone(getSubmitApiConfigurationResults.inputs ?? {}, (k, v) => inputPropertiesToSkip.indexOf(k) > -1 ? undefined : v?.toString()),
+				inputs: KatApps.Utils.clone(getSubmitApiConfigurationResults.inputs ?? {}, (k, v) => inputPropertiesToSkip.indexOf(k) > -1 ? undefined : v?.toString()),
 				inputTables: getSubmitApiConfigurationResults.inputs.tables?.map<ICalculationInputTable>(t => ({ name: t.name, rows: t.rows })),
 				apiParameters: apiOptions.apiParameters,
-				configuration: Utils.extend<ISubmitApiConfiguration>(
-					Utils.clone(this.options, (k, v) => optionPropertiesToSkip.indexOf(k) > -1 ? undefined : v),
+				configuration: KatApps.Utils.extend<ISubmitApiConfiguration>(
+					KatApps.Utils.clone(this.options, (k, v) => optionPropertiesToSkip.indexOf(k) > -1 ? undefined : v),
 					apiOptions.calculationInputs != undefined ? { inputs: apiOptions.calculationInputs } : undefined,
                     // Endpoints only ever use first calc engine...so reset calcEngines property in case kaml
                     // changed calcEngine in the onCalculationOptions.
@@ -1547,7 +1549,7 @@ Type 'help' to see available options displayed in the console.`;
 				this.addUnexpectedError(errorResponse);
 			}
 
-			Utils.trace(this, "KatApp", "apiAsync", "Unable to process " + endpoint, TraceVerbosity.None, errorResponse.errors != undefined ? [errorResponse, this.state.errors] : errorResponse);
+			 KatApps.Utils.trace(this, "KatApp", "apiAsync", "Unable to process " + endpoint, TraceVerbosity.None, errorResponse.errors != undefined ? [errorResponse, this.state.errors] : errorResponse);
 
 			await this.triggerEventAsync("apiFailed", apiUrl.endpoint, errorResponse, trigger, apiOptions);
 
@@ -1584,9 +1586,9 @@ Type 'help' to see available options displayed in the console.`;
 		const urlParts = this.options.calculationUrl.split("?");
 		const endpointParts = endpoint.split("?");
 
-		var qsAnchored = Utils.parseQueryString(this.options.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
-		var qsEndpoint = Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
-		var qsUrl = Utils.extend<IStringIndexer<string>>(qsAnchored, qsEndpoint, { katapp: this.selector ?? this.id });
+		var qsAnchored = KatApps.Utils.parseQueryString(this.options.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
+		var qsEndpoint = KatApps.Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
+		var qsUrl = KatApps.Utils.extend<IStringIndexer<string>>(qsAnchored, qsEndpoint, { katapp: this.selector ?? this.id });
 
 
 		let url = endpointParts[0];
@@ -1622,7 +1624,7 @@ Type 'help' to see available options displayed in the console.`;
 			// 'processModel'
 			this.select("a[href='#']", el.tagName == "A" ? el.parentElement! : el ).off("click.ka").on("click.ka", e => e.preventDefault());
 
-			HelpTips.processHelpTips(this, $(el));
+			KatApps.HelpTips.processHelpTips($(el));
 			
 			this.select('[data-highcharts-chart]', $(el)).each((i, c) => ($(c).highcharts() as HighchartsChartObject).reflow());
 
@@ -1732,7 +1734,7 @@ Type 'help' to see available options displayed in the console.`;
 
 	public getInputs(customInputs?: ICalculationInputs): ICalculationInputs {
 		const inputs =
-			Utils.extend<ICalculationInputs>({},
+			KatApps.Utils.extend<ICalculationInputs>({},
 				this.state.inputs,
 				customInputs
 			);
@@ -1868,7 +1870,7 @@ Type 'help' to see available options displayed in the console.`;
 		}
 
 		if (templateId == undefined) {
-			Utils.trace(this, "KatApp", "getTemplateId", `Unable to find template: ${name}.`, TraceVerbosity.Normal);
+			 KatApps.Utils.trace(this, "KatApp", "getTemplateId", `Unable to find template: ${name}.`, TraceVerbosity.Normal);
 		}
 
 		return templateId;
@@ -1958,7 +1960,7 @@ Type 'help' to see available options displayed in the console.`;
 	// public so HelpTips can call when needed
 	public cloneOptions(includeManualResults: boolean): IKatAppOptions {
 		const propertiesToSkip = ["handlers", "view", "content", "modalAppOptions", "hostApplication"].concat(includeManualResults ? [] : ["manualResults", "manualResultsEndpoint"]);
-		return Utils.clone<IKatAppOptions>( this.options, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v );
+		return KatApps.Utils.clone<IKatAppOptions>( this.options, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v );
 	}
 	
 	public getCloneHostSetting(el: HTMLElement): string | boolean {
@@ -2018,7 +2020,7 @@ Type 'help' to see available options displayed in the console.`;
 
 			const propertiesToSkip = ["content", "view"];
 			// Omitting properties that will be picked up from the .extend<> below
-			const modalOptions: Omit<IKatAppOptions, 'debug' | 'dataGroup' | 'calculationUrl' | 'katDataStoreUrl' | 'kamlVerifyUrl' | 'inputCaching' | 'encryptCache' | 'decryptCache'> = {
+			const modalOptions: Omit<IKatAppOptions, 'debug' | 'dataGroup' | 'calculationUrl' | 'katDataStoreUrl' | 'kamlVerifyUrl' | 'inputCaching' | 'canProcessExternalHelpTips' | 'encryptCache' | 'decryptCache'> = {
 				view: options.view,
 				content: options.content,
 				currentPage: options.view ?? this.options.currentPage,
@@ -2026,24 +2028,24 @@ Type 'help' to see available options displayed in the console.`;
 				// is removed, so I have to use passed in host-application or current hostApplication.
 				hostApplication: this.selector.startsWith( "#popover" ) ? this.options.hostApplication : this,
 				cloneHost: cloneHost,
-				modalAppOptions: Utils.extend<IModalAppOptions>(
+				modalAppOptions: KatApps.Utils.extend<IModalAppOptions>(
 					{ promise: d, triggerLink: triggerLink },
-					Utils.clone(options, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v)
+					KatApps.Utils.clone(options, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v)
 				),
 				inputs: {
 					iModalApplication: "1"
 				}
 			};
 
-			const modalAppOptions = Utils.extend<IKatAppOptions>(
+			const modalAppOptions = KatApps.Utils.extend<IKatAppOptions>(
 				( modalOptions.hostApplication as KatApp ).cloneOptions(options.content == undefined || cloneHost !== false ),
 				modalOptions,
 				options.inputs != undefined ? { inputs: options.inputs } : undefined
 			);
 
 			if (modalAppOptions.anchoredQueryStrings != undefined && modalAppOptions.inputs != undefined) {
-				modalAppOptions.anchoredQueryStrings = Utils.generateQueryString(
-					Utils.parseQueryString(modalAppOptions.anchoredQueryStrings),
+				modalAppOptions.anchoredQueryStrings = KatApps.Utils.generateQueryString(
+					KatApps.Utils.parseQueryString(modalAppOptions.anchoredQueryStrings),
 					// If showing modal and the url has an input with same name as input passed in, then don't include it...
 					key => !key.startsWith("ki-") || modalAppOptions.inputs![ 'i' + key.split('-').slice(1).map(segment => segment.charAt(0).toUpperCase() + segment.slice(1)).join("") ] == undefined
 				);
@@ -2068,7 +2070,7 @@ Type 'help' to see available options displayed in the console.`;
 	private async cacheInputsAsync(inputs: ICalculationInputs) {
 		if (this.options.inputCaching) {
 			const inputCachingKey = "katapp:cachedInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "EveryOne");
-			const cachedInputs = Utils.clone<ICalculationInputs>(inputs);
+			const cachedInputs = KatApps.Utils.clone<ICalculationInputs>(inputs);
 			await this.triggerEventAsync("inputsCached", cachedInputs);
 			sessionStorage.setItem(inputCachingKey, JSON.stringify(cachedInputs));
 		}
@@ -2111,7 +2113,7 @@ Type 'help' to see available options displayed in the console.`;
 
 		return {
 			inputs: submitApiOptions.inputs,
-			configuration: Utils.extend<ISubmitApiConfiguration>(
+			configuration: KatApps.Utils.extend<ISubmitApiConfiguration>(
 				submitConfiguration,
 				submitApiOptions.configuration
 			),
@@ -2192,7 +2194,7 @@ Type 'help' to see available options displayed in the console.`;
                     submitOptions.Configuration.CalcEngine = "Conduent_Nexgen_Profile_SE";
                 })
 				*/
-				Utils.trace(this, "KatApp", "toTabDefs", `Unable to find calcEngine: ${ceName}.  Determine if this should be supported.`, TraceVerbosity.None);
+				 KatApps.Utils.trace(this, "KatApp", "toTabDefs", `Unable to find calcEngine: ${ceName}.  Determine if this should be supported.`, TraceVerbosity.None);
 			}
 
 			const ceKey = configCe?.key ?? defaultCEKey;
@@ -2256,7 +2258,7 @@ Type 'help' to see available options displayed in the console.`;
 			const index = this.state.rbl.results[key][tableName].findIndex(r => r["@id"] == row["@id"]);
 
 			if (index > -1) {
-				Utils.extend(this.state.rbl.results[key][tableName][index], row);
+				KatApps.Utils.extend(this.state.rbl.results[key][tableName][index], row);
 			}
 			else {
 				this.state.rbl.results[key][tableName].push(row);
@@ -2266,7 +2268,7 @@ Type 'help' to see available options displayed in the console.`;
 	}
 
 	private async processResultsAsync(results: IKaTabDef[], calculationSubmitApiConfiguration: ISubmitApiOptions | undefined): Promise<void> {
-		Utils.trace(this, "KatApp", "processResultsAsync", `Start: ${results.map(r => `${r._ka.calcEngineKey}.${r._ka.name}`).join(", ")}`, TraceVerbosity.Detailed);
+		 KatApps.Utils.trace(this, "KatApp", "processResultsAsync", `Start: ${results.map(r => `${r._ka.calcEngineKey}.${r._ka.name}`).join(", ")}`, TraceVerbosity.Detailed);
 		
 		// Merge these tables into state instead of 'replacing'...
 		const tablesToMerge = ["rbl-disabled", "rbl-display", "rbl-skip", "rbl-value", "rbl-listcontrol", "rbl-input"];
@@ -2384,7 +2386,7 @@ Type 'help' to see available options displayed in the console.`;
 		await this.processDataUpdateResultsAsync(results, calculationSubmitApiConfiguration);
 		this.processDocGenResults(results);
 
-		Utils.trace(this, "KatApp", "processResultsAsync", `Complete: ${results.map(r => `${r._ka.calcEngineKey}.${r._ka.name}`).join(", ")}`, TraceVerbosity.Detailed);
+		 KatApps.Utils.trace(this, "KatApp", "processResultsAsync", `Complete: ${results.map(r => `${r._ka.calcEngineKey}.${r._ka.name}`).join(", ")}`, TraceVerbosity.Detailed);
 	}
 
 	private async processDataUpdateResultsAsync(results: IKaTabDef[], calculationSubmitApiConfiguration: ISubmitApiOptions | undefined): Promise<void> {
@@ -2402,9 +2404,9 @@ Type 'help' to see available options displayed in the console.`;
 			});
 
 		if (jwtPayload.DataTokens.length > 0) {
-			Utils.trace(this, "KatApp", "processDataUpdateResultsAsync", `Start (${jwtPayload.DataTokens.length} jwt-data items)`, TraceVerbosity.Detailed);
+			 KatApps.Utils.trace(this, "KatApp", "processDataUpdateResultsAsync", `Start (${jwtPayload.DataTokens.length} jwt-data items)`, TraceVerbosity.Detailed);
 			await this.apiAsync("rble/jwtupdate", { apiParameters: jwtPayload }, undefined, calculationSubmitApiConfiguration);
-			Utils.trace(this, "KatApp", "processDataUpdateResultsAsync", `Complete`, TraceVerbosity.Detailed);
+			 KatApps.Utils.trace(this, "KatApp", "processDataUpdateResultsAsync", `Complete`, TraceVerbosity.Detailed);
 		}
     }
 
@@ -2437,12 +2439,12 @@ Type 'help' to see available options displayed in the console.`;
 		const docGenInstructions = results.flatMap(t => (t["api-actions"] as ITabDefTable ?? []).filter(r => r["action"] == "DocGen"));
 
 		if (docGenInstructions.length > 0) {
-			Utils.trace(this, "KatApp", "processDocGenResults", `Start (${docGenInstructions.length} DocGen items)`, TraceVerbosity.Detailed);
+			 KatApps.Utils.trace(this, "KatApp", "processDocGenResults", `Start (${docGenInstructions.length} DocGen items)`, TraceVerbosity.Detailed);
 
 			docGenInstructions.forEach(r => {
 				const fileName = r["file-name"];
 				if (r.exception != undefined) {
-					Utils.trace(this, "KatApp", "processDocGenResults", `DocGen Instruction Exception: ${fileName ?? 'File Not Availble'}, ${r.exception})`, TraceVerbosity.None);
+					 KatApps.Utils.trace(this, "KatApp", "processDocGenResults", `DocGen Instruction Exception: ${fileName ?? 'File Not Availble'}, ${r.exception})`, TraceVerbosity.None);
 				}
 				else {
 					const base64 = r["content"];
@@ -2451,7 +2453,7 @@ Type 'help' to see available options displayed in the console.`;
 					this.downloadBlob(blob);
 				}
 			});
-			Utils.trace(this, "KatApp", "processDocGenResults", `Complete`, TraceVerbosity.Detailed);
+			 KatApps.Utils.trace(this, "KatApp", "processDocGenResults", `Complete`, TraceVerbosity.Detailed);
 		}
 	}
 
@@ -2472,18 +2474,18 @@ Type 'help' to see available options displayed in the console.`;
 			  
 				const data: IKamlVerifyResult = await response.json();
 			  
-				Utils.extend(this.options, { view: data.path, currentPath: view });
-				Utils.extend(this.state.inputs, data.manualInputs);
+				KatApps.Utils.extend(this.options, { view: data.path, currentPath: view });
+				KatApps.Utils.extend(this.state.inputs, data.manualInputs);
 			} catch (e) {
-				Utils.trace(this, "KatApp", "getViewElementAsync", `Error verifying KatApp ${view}`, TraceVerbosity.None, e);
-				throw new KamlResourceDownloadError("View verification request failed.", view);
+				 KatApps.Utils.trace(this, "KatApp", "getViewElementAsync", `Error verifying KatApp ${view}`, TraceVerbosity.None, e);
+				throw new KatApps.KamlResourceDownloadError("View verification request failed.", view);
 			}
 		}
 
 		if (this.options.view != undefined) {
-			const viewResource = await KamlRepository.getViewResourceAsync(this.options, this.options.view);
+			const viewResource = await KatApps.KamlRepository.getViewResourceAsync(this.options, this.options.view);
 
-			Utils.trace(this, "KatApp", "getViewElementAsync", `Resource Returned`, TraceVerbosity.Detailed);
+			 KatApps.Utils.trace(this, "KatApp", "getViewElementAsync", `Resource Returned`, TraceVerbosity.Detailed);
 
 			const viewContent =
 				viewResource[this.options.view]
@@ -2496,9 +2498,9 @@ Type 'help' to see available options displayed in the console.`;
 				throw new Error("View " + this.options.view + " is missing rbl-config element");
 			}
 						
-			new KamlCompiler(this).compileMarkup(viewElement, this.id);
+			new KatApps.KamlCompiler(this).compileMarkup(viewElement, this.id);
 
-			Utils.trace(this, "KatApp", "getViewElementAsync", `Markup Processed`, TraceVerbosity.Detailed);
+			 KatApps.Utils.trace(this, "KatApp", "getViewElementAsync", `Markup Processed`, TraceVerbosity.Detailed);
 		}
 		else if (this.options.content == undefined) {
 			// just mounting existing html (usually just a help tip is what this was made for)
@@ -2522,14 +2524,14 @@ Type 'help' to see available options displayed in the console.`;
 					return resourceName;
 				});
 
-		const viewTemplateResults = await KamlRepository.getTemplateResourcesAsync(this.options, requiredViewTemplates);
-		const kamlCompiler = new KamlCompiler(this);
+		const viewTemplateResults = await KatApps.KamlRepository.getTemplateResourcesAsync(this.options, requiredViewTemplates);
+		const kamlCompiler = new KatApps.KamlCompiler(this);
 		Object.keys(viewTemplateResults).forEach(k => {
 			const templateContent = document.createElement("kaml-template");
 			templateContent.innerHTML = viewTemplateResults[k];
 
 			kamlCompiler.compileMarkup(templateContent, k.replace(/\./g, "_"));
-			KamlRepository.resolveTemplate(k);
+			KatApps.KamlRepository.resolveTemplate(k);
 		});
 		return requiredViewTemplates.map(t => {
 			const keyParts = t.split(":"); // In case Rel:
@@ -2551,7 +2553,7 @@ Type 'help' to see available options displayed in the console.`;
 		const persistedInputsJson = sessionStorage.getItem(persistedInputsKey);
 		const persistedInputs = persistedInputsJson != undefined ? JSON.parse(persistedInputsJson) : undefined;
 
-		const sessionStorageInputs = Utils.extend<ICalculationInputs>({}, cachedInputs, persistedInputs, oneTimeInputs);
+		const sessionStorageInputs = KatApps.Utils.extend<ICalculationInputs>({}, cachedInputs, persistedInputs, oneTimeInputs);
 		return sessionStorageInputs;
 	}
 }

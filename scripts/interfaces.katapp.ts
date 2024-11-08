@@ -27,6 +27,8 @@ interface IKatAppDefaultOptions {
 
 	// Not really used yet, no one setting to 'true', only defaults to false
 	inputCaching: boolean; // Whether or not inputs are cached to/restored from LocalStorage,
+	canProcessExternalHelpTips: boolean; // If help tip is outside a KatApp but will be rendered via KatApps, indicates if KatApp can be used when cloning is necessary (v-pre)
+
 	encryptCache(data: object): string | Promise<string>;
 	decryptCache(cipher: string): object | Promise<object>;
 }
