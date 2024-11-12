@@ -8,14 +8,18 @@
 		// Code to hide tooltips if you click anywhere outside the tooltip
 		// Combo of http://stackoverflow.com/a/17375353/166231 and https://stackoverflow.com/a/21007629/166231 (and 3rd comment)
 		// This one looked interesting too: https://stackoverflow.com/a/24289767/166231 but I didn't test this one yet
-		public static hideVisiblePopover(): boolean {
+		public static hideVisiblePopover(selectorPredicate?: string): boolean {
 			// Going against entire KatApp (all apps) instead of a local variable because I only setup
 			// the HTML click event one time, so the 'that=this' assignment above would be the first application
 			// and might not match up to the 'currently executing' katapp, so had to make this global anyway
 			const visiblePopover = HelpTips.visiblePopover;
 	
 			// Just in case the tooltip hasn't been configured
-			if (visiblePopover != undefined && $(visiblePopover).attr("ka-init-tip") == "true") {
+			if (
+				visiblePopover != undefined &&
+				$(visiblePopover).attr("ka-init-tip") == "true" &&
+				( selectorPredicate == undefined || HelpTips.visiblePopoverApp!.el.is(selectorPredicate) )
+			) {
 				bootstrap.Popover.getInstance(visiblePopover).hide();
 				return true;
 			}
