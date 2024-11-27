@@ -737,9 +737,9 @@ class KatApp implements IKatApp {
 					}
 	
 					this.options.manualResults = await response.json();
-					 KatApps.Utils.trace(this, "KatApp", "mountAsync", `Manual Results downloaded`, TraceVerbosity.Detailed);
+					KatApps.Utils.trace(this, "KatApp", "mountAsync", `Manual Results downloaded`, TraceVerbosity.Detailed);
 				} catch (e) {
-					 KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading manualResults ${this.options.manualResultsEndpoint}`, TraceVerbosity.None, e);
+					KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading manualResults ${this.options.manualResultsEndpoint}`, TraceVerbosity.None, e);
 				}
 			}
 
@@ -2228,6 +2228,8 @@ Type 'help' to see available options displayed in the console.`;
 	}
 	
 	private copyTabDefToRblState(ce: string, tab: string, rows: ITabDefTable, tableName: string) {
+		KatApps.Utils.trace(this, "KatApp", "copyTabDefToRblState", `Copy ${rows.length} rows from ${ce}.${tab}.${tableName}`, TraceVerbosity.Diagnostic);
+
 		const key = `${ce}.${tab}`;
 		if (this.state.rbl.results[key] == undefined) {
 			this.state.rbl.results[key] = {};
@@ -2251,6 +2253,7 @@ Type 'help' to see available options displayed in the console.`;
 	}
 
 	private mergeTableToRblState(ce: string, tab: string, rows: ITabDefTable, tableName: string) {
+		KatApps.Utils.trace(this, "KatApp", "mergeTableToRblState", `Merge ${rows.length} rows from ${ce}.${tab}.${tableName}`, TraceVerbosity.Diagnostic);
 		if (ce == "_ResultProcessing" && this.calcEngines.length > 0) {
 			ce = this.calcEngines[0].key;
 			tab = this.calcEngines[0].resultTabs[0];
@@ -2293,6 +2296,8 @@ Type 'help' to see available options displayed in the console.`;
 
 		const processResultColumn = (row: ITabDefRow, colName: string, isRblInputTable: boolean) => {
 			if (typeof (row[colName]) === "object") {
+				KatApps.Utils.trace(this, "KatApp", "processResultColumn", `Convert ${colName} from object to string.`, TraceVerbosity.Diagnostic);
+
 				const metaRow: ITabDefMetaRow = row;
 				const metaSource = metaRow[colName] as IStringIndexer<string>;
 				const metaDest = (metaRow["@" + colName] = {}) as IStringIndexer<string>;
