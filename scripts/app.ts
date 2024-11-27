@@ -2234,6 +2234,20 @@ Type 'help' to see available options displayed in the console.`;
 		}
 
 		this.state.rbl.results[key][tableName] = rows;
+
+		// I was worried a bit about just reassigning the array
+		// if it already existed and was being tracked via reactivity,
+		// so I was using length/push, but I don't think it matters.
+		/*
+		if (this.state.rbl.results[key][tableName] == undefined) {
+			this.state.rbl.results[key][tableName] = rows;
+		}
+		else {
+			const target = (this.state.rbl.results[key][tableName] as []);
+			target.length = 0;
+			target.push(...(rows as []));
+		}
+		*/
 	}
 
 	private mergeTableToRblState(ce: string, tab: string, rows: ITabDefTable, tableName: string) {
