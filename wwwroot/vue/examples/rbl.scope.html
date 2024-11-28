@@ -1,0 +1,256 @@
+<style>
+  [v-cloak] {
+    display: none;
+  }
+</style>
+
+<!--
+https://jsfiddle.net/h457pbxj/18/
+https://github.com/vuejs/petite-vue/discussions/228
+https://github.com/vuejs/vue/blob/9e88707940088cb1f4cd7dd210c9168a50dc347c/src/core/observer/index.ts#L221
+
+** All items below are based on when pushTo used push() instead of concat() **
+
+1. As is, all 'More Options' reactivity (except Global) are broken after clicking `Make Election`.
+	1. Note, after clicking Make Election, the console logs one more `showMoreOptions` STILL on MEDICAL-00 before logging another entry correctly with MEDICAL-03.
+1. Test 1
+	1. Changing `:key="coverage.index" :key-off="coverage.currentCode"` to `:key="coverage.currentCode"` makes all reactivity work.
+1. Test 2
+	1. Reset to `:key="coverage.index"`
+	1. Commenting out `await simulateSavannaAsync();` makes all reactivity work.
+	1. Commenting out `<div v-scope="Template('more-info', { get item() { return coverage; } })"></div>` breaks `More Options Coverage Template` reactivity.
+1. Test 3
+	1. ** UPDATE COMMENTS IN CODE AND HERE ** - only works if pushTo uses concat...reassigning array[index] breaks
+	1. Reset to `:key="coverage.index"`
+	1. Changing assignment to concat()
+		1. `state.rbl.results["rbl-value"] = rows;` to `( state.rbl.results["rbl-value"] ?? ( state.rbl.results["rbl-value"] = []) ).concat(rows);`
+		1. This works ONLY IF rbl-value exists before this line (uncomment either in state assignment or firstCalc)
+	1. Commenting out `More Options Global` breaks `More Options Global` reactivity.
+
+Console
+1. When reactivity is not working, after clicking `Make Election`, the console logs one more `showMoreOptions` but item is STILL on MEDICAL-00 (even though other items bound to item correctly update).
+1. When reactivity is working, after clicking `Make Election`, the console logs one more `showMoreOptions` but item is CORRECTLY on MEDICAL-03.
+-->
+<div v-scope v-cloak id="katapp">
+    <button type="button" @click="handlers.makeElection">Make Election</button>
+	<div>Name: {{rbl.value('rbl-value', 'nameFirst', 'value')}}</div>
+	<div v-for="coverage in rbl.source('electionSummary')" :key="coverage.index" :key-off="coverage.currentCode">
+		<div>Benefit: {{coverage.benefitName}}</div>
+		<div>Coverage: {{coverage.currentCode}}</div>
+		<div>Cost: {{coverage.eeCost}}</div>
+		<div>HelpfulInfo Exists: {{rbl.source('helpfulInfo').find(r => r.index == rbl.source('electionSummary').find( r => r.index == 'MEDICAL').benefitType + '-' + (rbl.source('electionSummary').find( r => r.index == 'MEDICAL').optionId || '').padStart(2,'0')) != undefined}}</div>
+		<div v-scope="Template('more-info', { get item() { return coverage; } })"></div>
+		More Options Coverage Template: {{rbl.value('rbl-value', 's-hw/info_MEDICAL_03.html | hw/info_MEDICAL.html', 'value') == '1' || ( rbl.source('helpfulInfo').find(r => r.index == coverage.benefitType + '-' + (coverage.optionId || '').padStart(2,'0'))?.summaryLink ?? '0' ) != '0'}}<br/>
+		More Options Global: {{rbl.value('rbl-value', 's-hw/info_MEDICAL_03.html | hw/info_MEDICAL.html', 'value') == '1' || ( rbl.source('helpfulInfo').find(r => r.index == rbl.source('electionSummary').find( r => r.index == 'MEDICAL').benefitType + '-' + (rbl.source('electionSummary').find( r => r.index == 'MEDICAL').optionId || '').padStart(2,'0'))?.summaryLink ?? '0' ) != '0'}}<br/>
+		<br/>
+	</div>
+
+	<pre>{{JSON.stringify(rbl.results, null, 2)}}</pre>
+</div>
+
+<template id="more-info">
+	<div v-scope="{
+	  get optionId() { return item.benefitType + '-' + (item.optionId || '').padStart(2,'0'); },
+	  get optionSavannaId() { return `${item.benefitType}_${(item.optionId || '').padStart(2,'0')}`; },
+	  get helpfulInfo() {
+		const rows = rbl.source('helpfulInfo');
+		const result = rows.find(r => r.index == this.optionId);
+		return result;
+	  },
+	  get hasSavannaContent() { 
+		// return false; 
+		// return rbl.source('rbl-value').find(r => r.id == `s-hw/info_${this.optionSavannaId}.html | hw/info_${item.benefitType}.html`)?.value == '1';
+		return rbl.value('rbl-value', `s-hw/info_${this.optionSavannaId}.html | hw/info_${item.benefitType}.html`, 'value') == '1'; 
+	  },
+	  get showSummaryLink() { return ( this.helpfulInfo?.summaryLink ?? '0' ) != '0'; },
+	  get showMoreOptions() { 
+
+		if (item.benefitType == 'MEDICAL') {
+			console.log('showMoreOptions', this.optionId, this.hasSavannaContent, this.showSummaryLink);
+		}
+		return this.hasSavannaContent || this.showSummaryLink; 
+	  }
+	}">
+		More Options: {{showMoreOptions}}<br/>
+		More Options Inline: {{rbl.value('rbl-value', `s-hw/info_${`${item.benefitType}_${(item.optionId || '').padStart(2,'0')}`}.html | hw/info_${item.benefitType}.html`, 'value') == '1' || ( helpfulInfo?.summaryLink ?? '0' ) != '0'}}<br/>
+	</div>
+</template>
+
+<script type="text/javascript" src="https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.iife.js"></script>
+
+<script type="text/javascript">
+	function Template(id, model) {
+        model.$template = "#" + id;
+		return model;
+    }
+	const state = PetiteVue.reactive({
+		Template,
+		rbl: {
+			results: { 
+				// Test 3
+				// "rbl-value": []
+			},
+
+			source(tableName) {
+				return this.results[tableName] ?? [];
+			},
+			value(tableName, keyValue, columnName) { 
+				return this.source(tableName).find( r => r.id == keyValue )?.[columnName ?? "value"]	
+			},
+
+			pushTo(table, rows) {
+				const t = this.results[table] ?? (this.results[table] = []);
+				const toPush = rows instanceof Array ? rows : [rows];
+
+				toPush.forEach((row, i) => {
+					row.id = row.id ?? "_pushId_" + (t.length + i);
+
+					const index = t.findIndex(r => r.id == row.id);
+					if (index > -1) {
+						t[index] = row;
+					}
+					else {
+						t.push(row);
+					}
+				});
+			},
+		},
+		handlers: {
+			makeElection() { this.calculate(false); },
+
+			calculate(firstCalc) {
+				if ( firstCalc ) {
+					// Test 3
+					// Just getting object assigned so can use concat later on.
+					mergeTableToRblState("rbl-value", [{
+						id: "nameFirst",
+						value: "John"
+					}]);
+				}
+
+				copyTabDefToRblState("helpfulInfo", [
+					{
+						id: "6",
+						index: "MEDICAL-03",
+						benefitType: "MEDICAL",
+						optionID: "03",
+						displaySeq: "0",
+						providerURL: "/login/v3/prot/SPGateway.jsp?req=anthem",
+						optionName: "Anthem PPO",
+						providerPhone: "855-567-4698",
+						summaryLink: "/client_docs/010/en_us/hw/SAI-0103-2024-ENG-XXXX-SBC.pdf",
+						isCurrentElection: "FALSE",
+						summaryType: "0",
+						type: "ELECTION",
+					}
+				]);
+
+				copyTabDefToRblState("configBenefitCategories", [
+					{
+						id: "1",
+						groupId: "1",
+						text: "Health Benefits",
+						alertCount: "0",
+					}
+				]);
+
+				copyTabDefToRblState("electionSummary", [
+					{
+						"id": "1",
+						"benefitType": "MEDICAL",
+						"index": "MEDICAL",
+						"groupId": "1",
+						"benefitName": "Medical",
+						"eeCost":  firstCalc ? "$0.00" : "$146.60",
+						"currentCode": firstCalc ? "MEDICAL-00-00" : "MEDICAL-03-01",
+						"optionId": firstCalc ? "00" : "03"
+					}
+				]);
+			}
+		}
+	});
+
+	const app = PetiteVue.createApp(state);
+
+	function copyTabDefToRblState(tableName, rows) {
+		state.rbl.results[tableName] = rows;
+	}
+    function mergeTableToRblState(tableName, rows) {
+        if (state.rbl.results[tableName] == undefined) {
+            state.rbl.results[tableName] = [];
+        }
+        rows.forEach(row => {
+            if (tableName == "rbl-skip") {
+                row["@id"] = row.key;
+                if (row.value == undefined) {
+                    row.value = "1";
+                }
+            }
+            const index = state.rbl.results[tableName].findIndex(r => r.id == row.id);
+            if (index > -1) {
+                extend(state.rbl.results[tableName][index], row);
+            }
+            else {
+				state.rbl.results[tableName].push(row);
+            }
+        });
+        state.rbl.results[tableName] = state.rbl.results[tableName].filter(r => r.on != "0");
+    }
+	function extend(target, ...sources) {
+		sources.forEach((source) => {
+			if (source === undefined)
+				return;
+			this.copyProperties(target, source);
+		});
+		return target;
+	}
+	function copyProperties(target, source) {
+		Object.keys(source).forEach((key) => {
+			const value = source[key];
+			if (value != undefined && typeof value === "object" && !Array.isArray(value) && !(value instanceof jQuery) && key != "hostApplication") {
+				if (target[key] === undefined || typeof target[key] !== "object") {
+					target[key] = {};
+				}
+				this.copyProperties(target[key], value);
+			}
+			else if (value != undefined) {
+				target[key] = value;
+			}
+		});
+		return target;
+	}
+
+	async function mountAsync() {
+
+		// Simulate calculation api call...
+		await new Promise(resolve => setTimeout(resolve, 500));
+
+		state.handlers.calculate(true);
+
+		app.mount("#katapp");
+
+		await simulateSavannaAsync();
+	}
+
+	async function simulateSavannaAsync() {
+		// Simulate savanna api call...
+		await new Promise(resolve => setTimeout(resolve, 500));
+
+		console.log("Before pushTo.");
+		const rows = [
+			{
+				id: "s-hw/info_MEDICAL_00.html | hw/info_MEDICAL.html",
+				value: "0"
+			}
+		];
+		
+		// Test 3
+		state.rbl.pushTo("rbl-value", rows);
+		// state.rbl.results["rbl-value"] = rows;
+		// ( state.rbl.results["rbl-value"] ?? ( state.rbl.results["rbl-value"] = []) ).concat(rows);
+		console.log("After pushTo.");
+	}
+
+	mountAsync();
+</script>
+

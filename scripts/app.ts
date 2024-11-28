@@ -2266,7 +2266,7 @@ Type 'help' to see available options displayed in the console.`;
 		if (this.state.rbl.results[key][tableName] == undefined) {
 			this.state.rbl.results[key][tableName] = [];
 		}
-
+		
 		rows.forEach(row => {
 			if (tableName == "rbl-skip") {
 				row["@id"] = row.key;
@@ -2285,6 +2285,7 @@ Type 'help' to see available options displayed in the console.`;
 				this.state.rbl.results[key][tableName].push(row);
 			}
 		});
+
 		this.state.rbl.results[key][tableName] = this.state.rbl.results[key][tableName].filter(r => r.on != "0");
 	}
 
