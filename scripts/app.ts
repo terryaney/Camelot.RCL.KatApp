@@ -112,7 +112,8 @@ class KatApp implements IKatApp {
 	private viewTemplates?: string[];
 	private mountedTemplates: IStringIndexer<boolean> = {};
 	private isMounted = false;
-	
+	private pushToTables: string[] = [];
+
 	private configureOptions: IConfigureOptions | undefined;
 
 	public calcEngines: ICalcEngine[] = [];
@@ -245,24 +246,27 @@ class KatApp implements IKatApp {
 
 		const that = this;
 
-		const getResultTableRows = function <T extends ITabDefRow>(table: string, calcEngine?: string, tab?: string) {
-			const ceKey = calcEngine ?? that.state.rbl.options?.calcEngine;
-
-			const ce = ceKey
-				? that.calcEngines.find(c => c.key == ceKey)
+		const getTabDefKey = function(calcEngine?: string, tab?: string) {
+			const ce = calcEngine
+				? that.calcEngines.find(c => c.key == calcEngine)
 				: that.calcEngines[0];
 
 			if (ce == undefined) {
 				throw new Error(`Can not find CalcEngine ${calcEngine} in rbl-config.`);
 			}
 
-			const tabName = tab ?? that.state.rbl.options?.tab ?? ce.resultTabs[0];
+			const tabName = tab ?? ce.resultTabs[0];
 
 			if (ce.resultTabs.indexOf(tabName) == -1) {
 				throw new Error(`Can not find Tab ${tabName} for ${calcEngine} in rbl-config.`);
 			}
 
 			const key = `${ce.key}.${tabName}`;
+			return key;
+		}
+
+		const getResultTableRows = function <T extends ITabDefRow>(table: string, calcEngine?: string, tab?: string) {
+			const key = getTabDefKey(calcEngine, tab);
 			return (that.state.rbl.results[key]?.[table] ?? []) as Array<T>;
 		};
 
@@ -290,6 +294,33 @@ class KatApp implements IKatApp {
 		const cloneApplication = this.getCloneApplication(this.options);
 		
 		let _isDirty: boolean | undefined = false;
+
+		const mergeRowsInternal = function (resultTabDef: ITabDef, table: string, rows: ITabDefRow | Array<ITabDefRow>, isPushTo: boolean = false) {
+			if (!isPushTo && resultTabDef["_ka"] == undefined) {
+				throw new Error(`Can not use mergeRows on a rbl.results tabDef.  Please use rbl.pushTo instead.`);
+			}
+
+			if (resultTabDef[table] == undefined) {
+				resultTabDef = Object.assign({}, resultTabDef, { [table]: [] });
+			}
+			const t = resultTabDef[table];
+
+			const toPush = rows instanceof Array ? rows : [rows];
+
+			toPush.forEach((row, i) => {
+				row["@id"] = row["@id"] ?? "_pushId_" + (t.length + i);
+
+				const index = t.findIndex(r => r["@id"] == row["@id"]);
+				if (index > -1) {
+					// t[index] = row;
+					t.splice(index, 1, row);
+				}
+				else {
+					// t.push(row);
+					t.splice(t.length, 0, row);
+				}
+			});
+		};
 
 		const state: IState = {
 			kaId: this.id,
@@ -343,23 +374,24 @@ class KatApp implements IKatApp {
 			},
 			rbl: {
 				results: cloneApplication ? KatApps.Utils.clone(cloneApplication.state.rbl.results) : {},
-				options: cloneApplication ? KatApps.Utils.clone(cloneApplication.state.rbl.options) : {},
-				pushTo(tabDef, table, rows) {
-					const t = (tabDef[table] ?? (tabDef[table] = [])) as ITabDefTable;
-					const toPush = rows instanceof Array ? rows : [rows];
-
-					toPush.forEach((row, i) => {
-						row["@id"] = row["@id"] ?? "_pushId_" + (t.length + i);
-
-						const index = t.findIndex(r => r["@id"] == row["@id"]);
-						if (index > -1) {
-							t[index] = row;
-						}
-						else {
-							t.push(row);
-						}
-					});
+				
+				mergeRows(resultTabDef, table, rows) {
+					mergeRowsInternal(resultTabDef, table, rows, false);
 				},
+
+				pushTo(table, rows, calcEngine, tab) {
+					const key = getTabDefKey(calcEngine, tab);
+					let tabDef = that.state.rbl.results[key];
+
+					if (tabDef == undefined) {
+						return;
+					}
+
+					mergeRowsInternal(tabDef, table, rows, true);
+
+					that.pushToTables.push(`${key}.${table}`);
+				},
+
 				boolean() {
 					const argList = Array.from(arguments);
 					const stringParams = argList.filter(i => typeof i != "boolean");
@@ -2227,29 +2259,61 @@ Type 'help' to see available options displayed in the console.`;
 		});
 	}
 	
+	/*
+	Reactivity Bug - Demonstrated with rbl.scope.html
+
+	Situation
+	1. Have a v-for rbl.source('anything')
+	2. Inside v-for, have a v-scope property that uses BOTH the current iterator row ('coverage' in example) and rbl.value()
+
+	Problem
+	1. Normal calculation - populates rbl-value, reactivity triggered, v-for correctly rendered.
+	2. User calls pushTo with rbl-value, reactivity triggered, v-scope correctly re-evaluated since v-for source not updated.
+	3. Normal Calculation that changes original v-for rbl.source
+		1. Touches rbl-value first, reactivity triggered ONLY for v-scope which re-evalates INCORRECTLY because v-for source is not updated yet
+		2. Touches rbl.source() table, reactivity triggered ONLY for v-for (and correctly), but does NOT re-evaluate v-scope property (even though the current iterator row has changed).
+		3. If issue another calculation, then everything is 'caught up' and evaluates correctly.
+
+	References
+	1. https://github.com/vuejs/petite-vue/discussions/228 - Discussion on same type of issue, although solution for Array.Concat does not work.
+	2. https://v2.vuejs.org/v2/guide/reactivity.html - No access to Vue.set() in petite-vue, but Object.assign() available and needed (more below in Caveats), and leveraging Array.splice instead of direct assignments
+	3. https://enterprisevue.dev/blog/ultimate-guide-to-vue-reactivity/#:~:text=1.%20Array%20Reactivity - Another blog indicating some caveats with reactivity in Vue 3 (which I adopted as well for petite-vue)
+	4. https://github.com/vuejs/vue/blob/9e88707940088cb1f4cd7dd210c9168a50dc347c/src/core/observer/index.ts#L221 - Source for Vue 2.x set() method.  petite-vue 'imports' @vue/reactive 3.2.7 ... not sure is same source as this link, but we do NOT have Vue.set() function and this might provide hints as to how reactivity is handled in petite-vue.
+
+	Solution
+
+	I discovered that if inside the calculateAsync I moved rbl-value processing last (after the rbl.source() used in v-for) everything worked as expected.
+	As mentioned in the Github discussion metioned above, PetiteVue.nextTick was a possible 'hack' to make things work, and that is leveraged.  It is not
+	as much of a hack as mentioned in discussion though, as the user will not have to call that.  KatApp framework will simply call it one time during
+	processResultsAsync.  
+	
+	When rbl.pushTo is used, the ce/table pushedTo will be tracked, then inside any subsequent processResultsAsync calls, any tables that have been pushed to
+	will be processed INSIDE a PetiteVue.nextTick method.  This seems to correct the issue with reactivity and things work correctly.
+
+	Caveats
+	
+	rbl.scope.html (as of 12/1/24) is saved in a working state because it does NOT touch rbl-value on the second normal calculation (via 'Make Election')
+	and PetiteVue.nextTick is disabled.
+
+	However, there are some interesting observations.  If, Object.assign() is NOT used in copyTabDefToRblState, reactivity is not correctly processed.  The 
+	interator row is still 'behind' in the v-scope property.  However, I did not need Object.assign() or Array.splice() methods in other locations.  
+	If copyTabDefToRblState always used Object.assign(), I could toggle any of the other locations in the code and everything still worked.
+
+	Additionally, after implementing the PetiteVue.nextTick solution, I could use all 'direct assignments' (and other bad reactive patterns for arrays) and
+	everything still worked, however, I still coded things 'correctly' for now.
+	*/
+
 	private copyTabDefToRblState(ce: string, tab: string, rows: ITabDefTable, tableName: string) {
 		KatApps.Utils.trace(this, "KatApp", "copyTabDefToRblState", `Copy ${rows.length} rows from ${ce}.${tab}.${tableName}`, TraceVerbosity.Diagnostic);
 
 		const key = `${ce}.${tab}`;
 		if (this.state.rbl.results[key] == undefined) {
-			this.state.rbl.results[key] = {};
+			// this.state.rbl.results = {};
+			this.state.rbl.results = Object.assign({}, this.state.rbl.results, { [key]: {} });
 		}
 
-		this.state.rbl.results[key][tableName] = rows;
-
-		// I was worried a bit about just reassigning the array
-		// if it already existed and was being tracked via reactivity,
-		// so I was using length/push, but I don't think it matters.
-		/*
-		if (this.state.rbl.results[key][tableName] == undefined) {
-			this.state.rbl.results[key][tableName] = rows;
-		}
-		else {
-			const target = (this.state.rbl.results[key][tableName] as []);
-			target.length = 0;
-			target.push(...(rows as []));
-		}
-		*/
+		// this.state.rbl.results[key][tableName] = rows;
+		this.state.rbl.results[key] = Object.assign({}, this.state.rbl.results[key], { [tableName]: rows });
 	}
 
 	private mergeTableToRblState(ce: string, tab: string, rows: ITabDefTable, tableName: string) {
@@ -2261,10 +2325,12 @@ Type 'help' to see available options displayed in the console.`;
 
 		const key = `${ce}.${tab}`;
 		if (this.state.rbl.results[key] == undefined) {
-			this.state.rbl.results[key] = {};
+			// this.state.rbl.results = {};
+			this.state.rbl.results = Object.assign({}, this.state.rbl.results, { [key]: {} });
 		}
 		if (this.state.rbl.results[key][tableName] == undefined) {
-			this.state.rbl.results[key][tableName] = [];
+			// this.state.rbl.results[key][tableName] = [];
+			this.state.rbl.results[key] = Object.assign({}, this.state.rbl.results[key], { [tableName]: [] });
 		}
 		
 		rows.forEach(row => {
@@ -2278,23 +2344,25 @@ Type 'help' to see available options displayed in the console.`;
 
 			const index = this.state.rbl.results[key][tableName].findIndex(r => r["@id"] == row["@id"]);
 
+			// splice - didn't seem needed in rbl.scope, worked with direct assignments/push, but changed anyway
 			if (index > -1) {
-				KatApps.Utils.extend(this.state.rbl.results[key][tableName][index], row);
+				// KatApps.Utils.extend(this.state.rbl.results[key][tableName][index], row);
+				this.state.rbl.results[key][tableName].splice(index, 1, Object.assign({}, this.state.rbl.results[key][tableName][index], row));
 			}
 			else {
-				this.state.rbl.results[key][tableName].push(row);
+				// this.state.rbl.results[key][tableName].push(row);
+				this.state.rbl.results[key][tableName].splice(this.state.rbl.results[key][tableName].length, 0, row);
 			}
 		});
 
+		// Think I 'should' be doing this, but seems to work as is...
+		// this.state.rbl.results[key] = Object.assign({}, this.state.rbl.results[key], { [tableName]: [] });
 		this.state.rbl.results[key][tableName] = this.state.rbl.results[key][tableName].filter(r => r.on != "0");
 	}
 
 	private async processResultsAsync(results: IKaTabDef[], calculationSubmitApiConfiguration: ISubmitApiOptions | undefined): Promise<void> {
 		 KatApps.Utils.trace(this, "KatApp", "processResultsAsync", `Start: ${results.map(r => `${r._ka.calcEngineKey}.${r._ka.name}`).join(", ")}`, TraceVerbosity.Detailed);
 		
-		// Merge these tables into state instead of 'replacing'...
-		const tablesToMerge = ["rbl-disabled", "rbl-display", "rbl-skip", "rbl-value", "rbl-listcontrol", "rbl-input"];
-
 		const processResultColumn = (row: ITabDefRow, colName: string, isRblInputTable: boolean) => {
 			if (typeof (row[colName]) === "object") {
 				KatApps.Utils.trace(this, "KatApp", "processResultColumn", `Convert ${colName} from object to string.`, TraceVerbosity.Diagnostic);
@@ -2328,6 +2396,9 @@ Type 'help' to see available options displayed in the console.`;
 				row[colName] = "";
 			}
 		};
+
+		// Merge these tables into state instead of 'replacing'...
+		const tablesToMerge = ["rbl-disabled", "rbl-display", "rbl-skip", "rbl-value", "rbl-listcontrol", "rbl-input"];
 
 		results.forEach(t => {
 			Object.keys(t)
@@ -2384,14 +2455,6 @@ Type 'help' to see available options displayed in the console.`;
 							}
 						});
 					}
-
-					if (tablesToMerge.indexOf(tableName) == -1) {
-						this.copyTabDefToRblState(t._ka.calcEngineKey, t._ka.name, onRows, tableName);
-					}
-					else {
-						// Pass rows so 'on=0' can be assigned if modified by caller then removed...
-						this.mergeTableToRblState(t._ka.calcEngineKey, t._ka.name, rows, tableName);
-					}
 				});
 
 			(t["rbl-input"] as ITabDefTable ?? []).filter(r => (r["list"] ?? "") != "").map(r => ({ input: r["@id"], list: r["list"]! })).concat(
@@ -2406,6 +2469,42 @@ Type 'help' to see available options displayed in the console.`;
 				}
 			});
 		});
+
+		const processTabDefs = (insideNextTick: boolean) => {
+			results.forEach(t => {
+				Object.keys(t)
+					// No idea how ItemDefs is in here, but not supporting going forward, it was returned by IRP CE but the value was null so it blew up the code
+					.filter(k => {
+						if (k.startsWith("@") || k == "_ka" || k == "ItemDefs") return false;
+
+						const pushToKey = `${t._ka.calcEngineKey}.${t._ka.name}.${k}`;
+						const pushToIndex = this.pushToTables.indexOf(pushToKey);
+
+						if (!insideNextTick && pushToIndex > -1) return false;
+						if (insideNextTick && pushToIndex == -1) return false;
+
+						return true;
+					})
+					.forEach(tableName => {
+						const rows = (t[tableName] as ITabDefTable ?? []);
+						const onRows = rows.filter(r => r.on != "0");
+	
+						if (tablesToMerge.indexOf(tableName) == -1) {
+							this.copyTabDefToRblState(t._ka.calcEngineKey, t._ka.name, onRows, tableName);
+						}
+						else {
+							// Pass rows so 'on=0' can be assigned if modified by caller then removed...
+							this.mergeTableToRblState(t._ka.calcEngineKey, t._ka.name, rows, tableName);
+						}
+					});
+			});
+		}
+
+		processTabDefs(false);
+		await PetiteVue.nextTick(() => {
+			processTabDefs(true);
+		});
+		this.pushToTables = [];
 
 		await this.processDataUpdateResultsAsync(results, calculationSubmitApiConfiguration);
 		this.processDocGenResults(results);

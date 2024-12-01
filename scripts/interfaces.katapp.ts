@@ -253,7 +253,6 @@ interface IValidationRow {
 }
 interface IStateRbl {
 	results: IStringIndexer<IStringIndexer<Array<ITabDefRow>>>;
-	options: { calcEngine?: string, tab?: string };
 
 	source: <T extends ITabDefRow>(table: string, calcEngine?: string, tab?: string, predicate?: (row: T) => boolean) => Array<T>;
 	exists: <T extends ITabDefRow>(table: string, calcEngine?: string, tab?: string, predicate?: (row: T) => boolean) => boolean;
@@ -262,7 +261,8 @@ interface IStateRbl {
 	number: (table: string, keyValue: string, returnField?: string, keyField?: string, calcEngine?: string, tab?: string) => number;
 	boolean: (table: string, keyValue: string, returnField?: string, keyField?: string, calcEngine?: string, tab?: string, valueWhenMissing?: boolean) => boolean;
 
-	pushTo: (tabDef: ITabDef, table: string, rows: ITabDefRow | Array<ITabDefRow>) => void;
+	mergeRows: (resultTabDef: ITabDef, table: string, rows: ITabDefRow | Array<ITabDefRow>) => void;
+	pushTo: (table: string, rows: ITabDefRow | Array<ITabDefRow>, calcEngine?: string, tab?: string) => void;
 }
 
 
