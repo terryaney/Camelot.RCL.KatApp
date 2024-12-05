@@ -463,6 +463,7 @@ interface IKaModalModel extends IModalOptions {
 	confirmedAsync?: (response: unknown | undefined, application: KatApp) => Promise<void>;
 	cancelledAsync?: (response: unknown | undefined, application: KatApp) => Promise<void>;
 	catchAsync?: (e: unknown | undefined, application: KatApp) => Promise<void>;
+	closed?: (application: KatApp) => void;
 	model?: string;
 }
 interface IKaAppModel {

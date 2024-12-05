@@ -52,6 +52,11 @@
 								Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} failed.`, TraceVerbosity.None, e);
 							}
 						}
+						finally {
+							if (scope.closed != undefined) {
+								scope.closed(application);
+							}
+						}
 					};
 
 					if (ctx.el.tagName == "A") {
