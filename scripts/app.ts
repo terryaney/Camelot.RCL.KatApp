@@ -1039,7 +1039,7 @@ Type 'help' to see available options displayed in the console.`;
 								const options = response.split(",")
 									.map(r => r.trim())
 									.map(r => isNaN(+r)
-										? inspectorMappings.find(m => m.name == r) ?? { class: `ka-inspector-${r}` }
+										? inspectorMappings.find(m => m.name == r) ?? { name: r, class: `ka-inspector-${r}` }
 										: (+r < inspectorMappings.length ? inspectorMappings[+r] : undefined)
 									);
 
@@ -2357,7 +2357,9 @@ Type 'help' to see available options displayed in the console.`;
 
 		// Think I 'should' be doing this, but seems to work as is...
 		// this.state.rbl.results[key] = Object.assign({}, this.state.rbl.results[key], { [tableName]: [] });
-		this.state.rbl.results[key][tableName] = this.state.rbl.results[key][tableName].filter(r => r.on != "0");
+		// UPDATE: Removed this, clients using KatApp should no longer set on=0, simply remove the row via splice themselves if needed.
+		//			on=0 never makes it out of RBLe api, so this seems wonky to be doing here.
+		// this.state.rbl.results[key][tableName] = this.state.rbl.results[key][tableName].filter(r => r.on != "0");
 	}
 
 	private async processResultsAsync(results: IKaTabDef[], calculationSubmitApiConfiguration: ISubmitApiOptions | undefined): Promise<void> {
@@ -2406,12 +2408,11 @@ Type 'help' to see available options displayed in the console.`;
 				.filter(k => !k.startsWith("@") && k != "_ka" && k != "ItemDefs")
 				.forEach(tableName => {
 					const rows = (t[tableName] as ITabDefTable ?? []);
-					const onRows = rows.filter(r => r.on != "0");
-					if (onRows.length > 0) {
+					if (rows.length > 0) {
 						const isRblInputTable = tableName == "rbl-input";
-						const colNames = Object.keys(onRows[0]);
+						const colNames = Object.keys(rows[0]);
 
-						onRows.forEach(r => {
+						rows.forEach(r => {
 							colNames.forEach(c => processResultColumn(r, c, isRblInputTable))
 
 							switch (tableName) {
@@ -2487,10 +2488,9 @@ Type 'help' to see available options displayed in the console.`;
 					})
 					.forEach(tableName => {
 						const rows = (t[tableName] as ITabDefTable ?? []);
-						const onRows = rows.filter(r => r.on != "0");
 	
 						if (tablesToMerge.indexOf(tableName) == -1) {
-							this.copyTabDefToRblState(t._ka.calcEngineKey, t._ka.name, onRows, tableName);
+							this.copyTabDefToRblState(t._ka.calcEngineKey, t._ka.name, rows, tableName);
 						}
 						else {
 							// Pass rows so 'on=0' can be assigned if modified by caller then removed...
