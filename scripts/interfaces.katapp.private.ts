@@ -24,13 +24,11 @@ interface IManualTabDef extends IStringIndexer<string | undefined | ITabDefTable
 }
 interface ITabDef extends IStringIndexer<ITabDefTable> { }
 interface ITabDefTable extends Array<ITabDefRow> { }
-interface ITabDefRow extends IStringIndexer<string> { }
-interface ITabDefRowWithNulls extends IStringIndexer<string | undefined> { }
-interface ITabDefMetaRow extends IStringIndexer<string | IStringIndexer<string>> { }
-
-interface IRblHighChartsOverrideRow extends IRblHighChartsOptionRow {
-	"@id": string;
+interface ITabDefRow extends IStringIndexer<string | undefined> {
+	id?: string;
 }
+interface ITabDefMetaRow extends IStringIndexer<string | undefined | IStringIndexer<string>> { }
+
 interface IRblHighChartsOptionRow extends ITabDefRow {
 	key: string;
 	value: string;
@@ -45,8 +43,6 @@ interface IHighChartsPlotConfigurationRow {
 	plotLine: string;
 	plotBand: string;
 }
-
-
 
 interface ITabDefKatAppInfo {
 	calcEngineKey: string;

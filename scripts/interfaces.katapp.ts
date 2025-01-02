@@ -211,7 +211,7 @@ interface IState {
 	isDirty: boolean | undefined;
 	/**
 	 * Indicates if application is in the 'state' to submit to server for processing.  It returns true
-	 * when the following scenario is valid: isDirty && !uiBlocked && errors.filter( r => r['@id'].startsWith('i')).length == 0 (no UI errors)
+	 * when the following scenario is valid: isDirty && !uiBlocked && errors.filter( r => r.id.startsWith('i')).length == 0 (no UI errors)
 	 */
 	canSubmit: ( whenInputsHaveChanged: boolean | undefined ) => boolean;
 
@@ -245,7 +245,7 @@ interface IState {
 	onAny: (...values: Array<undefined | string | number>) => boolean;
 }
 interface IValidationRow {
-	"@id": string;
+	id: string;
 	text: string;
 	dependsOn?: string;
 	event?: string;

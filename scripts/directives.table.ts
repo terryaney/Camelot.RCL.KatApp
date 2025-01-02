@@ -58,7 +58,7 @@
 
 						const isHeaderRow = (row: ITabDefRow) => {
 							const code = row["code"] ?? "";
-							const id = row["@id"] ?? "";
+							const id = row.id ?? "";
 							return (code === "h" || code.startsWith("header") || code.startsWith("hdr")) ||
 								(id === "h" || id.startsWith("header") || id.startsWith("hdr"));
 						};

@@ -32,7 +32,7 @@
 					const scope: IKaHighchartModel = ctx.get();
 					const data = application.state.rbl.source(`HighCharts-${scope.data}-Data`, scope.ce, scope.tab) as Array<IRblHighChartsDataRow>;
 					const optionRows = application.state.rbl.source<IRblHighChartsOptionRow>(`HighCharts-${scope.options ?? scope.data}-Options`, scope.ce, scope.tab);
-					const overrideRows = application.state.rbl.source<IRblHighChartsOverrideRow>("HighCharts-Overrides", scope.ce, scope.tab, r => String.compare(r["@id"], scope.data, true) == 0);
+					const overrideRows = application.state.rbl.source<IRblHighChartsOptionRow>("HighCharts-Overrides", scope.ce, scope.tab, r => String.compare(r.id, scope.data, true) == 0);
 
 					const dataRows = data.filter(r => !r.category.startsWith("config-"));
 					const seriesConfigurationRows = data.filter(r => r.category.startsWith("config-"));
@@ -90,7 +90,7 @@
 			};
 		}
 
-		private getChartOptions(chartType: string | undefined, tooltipFormat: string | undefined, dataRows: IRblHighChartsDataRow[], optionRows: IRblHighChartsOptionRow[], overrideRows: IRblHighChartsOverrideRow[], seriesConfigurationRows: IRblHighChartsDataRow[]) {
+		private getChartOptions(chartType: string | undefined, tooltipFormat: string | undefined, dataRows: IRblHighChartsDataRow[], optionRows: IRblHighChartsOptionRow[], overrideRows: IRblHighChartsOptionRow[], seriesConfigurationRows: IRblHighChartsDataRow[]) {
 			const chartOptions: HighchartsOptions = {};
 
 			// First set all API properties from the options/overrides rows (options first, then overrides to replace/append)

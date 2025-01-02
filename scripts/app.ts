@@ -279,7 +279,7 @@ class KatApp implements IKatApp {
 			const tab = args.length >= 6 ? args[5] : undefined;
 
 			return getResultTableRows(table, calcEngine, tab)
-					.find(r => r[keyField ?? "@id"] == keyValue)?.[returnField ?? "value"];
+					.find(r => r[keyField ?? "id"] == keyValue)?.[returnField ?? "value"];
 		}
 
 		const isTrue = (v: any) => {
@@ -308,9 +308,9 @@ class KatApp implements IKatApp {
 			const toPush = rows instanceof Array ? rows : [rows];
 
 			toPush.forEach((row, i) => {
-				row["@id"] = row["@id"] ?? "_pushId_" + (t.length + i);
+				row.id = row.id ?? "_pushId_" + (t.length + i);
 
-				const index = t.findIndex(r => r["@id"] == row["@id"]);
+				const index = t.findIndex(r => r.id == row.id);
 				if (index > -1) {
 					// t[index] = row;
 					t.splice(index, 1, row);
@@ -339,7 +339,7 @@ class KatApp implements IKatApp {
 				}
 			},
 			uiBlocked: false,
-			canSubmit( whenInputsHaveChanged ) { return ( whenInputsHaveChanged ? this.inputsChanged : this.isDirty! ) && this.errors.filter( r => r['@id'].startsWith('i')).length == 0 && !this.uiBlocked; },
+			canSubmit( whenInputsHaveChanged ) { return ( whenInputsHaveChanged ? this.inputsChanged : this.isDirty! ) && this.errors.filter( r => r.id.startsWith('i')).length == 0 && !this.uiBlocked; },
 			needsCalculation: false,
 
 			inputs: KatApps.Utils.extend(
@@ -1567,13 +1567,13 @@ Type 'help' to see available options displayed in the console.`;
 
 			if (errorResponse.errors != undefined) {
 				for (var id in errorResponse.errors) {
-					this.state.errors.push({ "@id": id, text: this.getLocalizedString(errorResponse.errors[id][0])!, dependsOn: errorResponse.errorsDependsOn?.[id] });
+					this.state.errors.push({ id: id, text: this.getLocalizedString(errorResponse.errors[id][0])!, dependsOn: errorResponse.errorsDependsOn?.[id] });
 				}
 			}
 
 			if (errorResponse.warnings != undefined) {
 				for (var id in errorResponse.warnings) {
-                    this.state.warnings.push({ "@id": id, text: this.getLocalizedString(errorResponse.warnings[id][0])!, dependsOn: errorResponse.warningsDependsOn?.[id] });
+                    this.state.warnings.push({ id: id, text: this.getLocalizedString(errorResponse.warnings[id][0])!, dependsOn: errorResponse.warningsDependsOn?.[id] });
 				}
 			}
 
@@ -1598,8 +1598,8 @@ Type 'help' to see available options displayed in the console.`;
 	private addUnexpectedError(errorResponse: any): void {
 		this.state.errors.push(
 			errorResponse.requestId != undefined
-				? { "@id": "System", text: this.getLocalizedString("KatApps.AddUnexpectedErrorWithRequestId", errorResponse, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.  Please contact Customer Service and provide the following Request ID: {{requestId}}")! }
-				: { "@id": "System", text: this.getLocalizedString("KatApps.AddUnexpectedError", undefined, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.")! }
+				? { id: "System", text: this.getLocalizedString("KatApps.AddUnexpectedErrorWithRequestId", errorResponse, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.  Please contact Customer Service and provide the following Request ID: {{requestId}}")! }
+				: { id: "System", text: this.getLocalizedString("KatApps.AddUnexpectedError", undefined, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.")! }
 		);
 	}
 
@@ -2335,14 +2335,14 @@ Type 'help' to see available options displayed in the console.`;
 		
 		rows.forEach(row => {
 			if (tableName == "rbl-skip") {
-				row["@id"] = row.key;
+				row.id = row.key;
 				// Legacy support...didn't have ability to turn on and off, so if they don't have value column, imply that it is on
 				if (row.value == undefined) {
 					row.value = "1";
 				}
 			}
 
-			const index = this.state.rbl.results[key][tableName].findIndex(r => r["@id"] == row["@id"]);
+			const index = this.state.rbl.results[key][tableName].findIndex(r => r.id == row.id);
 
 			// splice - didn't seem needed in rbl.scope, worked with direct assignments/push, but changed anyway
 			if (index > -1) {
@@ -2390,7 +2390,7 @@ Type 'help' to see available options displayed in the console.`;
 			if (isRblInputTable && value == "" && (row["@" + colName] as unknown as IStringIndexer<string>)?.["@text-forced"] != "true") {
 				// For rbl-input (which is special table), I want any 'blanks' to be returned as undefined, any other table, I always want '' in there
 				// so Kaml Views don't always have to code undefined protection code
-				(row as ITabDefRowWithNulls)[colName] = undefined;
+				row[colName] = undefined;
 			}
 
 			// Make sure every row has every property that is returned in the *first* row of results...b/c RBL service doesn't export blanks after first row
@@ -2417,19 +2417,19 @@ Type 'help' to see available options displayed in the console.`;
 
 							switch (tableName) {
 								case "rbl-defaults":
-									this.setInputValue(r["@id"], r["value"]);
+									this.setInputValue(r.id!, r["value"]);
 									break;
 
 								case "rbl-input":
 									if (r["value"] != undefined) {
-										this.setInputValue(r["@id"], r["value"]);
+										this.setInputValue(r.id!, r["value"]);
 									}
 									if ((r["error"] ?? "") != "") {
-										const v: IValidationRow = { "@id": r["@id"], text: this.getLocalizedString(r.error)!, dependsOn: r.dependsOn };
+										const v: IValidationRow = { id: r.id!, text: this.getLocalizedString(r.error)!, dependsOn: r.dependsOn };
 										this.state.errors.push(v);
 									}
 									if ((r["warning"] ?? "") != "") {
-										const v: IValidationRow = { "@id": r["@id"], text: this.getLocalizedString(r.warning)!, dependsOn: r.dependsOn };
+										const v: IValidationRow = { id: r.id!, text: this.getLocalizedString(r.warning)!, dependsOn: r.dependsOn };
 										this.state.warnings.push(v);
 									}
 									break;
@@ -2449,8 +2449,8 @@ Type 'help' to see available options displayed in the console.`;
 									// export = -1 = don't export table and also clear out in Vue state
 									// export = 0 = don't export table but leave Vue state
 									// export = 1 = try export table and if empty, clear Vue state
-									if ((r["export"] == "-1" || r["export"] == "1") && t[r["@id"]] == undefined) {
-										this.copyTabDefToRblState(t._ka.calcEngineKey, t._ka.name, [], r["@id"]);
+									if ((r["export"] == "-1" || r["export"] == "1") && t[r.id!] == undefined) {
+										this.copyTabDefToRblState(t._ka.calcEngineKey, t._ka.name, [], r.id!);
 									}
 									break;
 							}
@@ -2458,8 +2458,8 @@ Type 'help' to see available options displayed in the console.`;
 					}
 				});
 
-			(t["rbl-input"] as ITabDefTable ?? []).filter(r => (r["list"] ?? "") != "").map(r => ({ input: r["@id"], list: r["list"]! })).concat(
-				(t["rbl-listcontrol"] as ITabDefTable ?? []).map(r => ({ input: r["@id"], list: r["table"]! }))
+			(t["rbl-input"] as ITabDefTable ?? []).filter(r => (r["list"] ?? "") != "").map(r => ({ input: r.id!, list: r.list! })).concat(
+				(t["rbl-listcontrol"] as ITabDefTable ?? []).map(r => ({ input: r.id!, list: r.table! }))
 			).forEach(r => {
 				if (t[r.list] != undefined) {
 					const values = (t[r.list] as Array<IKaInputModelListRow>).map(l => l.key);
@@ -2520,9 +2520,9 @@ Type 'help' to see available options displayed in the console.`;
 		results
 			.forEach(t => {
 				(t["jwt-data"] as ITabDefTable ?? [])
-					.filter(r => r["@id"] == "data-updates")
+					.filter(r => r.id == "data-updates")
 					.forEach(r => {
-						jwtPayload.DataTokens.push({ Name: r["@id"], Token: r["value"] });
+						jwtPayload.DataTokens.push({ Name: r.id!, Token: r.value! });
 					});
 			});
 
@@ -2570,7 +2570,7 @@ Type 'help' to see available options displayed in the console.`;
 					 KatApps.Utils.trace(this, "KatApp", "processDocGenResults", `DocGen Instruction Exception: ${fileName ?? 'File Not Availble'}, ${r.exception})`, TraceVerbosity.None);
 				}
 				else {
-					const base64 = r["content"];
+					const base64 = r.content!;
 					const contentType = r["content-type"];
 					const blob = base64toBlob(base64, contentType);
 					this.downloadBlob(blob);
