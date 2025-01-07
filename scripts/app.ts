@@ -1085,7 +1085,7 @@ Type 'help' to see available options displayed in the console.`;
 		
 		const modal = $(
 			`<div v-scope class="modal fade kaModal" tabindex="-1" aria-modal="true" aria-labelledby="kaModalLabel" role="dialog" data-bs-backdrop="static"
-				:data-bs-keyboard="application.options.modalAppOptions.labels.title != undefined && application.options.modalAppOptions.allowKeyboardDismiss != false"
+				:data-bs-keyboard="application.options.modalAppOptions.allowKeyboardDismiss"
 				data-view-name="${viewName}">\
                 
 				<div class="modal-dialog">\
