@@ -2379,7 +2379,7 @@ Type 'help' to see available options displayed in the console.`;
 				Object.keys(metaSource)
 					.filter(k => k != "#text")
 					.forEach(p => {
-						metaDest[p] = metaSource[p];
+						metaDest[p.substring(1)] = metaSource[p];
 					});
 
 				row[colName] = metaSource["#text"] ?? "";
