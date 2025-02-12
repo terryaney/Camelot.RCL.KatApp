@@ -301,7 +301,14 @@ class KatApp implements IKatApp {
 			}
 
 			if (resultTabDef[table] == undefined) {
-				resultTabDef = Object.assign({}, resultTabDef, { [table]: [] });
+				// See comment in copyTabDefToRblState and commits around 11/27/2024-12/1/2024, seems nextTick inside
+				// processTabDefs fixes issues with everything but I commented that I left everything coded for tables
+				// based on how https://v2.vuejs.org/v2/guide/reactivity.html#For-Arrays mentions to do it.
+				// The problem with this is I reassign resultTabDef which doesn't affect the REAL table in the results
+				// it makes a new object.  I had the following:
+				// 	resultTabDef = Object.assign({}, resultTabDef, { [table]: [] });
+				// but I think since resultTabDef is already under reactivity, I am safe to just assign a property to a new array
+				resultTabDef[table] = [];
 			}
 			const t = resultTabDef[table];
 
