@@ -1,0 +1,45 @@
+﻿@*
+Removed route from page directive, so when I use anchor tag with page=/KatApp/Host it 
+uses configured route from KatAppConfigurationOptions/RazorPagesOptions, otherwise it just did /?viewId=
+*@
+
+@page
+
+@* Need using for Razor.RuntimeCompliation to work :( *@
+@using KAT.Camelot.RCL.KatApp.Pages.KatApp
+
+@model Host
+
+@* If these sections ever become more complex and there are multiple pages rendering, the content of each section could be in a partial, I couldn't figure out any other way to do this *@
+@section RCL_Css {
+	@if ( Model.Data.Options.RenderKatAppCss )
+	{
+    <link rel="stylesheet" href="~/_content/RCL.KatApp/css/common.css" type="text/css" asp-append-version="true"/>
+    <link rel="stylesheet" href="~/_content/RCL.KatApp/css/inputs.css" type="text/css" asp-append-version="true"/>
+	}
+}
+@section RCL_Scripts {
+	@if ( Model.Data.Options.RenderKatAppJs )
+	{
+	<script type="text/javascript" src="~/_content/RCL.KatApp/js/KatApp.js" asp-append-version="true"></script>
+	<script type="text/javascript" src="~/_content/RCL.KatApp/js/petite-vue.js" asp-append-version="true"></script>
+	}
+    <script type="text/javascript" src="~/_content/RCL.KatApp/js/RCL.js" asp-append-version="true"></script>
+}
+
+<div class="katapp-host">
+	<div class="loader-container"><span class='loader'></span></div>
+	
+	<div class="app-container" style="display: none;">
+        <vc:kat-app name="katapp" view-id="@Model.Data.ViewId" />
+	    @await Html.PartialAsync( "Host.AdditionalAppContent" )
+	</div>
+
+	<section class="validation-container" style="display: none;">
+		<div class="container-xxl">
+			<div class="row">
+				<div class="col-12 summary-container"></div>
+			</div>
+		</div>
+	</section>
+</div>

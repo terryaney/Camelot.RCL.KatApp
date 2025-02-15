@@ -1,0 +1,224 @@
+﻿<rbl-config templates="Nexgen:Templates.Shared,Nexgen:Templates.Profile.Shared,Nexgen:Templates.Pension.Shared">
+	<calc-engine key="Home" name="Conduent_Nexgen_Home_SE" result-tabs="RBLHome"></calc-engine>
+</rbl-config>
+
+<style>
+	input.is-invalid {
+		background-color: red;
+	}
+</style>
+<script>
+	(function () {
+		var application = KatApp.get("{id}");
+
+		application.configure((config, rbl, model, inputs, handlers) => {
+			config.model = {
+				count: 1,
+				list: ["terry", "tom", "tim"]
+			};
+
+			config.handlers = {
+				change: function (e) {
+					console.log("Custom handlers.change change event for " + $(e.target).attr("name"));
+				}
+			};
+
+			config.events = {
+				updateApiOptions: submitApiOptions => {
+					// POC: How to add custom inputs/tables
+					submitApiOptions.inputs.iMyCustomInput = "POC";
+					submitApiOptions.inputs.tables.push({
+						name: "MyCustomTable",
+						rows: [
+							{ index: "ABC", value: "XYZ" }
+						]
+					});
+
+					// POC: How to assign CacheRefreshKeys
+					submitApiOptions.configuration.cacheRefreshKeys = submitApiOptions.inputs.iConfigureUI == 1 
+						? ["hwEventHistory", "hwBenefitHistory", "hwCoverages?isTemp=true"] 
+						: undefined;
+				}
+			};
+		});
+	})();
+	//# sourceURL=Nexgen.Vue.POC.kaml
+</script>
+
+<div v-effect="console.log('v-effect happened'); $el.textContent = model.count"></div>
+
+<template v-if="1==1">
+	<h3>v-if on a 'template' element</h3>
+</template>
+<p>POC: css for h1.title coming from &gt;style> block in template file</p>
+<h1 class="title">This Should be hidden if styles from templates works</h1>
+
+<p>POC: Button with @click event calling a 'global' javascript function and using props from 'custom' model</p>
+<button type="button" class="btn btn-primary btn-md" @click="addName('{id}', 'val')">Click Me {{ model.count }}</button>
+<br />
+
+<p>POC: Just raw dump of model properties/objects</p>
+Inputs: {{inputs}}
+<br />
+Disabled: {{rbl.disabled}}
+<br />
+Values: {{rbl.values}}
+<br />
+Displays: {{rbl.displays}}
+<br />
+No Calcs: {{rbl.noCalcs}}
+<br />
+
+<p>POC: Using custom model properties</p>
+Count: {{model.count}}
+<ul>
+	<li v-for="n in model.list">{{n}}</li>
+</ul>
+
+<p>POC: v-ka-navigate instead of rbl-navigate</p>
+<p><a v-ka-navigate="{ view: 'Channel.Home', inputs: { iNavigateInput: 'hello' }, persistInputs: true }">Navigate Channel.Home</a></p>
+<p><a v-ka-navigate="Channel.Home">Navigate Channel_Home->Channel.Home</a></p>
+
+<p>POC: Sample 'ajax' blocker hooked to 'uiBlocked' (change input to see it display)</p>
+<div v-if="uiBlocked" style="background-color: red; color: white; font-weight: bold"><h3>Calculating...</h3></div>
+<p>POC: Using Input Templates</p>
+<ul>
+	<li>Calling input templates 'without' a data source/v-for</li>
+	<li>Take note of available core functionality - :name, :id, :type, :class, :disabled, ref, mounted/unmounted, :for, <span v-pre>{{label}}</span></li>
+	<li>City: Skips calc with rbl-nocalc class (changing input shouldn't send calc, but input model is updated)</li>
+	<li>City: Custom isDisabled method for an input and uses base.disabled feature of InputComponent (disabled if First Name=Terry)</li>
+	<li>All inputs use @change="handlers.change" demonstration to hook custom events</li>
+</ul>
+<div class="rbl-nocalc" v-scope="components.input('ka-textbox', { name: 'iFirstName' })"></div>
+<div v-scope="components.input('ka-textbox', { name: 'iAddress1', label: 'Float Address 1'})"></div>
+<div v-scope="components.input('ka-textbox', { name: 'iAddress2' })"></div>
+<div class="rbl-nocalc">
+	<div v-scope="components.input('ka-textbox', {name: 'iCity', label: 'City', isDisabled: base => inputs.iFirstName =='Terry' || base.disabled })"></div>
+</div>
+<p>POC: Using input() component directly instead of input()</p>
+<input v-scope="components.input({ name: 'iInputComponent', value: 'Default IC Value' })" :value="value" :name="name" :id="id" :type="type" :class="'form-control ' + name + ' ' + ( error != undefined ? 'is-invalid' : '' )" :disabled="disabled"
+	   @change="handlers.change" placeholder="Fill">
+<p>POC: Using v-ka-input for iPhoneNumber (changing updates inputs and calculates)</p>
+<input v-ka-input="iPhoneNumber" type="text" value="iPhoneNumber" class="form-control" />
+<p>POC: Using v-ka-input for iMobileNumber using scope containing name and isNoCalc (changing updates inputs and calculates)</p>
+<input v-ka-input="{ name: 'iMobileNumber', isNoCalc: base => base.noCalc }" type="text" value="iMobileNumber" class="form-control" />
+<p>POC: Using v-ka-input for iWorkNumber and rbl-nocalc (changing updates inputs and but does <b>not</b> calculate)</p>
+<input v-ka-input="iWorkNumber" type="text" value="iWorkNumber" class="form-control rbl-nocalc" />
+
+<!-- POC: Input template, take note of available core functionality - :value, :name, :id, :type, :class, :disabled, ref, mounted/unmounted, :for, {{label}} -->
+<template id="ka-textbox">
+	<div class="form-floating mb-3" v-if="display">
+		<input :value="value" :name="name" :id="id" :type="type" :class="['form-control', name, ( error != undefined ? 'is-invalid' : '' )]" :disabled="disabled"			   
+			   @change="handlers.change" placeholder="Fill">
+		<label :for="name" v-html="label"></label>
+	</div>
+</template>
+
+<p>POC: Grabbing a 'rbl-value'</p>
+<div class="copyright small mb-4 text-nowrap text-muted-dark" v-html="rbl.value('keyValue', 'copyright')"></div>
+
+<p>POC: Using an inputTemplate to create dynamic inputs while inside a v-for</p>
+<h3>Dynamic Inputs</h3>
+<div v-for="n in model.list" :key="n">
+	<div v-scope="components.input('ka-textbox', { name: 'iDynamicGet' + n, label: 'Dynamic Input for ' + n })"></div>
+</div>
+
+<p>POC: Using v-for to display calcuation results (using rbl.source('coveredDependents') method) and also using in-built 'index' property</p>
+<div v-for="(a, index) in rbl.source('coveredDependents')">
+	<div>Dependent {{index}}</div>
+	<div>{{a.nameFirst}} ({{a.relationship}})</div>
+	<div>Coverage Type: {{a.benefitName}}</div>
+	<div v-if="a.benefitType=='DENTAL'">
+		<div>POC: v-if to show DENTAL tip</div>
+		<div>Keep Your Teeth Clean!</div>
+	</div>
+	<div>Born: {{a.birthDate}}</div>
+	<div v-if="index!=rbl.source('coveredDependents').length-1">
+		<br />
+	</div>
+</div>
+
+<p>POC: v-for to display results from specified CalcEngine (BRD in this case)</p>
+<h3>BRD keyValue</h3>
+<div class="kv" v-for="r in rbl.source('keyValue', 'BRD')" :key="r['@id']">
+	<div v-html="r['@id'] + ':' + r.value"></div>
+</div>
+
+<p>POC: v-for *inside* template markup instead of parent where v-scope is defined, couldn't figure out a better way'</p>
+<h3>Template in v-for</h3>
+<div v-scope="components.template({name: 'myTemplate', source: rbl.source('keyValue', 'BRD')})"></div>
+
+<p>POC: Using v-for to display calcuation results and filter them before processing</p>
+<h3>Template in v-for (filter @id.startsWith('site'))</h3>
+<div v-scope="components.template({name: 'myTemplate', source: rbl.source('keyValue', 'BRD').filter( row => row[ '@id' ].startsWith( 'site' ) )})"></div>
+
+<template id="myTemplate">
+	<template v-for="r in rows">
+		<!-- POC: If only one element rendering (i.e. template markup has a 'single' parent), could put the v-for right on that element
+					but put a nested template inside the template so that it renders 'two' elements for every r in rows without the need
+					for a 'container' element if I don't want one
+		-->
+		<div v-html="r['@id'] + ':' + r.value + ':' + rbl.value('rbl-value', 'liFirstName') + '<br/>'"></div>
+		<input type="text" :name="'iTemplateWithChange' + r['@id']" value="" @change="handlers.change" />
+	</template>
+</template>
+
+<p>POC: Calling custom templates during v-for loop, change list with KatApp.get(0).state.model.list = ["terry", ...]</p>
+<h3>Dynamic Template Names</h3>
+<div v-for="k in model.list" :key="k">
+	<div v-scope="components.template({name: 'myTemplate' + k, source: { name: 'For-' + k }})"></div>
+</div>
+
+<template id="myTemplateterry">
+	<style>
+		thisApplication h3 { color: red; }
+	</style>
+
+	<!-- POC: Sample script to run only the first time this template is used ('setup' attribute triggered) - replaces temlateOn() -->
+	<script setup type="text/javascript">
+		function mounted(application) {
+			console.log("setup templateMounted");
+			application.select("input").on("input.nexgen-once", function () {
+				console.log("One time mount:change - " + $(this).attr("name"));
+			});
+		}
+		function unmounted(application) {
+			console.log("setup templateUnmounted");
+			application.select("input").off("input.nexgen-once");
+		}
+	</script>
+	<!-- POC: Sample script to run only the *every* time this template is used (no 'setup' attribute present) - replaces temlateOn() -->
+	<script type="text/javascript">
+		function mounted(application) {
+			console.log("templateMounted");
+			application.select("input").on("input.nexgen", function () {
+				console.log("Every time mount:change - " + $(this).attr("name"));
+			});
+		}
+		function unmounted(application) {
+			console.log("templateUnmounted");
+			application.select("input").off("input.nexgen");
+		}
+	</script>
+	<div>Template Terry Value: {{name}}</div>
+
+	<p>POC: v-ka-input with custom name (iCountry+name)</p>
+	<input v-ka-input="{name: 'iCountry' + name}" type="text" :value="'iCountry' + name" class="form-control" @change="handlers.change" />
+</template>
+
+<!-- POC: Just 'basic' templates that are used for 'Dynamic Template Names' example -->
+<template id="myTemplatetom">
+	<div>Template Tom Value: {{name}}</div>
+</template>
+<template id="myTemplatetim">
+	<div>Template Tim Value: {{name}}</div>
+</template>
+<template id="myTemplatesis">
+	<div>Template Sis Value: {{name}}</div>
+</template>
+<template id="myTemplateval">
+	<div>Template Val Value: {{name}}</div>
+</template>
+<template id="myTemplatevic">
+	<div>Template Vic Value: {{name}}</div>
+</template>

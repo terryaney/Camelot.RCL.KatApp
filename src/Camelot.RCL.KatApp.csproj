@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+	<PropertyGroup>
+		<TargetFramework>net7.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<PackageId>RCL.KatApp</PackageId>
+		<RootNamespace>KAT.Camelot.RCL.KatApp</RootNamespace>
+		<AssemblyName>KAT.Camelot.RCL.KatApp</AssemblyName>
+		<KATVersionPrefix>1.0.*</KATVersionPrefix>
+		<AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+	</PropertyGroup>
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="7.0.20" />
+		<!-- 
+		Had to add System.Security.Cryptography.Pkcs for Razor.RuntimeCompliation to work:
+		https://stackoverflow.com/questions/69919514/when-upgrading-to-net-6-web-project-throws-runtime-exception
+		-->
+		<PackageReference Include="System.Security.Cryptography.Pkcs" Version="7.0.3" />
+		<PackageReference Include="FastEndpoints" Version="5.32.0" />
+		<PackageReference Include="Serilog.AspNetCore" Version="7.0.0" />
+	</ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\Core\Domain\src\Camelot.Domain.csproj" />
+		<ProjectReference Include="..\..\..\Core\Domain.Web\src\Camelot.Domain.Web.csproj" />
+		<ProjectReference Include="..\..\..\Core\Infrastructure.Web\src\Camelot.Infrastructure.Web.csproj" />
+	</ItemGroup>
+	<Target Name="CompileTypeScript" BeforeTargets="Build">
+		<Message Importance="high" Text="Compiling TypeScript files" />
+		<Exec Command="tsc --project $(MSBuildProjectDirectory)\tsconfig.json" WorkingDirectory="$(MSBuildProjectDirectory)"/>
+		<Exec Command="tsc --project $(MSBuildProjectDirectory)\tsconfig.d.json" WorkingDirectory="$(MSBuildProjectDirectory)"/>
+		<Exec Command="npm run uglify" WorkingDirectory="$(MSBuildProjectDirectory)"/>
+	</Target>
+</Project>

@@ -1,0 +1,15 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		// "composite": true,
+		"outFile": "./typescript/@types/katapp.js",      /* Concatenate and emit output to single file. */
+        "declaration": true,
+		"emitDeclarationOnly": true,
+		"removeComments": false,
+
+		// performance enhancement
+		"disableSolutionSearching": true,
+		"skipLibCheck": true,
+		"skipDefaultLibCheck": true,
+	}
+}

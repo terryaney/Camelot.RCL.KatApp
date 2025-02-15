@@ -1,0 +1,171 @@
+using KAT.Camelot.Domain.Configuration;
+using KAT.Camelot.Domain.Extensions;
+using KAT.Camelot.Domain.Security.Cryptography;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
+using System.Net;
+using System.Text.RegularExpressions;
+
+namespace KAT.Camelot.RCL.KatApp.ViewComponents;
+
+public class KatApp : ViewComponent
+{
+	private readonly KatAppHelper katAppHelper;
+	private readonly IKatAppOptionsProvider optionsProvider;
+	private readonly IGlobalSiteSettings globalSiteSettings;
+	private readonly IHttpContextAccessor httpContextAccessor;
+
+	public KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, IGlobalSiteSettings globalSiteSettings, IHttpContextAccessor httpContextAccessor )
+    {
+		this.katAppHelper = katAppHelper;
+		this.optionsProvider = optionsProvider;
+		this.globalSiteSettings = globalSiteSettings;
+		this.httpContextAccessor = httpContextAccessor;
+	}
+
+	static readonly Regex katDataStoreEndpointRegex = new( @"{[^}]+}", RegexOptions.Compiled );
+
+    public IViewComponentResult Invoke( string name, string viewId, string? css = null )
+	// public async Task<IViewComponentResult> InvokeAsync( string name, string viewId, string? css = null )
+    {
+        var katAppId = name.ToLower().Replace( ".", "-" );
+        var view = optionsProvider.GetKatAppByView( viewId )!;
+        viewId = (string)view[ "id" ]!;
+        
+        // TODO: Put these into MyKeep schema and properties
+        var calculationEndpoint = "api/rble/calculation";
+        var verifyKatAppEndpoint = "api/katapp/verify";
+		// KatApp Framework expects to find a 'name' token
+        var katDataStoreEndpoint = katDataStoreEndpointRegex.Replace( $"{optionsProvider.KatDataStoreEndpoint}{KAT.Camelot.Abstractions.Api.Contracts.DataLocker.V1.ApiEndpoints.KatApps.Download}", "{name}" );
+		
+		var anchoredQueryString = !string.IsNullOrEmpty( httpContextAccessor.HttpContext!.Request.QueryString.ToString() )
+			? QueryHelpers.ParseQuery( httpContextAccessor.HttpContext!.Request.QueryString.Value )
+				.SelectMany( x => x.Value, ( col, value ) => $"{col.Key}={WebUtility.UrlDecode( value )}" )
+				.Aggregate( ( x, y ) => $"{x}&{y}" )
+			: "";
+		var inputs = optionsProvider.GetKatAppManualInputs( view );
+        var manualResultsEndpoint = optionsProvider.GetManualResults( katAppId ) != null 
+			? $"\"api/katapp/manual-results/{katAppId}\"" 
+			: "undefined";
+
+        var saveCalcEngineLocation =
+            string.Join( "|",
+                new[] {
+                    optionsProvider.SaveDebugCalcEngineLocation,
+                    optionsProvider.SaveKatAppDebugCalcEngineLocation( name ),
+                    (string?)globalSiteSettings.PageParameters[ "saveConfigureUI" ],
+                    (string?)globalSiteSettings.PageParameters[ $"saveConfigureUI.{name}" ]
+                }.Where( l => !string.IsNullOrEmpty( l ) )
+            );
+
+        var nextCalculationLocations = !string.IsNullOrEmpty( saveCalcEngineLocation )
+            ? $", \"saveLocations\": [ {string.Join( ", " + Environment.NewLine, saveCalcEngineLocation.Split( '|' ).Distinct().Select( l => $"{{ \"location\": \"{l}\", \"serverSideOnly\": false }}" ) )} ]"
+            : "";
+
+        var nextCalculationTrace = globalSiteSettings.PageParameters[ "TraceRBLe" ] == "1" || globalSiteSettings.PageParameters[ $"TraceRBLe.{name}" ] == "1"
+            ? "true"
+            : "false";
+
+        var nextCalculation = $"{{ \"trace\": {nextCalculationTrace}{nextCalculationLocations} }}";
+
+		// No support for Kamls in Kat Data Store...
+		var katAppResourceList = Array.Empty<KAT.Camelot.Abstractions.Api.Contracts.DataLocker.V1.Responses.KatAppResourceListItem>(); // await dataLockerService.GetKatAppResourceListAsync( theKeep.KamlFolders );
+		var latestViewName = katAppHelper.GetKamlViewName( katAppResourceList, (string)view[ "view" ]! );
+
+        var localTemplates =
+            katAppHelper.KamlFolders
+                .SelectMany( folder =>
+				{
+					return new DirectoryInfo( Path.Combine( katAppHelper.KamlRootPath, folder ) )
+						.GetFiles( "*.kaml", SearchOption.AllDirectories )
+						.Where( f => f.FullName.IndexOf( "Templates", StringComparison.InvariantCultureIgnoreCase ) > -1 )
+						.Select( f => {
+							var relativePath =
+								f.DirectoryName![ ( katAppHelper.KamlRootPath.Length + 1 ).. ]
+									.Replace( '\\', '/' );
+							var folderParts = relativePath.Split( '/' );
+							return new
+							{
+								Client = folderParts[ 0 ],
+								RelativePath = string.Join( "/", folderParts.Skip( 1 ).Concat( new [] { f.Name } ) )
+							};
+						} )
+						.Select( f =>
+							new
+                            {
+                                Name = $"{f.Client}:{f.RelativePath}",
+                                Template = katAppHelper.GetKamlViewName( katAppResourceList, $"{f.Client}:{f.RelativePath}" )
+                            }
+                        )
+                        .Where( t => t.Template.StartsWith( "Rel:" ) )
+                        .ToArray();
+                } )
+                .Where( t => t.Template.StartsWith( "Rel:" ) )
+                .ToDictionary( k => k.Name, v => v.Template );
+
+		return View( 
+            "/ViewComponents/KatApp.cshtml",
+             new Model
+             {
+                BaseUrl = Url.Content( "~/" ),
+                DataGroup = optionsProvider.ProfileGroup!,                
+                Name = katAppId,
+                View = latestViewName,
+                Css = $"{katAppId} {css}".Trim(),
+                CalculationEndpoint = calculationEndpoint,
+                VerifyKatAppEndpoint = verifyKatAppEndpoint,
+                ManualResultsEndpoint = manualResultsEndpoint,
+                KatDataStoreEndpoint = katDataStoreEndpoint,
+                AnchoredQueryStrings = anchoredQueryString,
+                ManualInputs = inputs.ToJsonString(),
+                RelativePathTemplates = localTemplates.ToJsonString(),
+
+                CurrentPage = viewId,
+                UserIdHash = Hash.SHA256Hash( optionsProvider.AuthId! ),
+                Environment = globalSiteSettings.EnvironmentName,
+                RequestIP = globalSiteSettings.RequestIP,
+                CurrentCulture = Thread.CurrentThread.CurrentCulture.Name,
+                CurrentUICulture = Thread.CurrentThread.CurrentUICulture.Name,
+
+                NextCalculation = nextCalculation,
+                UseTestCalcEngine = optionsProvider.UseTestCalcEngine ? "true" : "false",
+                TraceVerbosity = optionsProvider.TraceKatApp ? "TraceVerbosity.Detailed" : "TraceVerbosity.None",
+                UseTestView = globalSiteSettings.PageParameters[ "testview" ] == "1" ? "true" : "false",
+                DebugResourcesDomain = !string.IsNullOrEmpty( globalSiteSettings.PageParameters[ "localserver" ] ) ? $"\"{globalSiteSettings.PageParameters[ "localserver" ]}\"" : "undefined",
+                ShowInspector = (string?)globalSiteSettings.PageParameters[ "showInspector" ] ?? ( !string.IsNullOrEmpty( globalSiteSettings.PageParameters[ "localserver" ] ) ? "1" : "0" )
+             }
+        );
+    }
+
+	public record Model
+    {
+        public required string BaseUrl { get; init; }
+        public required string DataGroup { get; init; }
+        public required string Name { get; init; }
+        public required string View { get; init; }
+        public string? Css { get; init; }
+        public required string CalculationEndpoint { get; init; }
+        public required string VerifyKatAppEndpoint { get; init; }
+        public required string KatDataStoreEndpoint { get; init; }
+        public required string ManualResultsEndpoint { get; init; }
+        public required string AnchoredQueryStrings { get; init; }
+        public required string ManualInputs { get; init; }
+        public required string RelativePathTemplates { get; init; }
+
+        public required string CurrentPage { get; init; }
+        public required string UserIdHash { get; init; }
+        public required string Environment { get; init; }
+        public required string RequestIP { get; init; }
+        public required string CurrentCulture { get; init; }
+        public required string CurrentUICulture { get; init; }
+
+        // Debug Settings
+        public required string NextCalculation { get; init; }
+        public required string UseTestCalcEngine { get; init; }
+        public required string TraceVerbosity { get; init; }
+        public required string UseTestView { get; init; }
+        public required string DebugResourcesDomain { get; init; }
+		public required string ShowInspector { get; init; }
+    }    
+}

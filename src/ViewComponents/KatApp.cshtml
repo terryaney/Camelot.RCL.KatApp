@@ -1,0 +1,59 @@
+@* Unfortunately, _ViewImports does not kick in for ViewComponents, so have to include the tag helper here too *@
+@addTagHelper *, KAT.Camelot.Domain.Web
+@using KAT.Camelot.RCL.KatApp.ViewComponents
+@model KatApp.Model;
+
+<div data-id="@Model.Name" class="@Model.Css"></div>
+
+<script>
+	function ready(fn) {
+		if (document.readyState !== 'loading') {
+			(async () => {
+				await fn();
+			})();
+		} else {
+			document.addEventListener('DOMContentLoaded', fn);
+		}
+	}
+	ready(async () => {
+		try {
+			await KatApp.createAppAsync(".@Model.Name",
+				{
+					"view": "@Model.View",
+					"dataGroup": "@Model.DataGroup",
+					"baseUrl": "@Model.BaseUrl",
+					"calculationUrl": "@Html.Raw( Model.CalculationEndpoint )",
+					"kamlVerifyUrl": "@Model.VerifyKatAppEndpoint",
+					"katDataStoreUrl": "@Model.KatDataStoreEndpoint",
+					"manualResultsEndpoint": @Html.Raw( Model.ManualResultsEndpoint ),
+					"resourceStringsEndpoint": "api/katapp/resource-strings",
+					"anchoredQueryStrings": "@Html.Raw( Model.AnchoredQueryStrings )",
+					"canProcessExternalHelpTips": @(Model.Name == "katapp-footer" ? "true" : "false"),
+					"debug": {
+						"useTestCalcEngine": @Model.UseTestCalcEngine,
+						"traceVerbosity": @Model.TraceVerbosity,
+						"useTestView": @Model.UseTestView,
+						"debugResourcesDomain": @Html.Raw( Model.DebugResourcesDomain ),
+						"showInspector": "@Model.ShowInspector"
+					},
+					"nextCalculation": @Html.Raw( Model.NextCalculation ),
+					"inputs": @Html.Raw( Model.ManualInputs ),
+					"relativePathTemplates": @Html.Raw( Model.RelativePathTemplates ),
+					"currentPage": "@Model.CurrentPage",
+					"userIdHash": "@Model.UserIdHash",
+					"environment": "@Model.Environment",
+					"requestIP": "@Model.RequestIP",
+					"currentCulture": "@Model.CurrentCulture",
+					"currentUICulture": "@Model.CurrentUICulture",
+					"katAppNavigate": NexgenNav,
+					"encryptCache": nexgenEncryptCacheAsync,
+					"decryptCache": nexgenDecryptCacheAsync
+				}
+			);
+		} catch (ex) {
+			console.log(ex);
+		}
+	});
+
+	//# sourceURL=KatApp.@(Model.Name).Startup.js
+</script>
