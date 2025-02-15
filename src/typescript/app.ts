@@ -24,7 +24,6 @@
 //		assuming the matched item is simply a htmlelement.
 
 // TODO: Decide on modules vs iife? Modules seems better/recommended practices, but iife and static methods support console debugging better
-console.log("hi");
 class KatApp implements IKatApp {
 	public static applications: Array<KatApp> = [];
 	private static globalEventConfigurations: Array<{ selector: string, events: IKatAppEventsConfiguration }> = [];

@@ -1,5 +1,4 @@
 "use strict";
-console.log("hi");
 class KatApp {
     selector;
     static applications = [];
