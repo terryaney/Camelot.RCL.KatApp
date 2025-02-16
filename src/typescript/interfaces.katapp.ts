@@ -87,8 +87,8 @@ interface IKatApp {
 
 	checkValidity(): boolean;
 	calculateAsync(customInputs?: ICalculationInputs, processResults?: boolean, calcEngines?: ICalcEngine[], allowLogging?: boolean): Promise<ITabDef[] | void>;
-	apiAsync(endpoint: string, apiOptions: IApiOptions, trigger?: JQuery, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
-	showModalAsync(options: IModalOptions, triggerLink?: JQuery): Promise<IModalResponse>;
+	apiAsync(endpoint: string, apiOptions: IApiOptions, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
+	showModalAsync(options: IModalOptions, triggerLink?: HTMLElement): Promise<IModalResponse>;
 	navigateAsync(navigationId: string, options?: INavigationOptions): void;
 
 	blockUI(): void;
@@ -360,7 +360,7 @@ interface IModalAppOptions extends IModalOptions {
 	// in conjunction with creating their own toolbar
 	confirmedAsync?: (response?: unknown) => Promise<void>;
 	cancelled?: (response?: unknown) => void;
-	triggerLink?: JQuery;
+	triggerLink?: HTMLElement;
 
 	// If a dialog does its own buttons and is a 'step' based dialog and at the final step hides all but 'ok', the 'X' at the top of the dialog needs to trigger 'confirm' as well.
 	closeButtonTrigger?: string; 

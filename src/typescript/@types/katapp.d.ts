@@ -44,7 +44,7 @@ declare class KatApp implements IKatApp {
     calculateAsync(customInputs?: ICalculationInputs, processResults?: boolean, calcEngines?: ICalcEngine[], allowLogging?: boolean): Promise<ITabDef[] | void>;
     notifyAsync(from: KatApp, name: string, information?: IStringAnyIndexer): Promise<void>;
     checkValidity(): boolean;
-    apiAsync(endpoint: string, apiOptions: IApiOptions | undefined, trigger?: JQuery, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
+    apiAsync(endpoint: string, apiOptions: IApiOptions | undefined, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
     private addUnexpectedError;
     private downloadBlob;
     private getApiUrl;
@@ -66,7 +66,7 @@ declare class KatApp implements IKatApp {
     allowCalculation(ceKey: string, enabled: boolean): void;
     cloneOptions(includeManualResults: boolean): IKatAppOptions;
     getCloneHostSetting(el: HTMLElement): string | boolean;
-    showModalAsync(options: IModalOptions, triggerLink?: JQuery): Promise<IModalResponse>;
+    showModalAsync(options: IModalOptions, triggerLink?: HTMLElement): Promise<IModalResponse>;
     private cacheInputsAsync;
     private getSubmitApiConfigurationAsync;
     private getCeName;
@@ -413,8 +413,8 @@ interface IKatApp {
     allowCalculation(ceKey: string, enabled: boolean): void;
     checkValidity(): boolean;
     calculateAsync(customInputs?: ICalculationInputs, processResults?: boolean, calcEngines?: ICalcEngine[], allowLogging?: boolean): Promise<ITabDef[] | void>;
-    apiAsync(endpoint: string, apiOptions: IApiOptions, trigger?: JQuery, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
-    showModalAsync(options: IModalOptions, triggerLink?: JQuery): Promise<IModalResponse>;
+    apiAsync(endpoint: string, apiOptions: IApiOptions, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
+    showModalAsync(options: IModalOptions, triggerLink?: HTMLElement): Promise<IModalResponse>;
     navigateAsync(navigationId: string, options?: INavigationOptions): void;
     blockUI(): void;
     unblockUI(): void;
@@ -645,7 +645,7 @@ interface IModalAppOptions extends IModalOptions {
     promise: JQuery.Deferred<IModalResponse>;
     confirmedAsync?: (response?: unknown) => Promise<void>;
     cancelled?: (response?: unknown) => void;
-    triggerLink?: JQuery;
+    triggerLink?: HTMLElement;
     closeButtonTrigger?: string;
 }
 interface IModalResponse {

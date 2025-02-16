@@ -16,7 +16,6 @@
 
 					const showModal = async function (e: Event) {
 						e.preventDefault();
-						const triggerLink = $(e.currentTarget as HTMLInputElement);
 
 						try {
 							if (scope.beforeOpenAsync != undefined) {
@@ -25,7 +24,7 @@
 
 							const response = await application.showModalAsync(
 								Utils.clone(scope, (k, v) => ["beforeOpenAsync", "confirmedAsync", "cancelledAsync", "catchAsync"].indexOf(k) > -1 ? undefined : v),
-								triggerLink
+								e.currentTarget as HTMLInputElement
 							);
 
 							if (response.confirmed) {

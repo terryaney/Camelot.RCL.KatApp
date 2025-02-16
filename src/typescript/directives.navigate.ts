@@ -40,7 +40,7 @@
 					}
 				
 					if (scope.confirm != undefined) {
-						const confirmResponse = await application.showModalAsync(scope.confirm, $(e.currentTarget as HTMLElement));
+						const confirmResponse = await application.showModalAsync(scope.confirm, e.currentTarget as HTMLElement);
 
 						if (!confirmResponse.confirmed) {
 							return false;

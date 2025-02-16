@@ -824,7 +824,7 @@ Type 'help' to see available options displayed in the console.`;
             modalBS5.hide();
             that.el.remove();
             KatApp.remove(that);
-            options.triggerLink?.[0].focus();
+            options.triggerLink?.focus();
         };
         options.confirmedAsync = async (response) => {
             closeModal();
@@ -902,9 +902,10 @@ Type 'help' to see available options displayed in the console.`;
             await closeButtonClickAsync(e);
         });
         const modalBS5 = new bootstrap.Modal(this.el[0]);
-        modalBS5.show(options.triggerLink?.[0]);
+        modalBS5.show(options.triggerLink);
         if (options.triggerLink != undefined) {
-            options.triggerLink.prop("disabled", false).removeClass("disabled kaModalInit");
+            options.triggerLink.removeAttribute("disabled");
+            options.triggerLink.classList.remove("disabled", "kaModalInit");
             $("body").removeClass("kaModalInit");
         }
         this.options.hostApplication.unblockUI();
@@ -1455,7 +1456,8 @@ Type 'help' to see available options displayed in the console.`;
         }
         this.blockUI();
         if (triggerLink != undefined) {
-            triggerLink.prop("disabled", true).addClass("disabled kaModalInit");
+            triggerLink.setAttribute("disabled", "true");
+            triggerLink.classList.add("disabled", "kaModalInit");
             $("body").addClass("kaModalInit");
         }
         try {
@@ -1476,7 +1478,8 @@ Type 'help' to see available options displayed in the console.`;
                     iModalApplication: "1"
                 }
             };
-            const modalAppOptions = KatApps.Utils.extend(modalOptions.hostApplication.cloneOptions(options.content == undefined || cloneHost !== false), modalOptions, options.inputs != undefined ? { inputs: options.inputs } : undefined);
+            const hostOptions = modalOptions.hostApplication.cloneOptions(options.content == undefined || cloneHost !== false);
+            const modalAppOptions = KatApps.Utils.extend(hostOptions, modalOptions, options.inputs != undefined ? { inputs: options.inputs } : undefined);
             if (modalAppOptions.anchoredQueryStrings != undefined && modalAppOptions.inputs != undefined) {
                 modalAppOptions.anchoredQueryStrings = KatApps.Utils.generateQueryString(KatApps.Utils.parseQueryString(modalAppOptions.anchoredQueryStrings), key => !key.startsWith("ki-") || modalAppOptions.inputs['i' + key.split('-').slice(1).map(segment => segment.charAt(0).toUpperCase() + segment.slice(1)).join("")] == undefined);
             }
@@ -1487,7 +1490,8 @@ Type 'help' to see available options displayed in the console.`;
         catch (e) {
             this.unblockUI();
             if (triggerLink != undefined) {
-                triggerLink.prop("disabled", false).removeClass("disabled kaModalInit");
+                triggerLink.removeAttribute("disabled");
+                triggerLink.classList.remove("disabled", "kaModalInit");
                 $("body").removeClass("kaModalInit");
             }
             throw e;
@@ -2945,14 +2949,14 @@ var KatApps;
                 const submitApi = async function (e) {
                     e.preventDefault();
                     if (scope.confirm != undefined) {
-                        const confirmResponse = await application.showModalAsync(scope.confirm, $(e.currentTarget));
+                        const confirmResponse = await application.showModalAsync(scope.confirm, e.currentTarget);
                         if (!confirmResponse.confirmed) {
                             return;
                         }
                     }
                     try {
                         const propertiesToSkip = ["confirm", "endpoint", "then", "catch"];
-                        const response = await application.apiAsync(endpoint, KatApps.Utils.clone(scope, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v), $(ctx.el));
+                        const response = await application.apiAsync(endpoint, KatApps.Utils.clone(scope, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v), ctx.el);
                         if (scope.thenAsync != undefined) {
                             await scope.thenAsync(response, application);
                         }
@@ -3381,12 +3385,11 @@ var KatApps;
                     }
                     const showModal = async function (e) {
                         e.preventDefault();
-                        const triggerLink = $(e.currentTarget);
                         try {
                             if (scope.beforeOpenAsync != undefined) {
                                 await scope.beforeOpenAsync(application);
                             }
-                            const response = await application.showModalAsync(KatApps.Utils.clone(scope, (k, v) => ["beforeOpenAsync", "confirmedAsync", "cancelledAsync", "catchAsync"].indexOf(k) > -1 ? undefined : v), triggerLink);
+                            const response = await application.showModalAsync(KatApps.Utils.clone(scope, (k, v) => ["beforeOpenAsync", "confirmedAsync", "cancelledAsync", "catchAsync"].indexOf(k) > -1 ? undefined : v), e.currentTarget);
                             if (response.confirmed) {
                                 if (scope.confirmedAsync != undefined) {
                                     await scope.confirmedAsync(response.response, application);
@@ -3453,7 +3456,7 @@ var KatApps;
                         application.state.isDirty = false;
                     }
                     if (scope.confirm != undefined) {
-                        const confirmResponse = await application.showModalAsync(scope.confirm, $(e.currentTarget));
+                        const confirmResponse = await application.showModalAsync(scope.confirm, e.currentTarget);
                         if (!confirmResponse.confirmed) {
                             return false;
                         }
@@ -3815,7 +3818,6 @@ var KatApps;
                 const html = document.querySelector("html");
                 html.setAttribute("ka-init-tip", "true");
                 html.addEventListener("click", e => {
-                    console.log("js", { target: e.target });
                     const target = e.target;
                     const targetLink = target.closest("a, button");
                     const isInsideTip = target.closest(".popover-header, .popover-body") != undefined;
@@ -4741,7 +4743,7 @@ var KatApps;
                 const value = replacer != undefined
                     ? replacer(key, source[key])
                     : source[key];
-                if (value != undefined && typeof value === "object" && !Array.isArray(value) && !(value instanceof jQuery) && key != "hostApplication") {
+                if (value != undefined && typeof value === "object" && !Array.isArray(value) && !(value instanceof jQuery) && !(value instanceof HTMLElement) && key != "hostApplication") {
                     if (target[key] === undefined || typeof target[key] !== "object") {
                         target[key] = {};
                     }

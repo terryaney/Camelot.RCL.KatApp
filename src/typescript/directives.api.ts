@@ -10,7 +10,7 @@
 					e.preventDefault();
 
 					if (scope.confirm != undefined) {
-						const confirmResponse = await application.showModalAsync(scope.confirm, $(e.currentTarget as HTMLElement));
+						const confirmResponse = await application.showModalAsync(scope.confirm, e.currentTarget as HTMLElement);
 
 						if (!confirmResponse.confirmed) {
 							return;
@@ -22,7 +22,7 @@
 						const response = await application.apiAsync(
 							endpoint,
 							Utils.clone(scope, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v),
-							$(ctx.el as HTMLElement)
+							ctx.el as HTMLElement
 						);
 
 						if (scope.thenAsync != undefined) {

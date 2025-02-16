@@ -32,7 +32,6 @@
 				const html = document.querySelector("html")!;
 				html.setAttribute("ka-init-tip", "true");
 				html.addEventListener("click", e => {
-					console.log("js", { target: e.target });
 					const target = e.target as HTMLElement;
 					const targetLink = target.closest("a, button");
 					const isInsideTip = target.closest(".popover-header, .popover-body") != undefined;

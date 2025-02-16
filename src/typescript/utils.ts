@@ -30,7 +30,7 @@
 					: source[key];
 
 				// Always do deep copy unless modalAppOptions or hostApplication, then simply assign
-				if (value != undefined && typeof value === "object" && !Array.isArray(value) && !(value instanceof jQuery) && key != "hostApplication") {
+				if (value != undefined && typeof value === "object" && !Array.isArray(value) && !(value instanceof jQuery) && !(value instanceof HTMLElement) && key != "hostApplication") {
 					if (target[key] === undefined || typeof target[key] !== "object") {
 						target[key] = {};
 					}

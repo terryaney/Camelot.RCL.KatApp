@@ -1160,7 +1160,7 @@ Type 'help' to see available options displayed in the console.`;
 			modalBS5.hide();
 			that.el.remove();
 			KatApp.remove(that);
-			options.triggerLink?.[0].focus();
+			options.triggerLink?.focus();
 		}
 
 		// If response if of type Event, 'confirmedAsync/cancelled' was just attached to a button and default processing occurred and the first param was
@@ -1258,10 +1258,11 @@ Type 'help' to see available options displayed in the console.`;
 			});
 
 		const modalBS5 = new bootstrap.Modal(this.el[0]);
-		modalBS5.show(options.triggerLink?.[0]);
+		modalBS5.show(options.triggerLink);
 
 		if (options.triggerLink != undefined) {
-			options.triggerLink.prop("disabled", false).removeClass("disabled kaModalInit");
+			options.triggerLink.removeAttribute("disabled");
+			options.triggerLink.classList.remove("disabled", "kaModalInit");
 			$("body").removeClass("kaModalInit");
 		}
 
@@ -1437,7 +1438,7 @@ Type 'help' to see available options displayed in the console.`;
 		return isValid;
 	}
 
-	public async apiAsync(endpoint: string, apiOptions: IApiOptions | undefined, trigger?: JQuery, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined> {
+	public async apiAsync(endpoint: string, apiOptions: IApiOptions | undefined, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined> {
 		// calculationSubmitApiConfiguration is only passed internally, when apiAsync is called within the calculation pipeline and there is already a configuration determined
 
 		if (!(apiOptions?.skipValidityCheck ?? false) && !this.checkValidity()) {
@@ -2014,7 +2015,7 @@ Type 'help' to see available options displayed in the console.`;
 		return cloneHost;
 	}
 
-	public async showModalAsync(options: IModalOptions, triggerLink?: JQuery): Promise<IModalResponse> {
+	public async showModalAsync(options: IModalOptions, triggerLink?: HTMLElement): Promise<IModalResponse> {
 		let cloneHost: boolean | string = false;
 
 		if (options.contentSelector != undefined) {
@@ -2048,7 +2049,8 @@ Type 'help' to see available options displayed in the console.`;
 		this.blockUI();
 
 		if (triggerLink != undefined) {
-			triggerLink.prop("disabled", true).addClass("disabled kaModalInit");
+			triggerLink.setAttribute("disabled", "true");
+			triggerLink.classList.add("disabled", "kaModalInit");
 			$("body").addClass("kaModalInit");			
 		}
 
@@ -2079,8 +2081,9 @@ Type 'help' to see available options displayed in the console.`;
 				}
 			};
 
+			const hostOptions = (modalOptions.hostApplication as KatApp).cloneOptions(options.content == undefined || cloneHost !== false);
 			const modalAppOptions = KatApps.Utils.extend<IKatAppOptions>(
-				( modalOptions.hostApplication as KatApp ).cloneOptions(options.content == undefined || cloneHost !== false ),
+				hostOptions,
 				modalOptions,
 				options.inputs != undefined ? { inputs: options.inputs } : undefined
 			);
@@ -2101,7 +2104,8 @@ Type 'help' to see available options displayed in the console.`;
 			this.unblockUI();
 
 			if (triggerLink != undefined) {
-				triggerLink.prop("disabled", false).removeClass("disabled kaModalInit");
+				triggerLink.removeAttribute("disabled");
+				triggerLink.classList.remove("disabled", "kaModalInit");
 				$("body").removeClass("kaModalInit");
 			}
 
