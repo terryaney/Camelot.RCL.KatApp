@@ -242,7 +242,7 @@ declare namespace KatApps {
         private static visiblePopoverApp;
         private static visiblePopupContentSource;
         static hideVisiblePopover(selectorPredicate?: string): boolean;
-        static processHelpTips(container: JQuery, selector?: string, tipsToProcess?: JQuery): void;
+        static processHelpTips(container: HTMLElement, selector?: string, tipsToProcess?: NodeListOf<HTMLElement>): void;
     }
 }
 interface IKatAppCalculationResponse {

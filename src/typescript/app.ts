@@ -1662,7 +1662,7 @@ Type 'help' to see available options displayed in the console.`;
 			// 'processModel'
 			this.select("a[href='#']", el.tagName == "A" ? el.parentElement! : el ).off("click.ka").on("click.ka", e => e.preventDefault());
 
-			KatApps.HelpTips.processHelpTips($(el));
+			KatApps.HelpTips.processHelpTips(el);
 			
 			this.select('[data-highcharts-chart]', $(el)).each((i, c) => ($(c).highcharts() as HighchartsChartObject).reflow());
 
