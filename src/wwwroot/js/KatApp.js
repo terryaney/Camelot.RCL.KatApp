@@ -3821,10 +3821,8 @@ var KatApps;
                     const target = e.target;
                     const targetLink = target.closest("a, button");
                     const isInsideTip = target.closest(".popover-header, .popover-body") != undefined;
-                    if ((target.tagName == 'A' && !target.classList.contains("ka-ht-js")) ||
-                        target.tagName == 'BUTTON' ||
-                        !isInsideTip ||
-                        (targetLink != undefined && !targetLink.classList.contains(".ka-ht-js"))) {
+                    const processLinkJs = targetLink != undefined && targetLink.classList.contains("ka-ht-js");
+                    if (target.tagName == 'BUTTON' || !(processLinkJs || isInsideTip)) {
                         HelpTips.hideVisiblePopover();
                     }
                 });

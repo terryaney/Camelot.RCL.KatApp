@@ -35,13 +35,10 @@
 					const target = e.target as HTMLElement;
 					const targetLink = target.closest("a, button");
 					const isInsideTip = target.closest(".popover-header, .popover-body") != undefined;
-
-					if (
-						(target.tagName == 'A' && !target.classList.contains("ka-ht-js")) ||
-						target.tagName == 'BUTTON' ||
-						!isInsideTip ||
-						(targetLink != undefined && !targetLink.classList.contains(".ka-ht-js"))
-					) {
+					const processLinkJs = targetLink != undefined && targetLink.classList.contains("ka-ht-js");
+					
+					// Not sure why 'button' is getting forced to hide, should decorate with ka-ht-js, but leaving for now.
+					if (target.tagName == 'BUTTON' || !(processLinkJs || isInsideTip)) {
 						HelpTips.hideVisiblePopover();
 					}
 				});
