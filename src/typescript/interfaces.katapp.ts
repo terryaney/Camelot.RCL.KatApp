@@ -98,6 +98,12 @@ interface IKatApp {
 	getInputValue(name: string, allowDisabled?: boolean): string | undefined;
 	setInputValue(name: string, value: string | undefined, calculate?: boolean): JQuery | undefined;
 
+	on(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatApp;
+	off(selector: string, events: string, context?: HTMLElement): IKatApp;
+	selectHtml<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
+	selectHtmlItems<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;
+	closestHtml<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined;
+
 	select<T extends HTMLElement>(selector: string, context?: JQuery | HTMLElement | undefined): JQuery<T>;
 	closest(element: JQuery | HTMLElement, selector: string): JQuery;
 

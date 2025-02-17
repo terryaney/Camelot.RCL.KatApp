@@ -1783,6 +1783,50 @@ Type 'help' to see available options displayed in the console.`;
 		return inputs;
 	}
 
+	private getKatAppId<T extends HTMLElement>(el: T): string | undefined {
+		if (el.hasAttribute("ka-id")) return el.getAttribute("ka-id") ?? undefined;
+
+		let p: HTMLElement | null = el;
+		while ((p = p.parentElement) && (p as Node) !== document) {
+			if (p.hasAttribute("ka-id")) {
+				return p.getAttribute("ka-id")!;
+			}
+		}
+
+		return undefined;
+	}
+
+	public on(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatApp {
+		this.selectHtmlItems(selector, context).forEach(e => {
+			$(e).on(events, handler);
+		});
+		return this;
+	}
+	public off(selector: string, events: string, context?: HTMLElement): IKatApp {
+		this.selectHtmlItems(selector, context).forEach(e => {
+			$(e).off(events);
+		});
+		return this;
+	}
+
+	public selectHtml<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined {
+		const container = context ?? this.el[0];
+		var appId = this.getKatAppId(container);
+		return container.querySelector<T>(selector) ?? undefined;
+	}
+
+	public selectHtmlItems<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T> {
+		const container = context ?? this.el[0];
+		var appId = this.getKatAppId(container);
+		return Array.from(container.querySelectorAll<T>(selector)).filter(e => this.getKatAppId(e) == appId);
+	}
+
+	public closestHtml<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined {
+		const c = element.closest<T>(selector) ?? undefined;
+		const cAppId = c != undefined ? this.getKatAppId(c) : undefined;
+		return cAppId == this.id ? c : undefined;
+	}
+
 	public closest(element: JQuery | HTMLElement, selector: string): JQuery {
 		const context = element instanceof jQuery ? element as JQuery : $(element);
 

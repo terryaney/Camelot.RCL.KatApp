@@ -1258,6 +1258,44 @@ Type 'help' to see available options displayed in the console.`;
         delete inputs.getOptionText;
         return inputs;
     }
+    getKatAppId(el) {
+        if (el.hasAttribute("ka-id"))
+            return el.getAttribute("ka-id") ?? undefined;
+        let p = el;
+        while ((p = p.parentElement) && p !== document) {
+            if (p.hasAttribute("ka-id")) {
+                return p.getAttribute("ka-id");
+            }
+        }
+        return undefined;
+    }
+    on(selector, events, handler, context) {
+        this.selectHtmlItems(selector, context).forEach(e => {
+            $(e).on(events, handler);
+        });
+        return this;
+    }
+    off(selector, events, context) {
+        this.selectHtmlItems(selector, context).forEach(e => {
+            $(e).off(events);
+        });
+        return this;
+    }
+    selectHtml(selector, context) {
+        const container = context ?? this.el[0];
+        var appId = this.getKatAppId(container);
+        return container.querySelector(selector) ?? undefined;
+    }
+    selectHtmlItems(selector, context) {
+        const container = context ?? this.el[0];
+        var appId = this.getKatAppId(container);
+        return Array.from(container.querySelectorAll(selector)).filter(e => this.getKatAppId(e) == appId);
+    }
+    closestHtml(element, selector) {
+        const c = element.closest(selector) ?? undefined;
+        const cAppId = c != undefined ? this.getKatAppId(c) : undefined;
+        return cAppId == this.id ? c : undefined;
+    }
     closest(element, selector) {
         const context = element instanceof jQuery ? element : $(element);
         const c = context.closest(selector);
