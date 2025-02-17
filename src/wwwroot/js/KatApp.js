@@ -1483,7 +1483,7 @@ Type 'help' to see available options displayed in the console.`;
             }
             cloneHost = this.getCloneHostSetting(selectContent[0]);
             const selectorContent = $("<div/>");
-            selectorContent.append(selectContent.contents().clone());
+            selectorContent.append(selectContent.contents().clone(true));
             options.content = selectorContent;
         }
         if (options.content == undefined && options.view == undefined) {

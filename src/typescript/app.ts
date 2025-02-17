@@ -2079,7 +2079,7 @@ Type 'help' to see available options displayed in the console.`;
 			// will continue to leverage JQuery.  Would have to create own custom .on/.off handlers on KatApp that registered
 			// events like JQuery and supported keeping those events when clone is called.
 			// https://stackoverflow.com/questions/15408394/how-to-copy-a-dom-node-with-event-listeners
-			selectorContent.append(selectContent.contents().clone());
+			selectorContent.append(selectContent.contents().clone(true));
 			options.content = selectorContent;
 		}
 
