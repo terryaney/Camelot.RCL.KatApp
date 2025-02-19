@@ -15,7 +15,7 @@
 			return ctx => {
 				this.application = application;
 
-				const navItemId = application.closest(ctx.el as HTMLElement, ".tab-pane, [role='tabpanel']").attr("aria-labelledby");
+				const navItemId = application.closestElement(ctx.el as HTMLElement, ".tab-pane, [role='tabpanel']")?.getAttribute("aria-labelledby");
 				if (navItemId != undefined) {
 					const navItem = application.select("#" + navItemId);
 					navItem.on('shown.bs.tab', () => ($(ctx.el).highcharts() as HighchartsChartObject).reflow());

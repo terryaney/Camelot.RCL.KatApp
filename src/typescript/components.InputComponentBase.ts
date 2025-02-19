@@ -83,8 +83,8 @@ namespace KatApps {
 			const checkValue = type == "checkbox" ? (input.hasAttribute("checked") ? "1" : "0") : undefined;
 			const textValue = type == "text" ? input.getAttribute("value") : undefined;
 
-			const exclude = isExcluded || input.hasAttribute("ka-rbl-exclude") || application.closest(input, "[ka-rbl-exclude]").length != 0;
-			const skipCalc = input.hasAttribute("ka-rbl-no-calc") || application.closest(input, "[ka-rbl-no-calc]").length != 0;
+			const exclude = isExcluded || input.hasAttribute("ka-rbl-exclude") || application.closestElement(input, "[ka-rbl-exclude]") != undefined;
+			const skipCalc = input.hasAttribute("ka-rbl-no-calc") || application.closestElement(input, "[ka-rbl-no-calc]") != undefined;
 
 			if (!exclude) {
 				let value = defaultValue(name) ?? checkValue ?? radioValue ?? textValue;

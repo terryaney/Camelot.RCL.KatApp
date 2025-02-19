@@ -1270,37 +1270,35 @@ Type 'help' to see available options displayed in the console.`;
         return undefined;
     }
     on(selector, events, handler, context) {
-        this.selectHtmlItems(selector, context).forEach(e => {
-            $(e).on(events, handler);
-        });
-        return this;
+        const elements = this.select(selector, context);
+        elements.on(events, handler);
+        return elements;
     }
     off(selector, events, context) {
-        this.selectHtmlItems(selector, context).forEach(e => {
-            $(e).off(events);
-        });
-        return this;
+        const elements = this.select(selector, context);
+        elements.off(events);
+        return elements;
     }
-    selectHtml(selector, context) {
+    selectElement(selector, context) {
         const container = context ?? this.el[0];
+        const result = container.querySelector(selector) ?? undefined;
+        if (result == undefined || context != undefined)
+            return result;
         var appId = this.getKatAppId(container);
-        return container.querySelector(selector) ?? undefined;
+        return this.getKatAppId(result) == appId ? result : undefined;
     }
-    selectHtmlItems(selector, context) {
+    selectElements(selector, context) {
         const container = context ?? this.el[0];
+        const result = Array.from(container.querySelectorAll(selector));
+        if (context != undefined)
+            return result;
         var appId = this.getKatAppId(container);
-        return Array.from(container.querySelectorAll(selector)).filter(e => this.getKatAppId(e) == appId);
+        return result.filter(e => this.getKatAppId(e) == appId);
     }
-    closestHtml(element, selector) {
+    closestElement(element, selector) {
         const c = element.closest(selector) ?? undefined;
         const cAppId = c != undefined ? this.getKatAppId(c) : undefined;
         return cAppId == this.id ? c : undefined;
-    }
-    closest(element, selector) {
-        const context = element instanceof jQuery ? element : $(element);
-        const c = context.closest(selector);
-        const cAppId = c.attr("ka-id") || c.closest("[ka-id]").attr("ka-id");
-        return cAppId == this.id ? c : $();
     }
     select(selector, context) {
         const container = !(context instanceof jQuery) && context != undefined
@@ -1381,8 +1379,9 @@ Type 'help' to see available options displayed in the console.`;
     }
     getTemplateId(name) {
         let templateId;
-        for (var k in this.viewTemplates) {
-            const tid = "#" + name + "_" + this.viewTemplates[k].replace(/\//g, "_");
+        for (let i = 0; i < this.viewTemplates.length; i++) {
+            const viewTemplate = this.viewTemplates[i];
+            const tid = "#" + name + "_" + viewTemplate.replace(/\//g, "_");
             if (document.querySelector(tid) != undefined) {
                 templateId = tid;
                 break;
@@ -2194,8 +2193,8 @@ var KatApps;
             const radioValue = type == "radio" && input.hasAttribute("checked") ? input.getAttribute("value") : undefined;
             const checkValue = type == "checkbox" ? (input.hasAttribute("checked") ? "1" : "0") : undefined;
             const textValue = type == "text" ? input.getAttribute("value") : undefined;
-            const exclude = isExcluded || input.hasAttribute("ka-rbl-exclude") || application.closest(input, "[ka-rbl-exclude]").length != 0;
-            const skipCalc = input.hasAttribute("ka-rbl-no-calc") || application.closest(input, "[ka-rbl-no-calc]").length != 0;
+            const exclude = isExcluded || input.hasAttribute("ka-rbl-exclude") || application.closestElement(input, "[ka-rbl-exclude]") != undefined;
+            const skipCalc = input.hasAttribute("ka-rbl-no-calc") || application.closestElement(input, "[ka-rbl-no-calc]") != undefined;
             if (!exclude) {
                 let value = defaultValue(name) ?? checkValue ?? radioValue ?? textValue;
                 if (application.state.inputs[name] == undefined && value != undefined) {
@@ -3085,7 +3084,7 @@ var KatApps;
         getDefinition(application) {
             return ctx => {
                 this.application = application;
-                const navItemId = application.closest(ctx.el, ".tab-pane, [role='tabpanel']").attr("aria-labelledby");
+                const navItemId = application.closestElement(ctx.el, ".tab-pane, [role='tabpanel']")?.getAttribute("aria-labelledby");
                 if (navItemId != undefined) {
                     const navItem = application.select("#" + navItemId);
                     navItem.on('shown.bs.tab', () => $(ctx.el).highcharts().reflow());

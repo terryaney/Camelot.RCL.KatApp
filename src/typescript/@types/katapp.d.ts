@@ -55,10 +55,9 @@ declare class KatApp implements IKatApp {
     private getKatAppId;
     on(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatApp;
     off(selector: string, events: string, context?: HTMLElement): IKatApp;
-    selectHtml<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
-    selectHtmlItems<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;
-    closestHtml<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined;
-    closest(element: JQuery | HTMLElement, selector: string): JQuery;
+    selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
+    selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;
+    closestElement<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined;
     select<T extends HTMLElement>(selector: string, context?: JQuery | HTMLElement | undefined): JQuery<T>;
     private getResourceString;
     getLocalizedString(key: string | undefined, formatObject?: IStringIndexer<string>, defaultValue?: string): string | undefined;
@@ -429,11 +428,10 @@ interface IKatApp {
     setInputValue(name: string, value: string | undefined, calculate?: boolean): JQuery | undefined;
     on(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatApp;
     off(selector: string, events: string, context?: HTMLElement): IKatApp;
-    selectHtml<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
-    selectHtmlItems<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;
-    closestHtml<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined;
+    selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
+    selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;
+    closestElement<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined;
     select<T extends HTMLElement>(selector: string, context?: JQuery | HTMLElement | undefined): JQuery<T>;
-    closest(element: JQuery | HTMLElement, selector: string): JQuery;
     notifyAsync(from: KatApp, name: string, information?: IStringAnyIndexer): Promise<void>;
     getTemplateContent(name: string): DocumentFragment;
     getLocalizedString(key: string | undefined, formatObject?: IStringIndexer<string>, defaultValue?: string): string | undefined;

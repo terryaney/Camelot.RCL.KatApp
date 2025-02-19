@@ -1258,11 +1258,49 @@ Type 'help' to see available options displayed in the console.`;
         delete inputs.getOptionText;
         return inputs;
     }
-    closest(element, selector) {
-        const context = element instanceof jQuery ? element : $(element);
-        const c = context.closest(selector);
-        const cAppId = c.attr("ka-id") || c.closest("[ka-id]").attr("ka-id");
-        return cAppId == this.id ? c : $();
+    getKatAppId(el) {
+        if (el.hasAttribute("ka-id"))
+            return el.getAttribute("ka-id") ?? undefined;
+        let p = el;
+        while ((p = p.parentElement) && p !== document) {
+            if (p.hasAttribute("ka-id")) {
+                return p.getAttribute("ka-id");
+            }
+        }
+        return undefined;
+    }
+    on(selector, events, handler, context) {
+        this.selectElements(selector, context).forEach(e => {
+            $(e).on(events, handler);
+        });
+        return this;
+    }
+    off(selector, events, context) {
+        this.selectElements(selector, context).forEach(e => {
+            $(e).off(events);
+        });
+        return this;
+    }
+    selectElement(selector, context) {
+        const container = context ?? this.el[0];
+        const result = container.querySelector(selector) ?? undefined;
+        if (result == undefined || context != undefined)
+            return result;
+        var appId = this.getKatAppId(container);
+        return this.getKatAppId(result) == appId ? result : undefined;
+    }
+    selectElements(selector, context) {
+        const container = context ?? this.el[0];
+        const result = Array.from(container.querySelectorAll(selector));
+        if (context != undefined)
+            return result;
+        var appId = this.getKatAppId(container);
+        return result.filter(e => this.getKatAppId(e) == appId);
+    }
+    closestElement(element, selector) {
+        const c = element.closest(selector) ?? undefined;
+        const cAppId = c != undefined ? this.getKatAppId(c) : undefined;
+        return cAppId == this.id ? c : undefined;
     }
     select(selector, context) {
         const container = !(context instanceof jQuery) && context != undefined
@@ -1343,8 +1381,9 @@ Type 'help' to see available options displayed in the console.`;
     }
     getTemplateId(name) {
         let templateId;
-        for (var k in this.viewTemplates) {
-            const tid = "#" + name + "_" + this.viewTemplates[k].replace(/\//g, "_");
+        for (let i = 0; i < this.viewTemplates.length; i++) {
+            const viewTemplate = this.viewTemplates[i];
+            const tid = "#" + name + "_" + viewTemplate.replace(/\//g, "_");
             if (document.querySelector(tid) != undefined) {
                 templateId = tid;
                 break;
@@ -1445,7 +1484,7 @@ Type 'help' to see available options displayed in the console.`;
             }
             cloneHost = this.getCloneHostSetting(selectContent[0]);
             const selectorContent = $("<div/>");
-            selectorContent.append(selectContent.contents().clone());
+            selectorContent.append(selectContent.contents().clone(true));
             options.content = selectorContent;
         }
         if (options.content == undefined && options.view == undefined) {
@@ -1478,7 +1517,8 @@ Type 'help' to see available options displayed in the console.`;
                     iModalApplication: "1"
                 }
             };
-            const modalAppOptions = KatApps.Utils.extend(modalOptions.hostApplication.cloneOptions(options.content == undefined || cloneHost !== false), modalOptions, options.inputs != undefined ? { inputs: options.inputs } : undefined);
+            const hostOptions = modalOptions.hostApplication.cloneOptions(options.content == undefined || cloneHost !== false);
+            const modalAppOptions = KatApps.Utils.extend(hostOptions, modalOptions, options.inputs != undefined ? { inputs: options.inputs } : undefined);
             if (modalAppOptions.anchoredQueryStrings != undefined && modalAppOptions.inputs != undefined) {
                 modalAppOptions.anchoredQueryStrings = KatApps.Utils.generateQueryString(KatApps.Utils.parseQueryString(modalAppOptions.anchoredQueryStrings), key => !key.startsWith("ki-") || modalAppOptions.inputs['i' + key.split('-').slice(1).map(segment => segment.charAt(0).toUpperCase() + segment.slice(1)).join("")] == undefined);
             }
@@ -2155,8 +2195,8 @@ var KatApps;
             const radioValue = type == "radio" && input.hasAttribute("checked") ? input.getAttribute("value") : undefined;
             const checkValue = type == "checkbox" ? (input.hasAttribute("checked") ? "1" : "0") : undefined;
             const textValue = type == "text" ? input.getAttribute("value") : undefined;
-            const exclude = isExcluded || input.hasAttribute("ka-rbl-exclude") || application.closest(input, "[ka-rbl-exclude]").length != 0;
-            const skipCalc = input.hasAttribute("ka-rbl-no-calc") || application.closest(input, "[ka-rbl-no-calc]").length != 0;
+            const exclude = isExcluded || input.hasAttribute("ka-rbl-exclude") || application.closestElement(input, "[ka-rbl-exclude]") != undefined;
+            const skipCalc = input.hasAttribute("ka-rbl-no-calc") || application.closestElement(input, "[ka-rbl-no-calc]") != undefined;
             if (!exclude) {
                 let value = defaultValue(name) ?? checkValue ?? radioValue ?? textValue;
                 if (application.state.inputs[name] == undefined && value != undefined) {
@@ -3046,7 +3086,7 @@ var KatApps;
         getDefinition(application) {
             return ctx => {
                 this.application = application;
-                const navItemId = application.closest(ctx.el, ".tab-pane, [role='tabpanel']").attr("aria-labelledby");
+                const navItemId = application.closestElement(ctx.el, ".tab-pane, [role='tabpanel']")?.getAttribute("aria-labelledby");
                 if (navItemId != undefined) {
                     const navItem = application.select("#" + navItemId);
                     navItem.on('shown.bs.tab', () => $(ctx.el).highcharts().reflow());
@@ -3817,14 +3857,11 @@ var KatApps;
                 const html = document.querySelector("html");
                 html.setAttribute("ka-init-tip", "true");
                 html.addEventListener("click", e => {
-                    console.log("js", { target: e.target });
                     const target = e.target;
                     const targetLink = target.closest("a, button");
                     const isInsideTip = target.closest(".popover-header, .popover-body") != undefined;
-                    if ((target.tagName == 'A' && !target.classList.contains("ka-ht-js")) ||
-                        target.tagName == 'BUTTON' ||
-                        !isInsideTip ||
-                        (targetLink != undefined && !targetLink.classList.contains(".ka-ht-js"))) {
+                    const processLinkJs = targetLink != undefined && targetLink.classList.contains("ka-ht-js");
+                    if (target.tagName == 'BUTTON' || !(processLinkJs || isInsideTip)) {
                         HelpTips.hideVisiblePopover();
                     }
                 });
@@ -4743,7 +4780,7 @@ var KatApps;
                 const value = replacer != undefined
                     ? replacer(key, source[key])
                     : source[key];
-                if (value != undefined && typeof value === "object" && !Array.isArray(value) && !(value instanceof jQuery) && key != "hostApplication") {
+                if (value != undefined && typeof value === "object" && !Array.isArray(value) && !(value instanceof jQuery) && !(value instanceof HTMLElement) && key != "hostApplication") {
                     if (target[key] === undefined || typeof target[key] !== "object") {
                         target[key] = {};
                     }

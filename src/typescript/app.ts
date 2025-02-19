@@ -1796,44 +1796,41 @@ Type 'help' to see available options displayed in the console.`;
 		return undefined;
 	}
 
-	public on(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatApp {
-		this.selectHtmlItems(selector, context).forEach(e => {
-			$(e).on(events, handler);
-		});
-		return this;
+	public on(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): JQuery {
+		const elements = this.select(selector, context);
+		elements.on(events, handler);
+		return elements;
 	}
-	public off(selector: string, events: string, context?: HTMLElement): IKatApp {
-		this.selectHtmlItems(selector, context).forEach(e => {
-			$(e).off(events);
-		});
-		return this;
+	public off(selector: string, events: string, context?: HTMLElement): JQuery {
+		const elements = this.select(selector, context);
+		elements.off(events);
+		return elements;
 	}
 
-	public selectHtml<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined {
+	public selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined {
 		const container = context ?? this.el[0];
+		const result = container.querySelector<T>(selector) ?? undefined;
+
+		if ( result == undefined || context != undefined ) return result;
+
 		var appId = this.getKatAppId(container);
-		return container.querySelector<T>(selector) ?? undefined;
+		return this.getKatAppId(result) == appId ? result : undefined;
 	}
 
-	public selectHtmlItems<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T> {
+	public selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T> {
 		const container = context ?? this.el[0];
+		const result = Array.from(container.querySelectorAll<T>(selector));
+
+		if (context != undefined) return result;
+
 		var appId = this.getKatAppId(container);
-		return Array.from(container.querySelectorAll<T>(selector)).filter(e => this.getKatAppId(e) == appId);
+		return result.filter(e => this.getKatAppId(e) == appId);
 	}
 
-	public closestHtml<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined {
+	public closestElement<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined {
 		const c = element.closest<T>(selector) ?? undefined;
 		const cAppId = c != undefined ? this.getKatAppId(c) : undefined;
 		return cAppId == this.id ? c : undefined;
-	}
-
-	public closest(element: JQuery | HTMLElement, selector: string): JQuery {
-		const context = element instanceof jQuery ? element as JQuery : $(element);
-
-		const c = context.closest(selector);
-		const cAppId = c.attr("ka-id") || c.closest("[ka-id]").attr("ka-id");
-
-		return cAppId == this.id ? c : $();
 	}
 
 	public select<T extends HTMLElement>(selector: string, context?: JQuery | HTMLElement | undefined): JQuery<T> {
@@ -1940,8 +1937,9 @@ Type 'help' to see available options displayed in the console.`;
 		let templateId: string | undefined;
 
 		// Find template by precedence
-		for (var k in this.viewTemplates!) {
-			const tid = "#" + name + "_" + this.viewTemplates[k].replace(/\//g, "_");
+		for (let i = 0; i < this.viewTemplates!.length; i++) {
+			const viewTemplate = this.viewTemplates![i];
+			const tid = "#" + name + "_" + viewTemplate.replace(/\//g, "_");
 			if (document.querySelector(tid) != undefined) {
 				templateId = tid;
 				break;
