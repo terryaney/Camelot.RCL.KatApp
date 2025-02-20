@@ -1279,9 +1279,16 @@ Type 'help' to see available options displayed in the console.`;
         elements.off(events);
         return elements;
     }
+    inputSelectorRegex = /:input([\w\s.:#=\[\]'^$*|~]*)(?=(,|$))/g;
+    replaceInputSelector(selector) {
+        return selector.replace(this.inputSelectorRegex, (match, capturedSelectors) => {
+            const inputTypes = ['input', 'textarea', 'select', 'button'];
+            return inputTypes.map(type => `${type}${capturedSelectors}`).join(', ');
+        });
+    }
     selectElement(selector, context) {
         const container = context ?? this.el[0];
-        const result = container.querySelector(selector) ?? undefined;
+        const result = container.querySelector(this.replaceInputSelector(selector)) ?? undefined;
         if (result == undefined || context != undefined)
             return result;
         var appId = this.getKatAppId(container);
@@ -1289,7 +1296,7 @@ Type 'help' to see available options displayed in the console.`;
     }
     selectElements(selector, context) {
         const container = context ?? this.el[0];
-        const result = Array.from(container.querySelectorAll(selector));
+        const result = Array.from(container.querySelectorAll(this.replaceInputSelector(selector)));
         if (context != undefined)
             return result;
         var appId = this.getKatAppId(container);
@@ -1476,7 +1483,7 @@ Type 'help' to see available options displayed in the console.`;
         let cloneHost = false;
         if (options.contentSelector != undefined) {
             await PetiteVue.nextTick();
-            const selectContent = this.select(options.contentSelector);
+            const selectContent = this.select(options.contentSelector).first();
             if (selectContent.length == 0) {
                 throw new Error(`The content selector (${options.contentSelector}) did not return any content.`);
             }
@@ -3918,12 +3925,11 @@ var KatApps;
                     }, 200);
                 });
             }
-            const select = (search, application, context) => (context ?? application?.el[0])?.querySelectorAll(search) ??
-                document.querySelectorAll(search);
+            const selectHelptipInfo = (search, application, context) => $(search, $(context ?? application?.el[0] ?? document));
             const getTipContent = function (h) {
                 const dataContentSelector = h.getAttribute('data-bs-content-selector');
                 if (dataContentSelector != undefined) {
-                    const contentSource = select(dataContentSelector, KatApp.get(h));
+                    const contentSource = selectHelptipInfo(dataContentSelector, KatApp.get(h));
                     HelpTips.visiblePopupContentSource = contentSource.length > 0 ? contentSource[0] : undefined;
                     if (HelpTips.visiblePopupContentSource == undefined)
                         return undefined;
@@ -3934,7 +3940,7 @@ var KatApps;
                 const content = h.getAttribute('data-bs-content') ?? h.nextElementSibling?.innerHTML;
                 const labelFix = h.getAttribute("data-label-fix");
                 return labelFix != undefined
-                    ? content.replace(/\{Label}/g, select("." + labelFix, KatApp.get(h))[0].innerHTML)
+                    ? content.replace(/\{Label}/g, selectHelptipInfo("." + labelFix, KatApp.get(h))[0].innerHTML)
                     : content;
             };
             const getTipTitle = function (h) {
@@ -3942,18 +3948,18 @@ var KatApps;
                     return getTipContent(h);
                 const titleSelector = h.getAttribute('data-bs-content-selector');
                 if (titleSelector != undefined) {
-                    const title = select(titleSelector + "Title", KatApp.get(h));
+                    const title = selectHelptipInfo(titleSelector + "Title", KatApp.get(h));
                     if (title.length > 0 && title[0].innerHTML != "") {
                         return title[0].innerHTML;
                     }
                 }
                 return "";
             };
-            const currentTips = tipsToProcess ??
-                select(selector ?? "[data-bs-toggle='tooltip'], [data-bs-toggle='popover']", KatApp.get(container), container.tagName == "A" || container.tagName == "BUTTON"
+            const currentTips = (tipsToProcess != undefined ? $(tipsToProcess) : undefined) ??
+                selectHelptipInfo(selector ?? "[data-bs-toggle='tooltip'], [data-bs-toggle='popover']", KatApp.get(container), container.tagName == "A" || container.tagName == "BUTTON"
                     ? container.parentElement
                     : container);
-            currentTips.forEach(tip => {
+            currentTips.each((i, tip) => {
                 if (tip.getAttribute("ka-init-tip") == "true")
                     return;
                 const isTooltip = tip.getAttribute("data-bs-toggle") == "tooltip";

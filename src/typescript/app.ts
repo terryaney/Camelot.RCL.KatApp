@@ -1807,9 +1807,19 @@ Type 'help' to see available options displayed in the console.`;
 		return elements;
 	}
 
+	private inputSelectorRegex = /:input([\w\s.:#=\[\]'^$*|~]*)(?=(,|$))/g;
+	private replaceInputSelector(selector: string): string {
+		return selector.replace(this.inputSelectorRegex, (match, capturedSelectors) => {
+			// Split the captured selectors into individual parts (if any)
+			const inputTypes = ['input', 'textarea', 'select', 'button'];
+			// Apply the captured selectors to each input type
+			return inputTypes.map(type => `${type}${capturedSelectors}`).join(', ');
+		});
+	}
+
 	public selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined {
 		const container = context ?? this.el[0];
-		const result = container.querySelector<T>(selector) ?? undefined;
+		const result = container.querySelector<T>(this.replaceInputSelector(selector)) ?? undefined;
 
 		if ( result == undefined || context != undefined ) return result;
 
@@ -1819,7 +1829,7 @@ Type 'help' to see available options displayed in the console.`;
 
 	public selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T> {
 		const container = context ?? this.el[0];
-		const result = Array.from(container.querySelectorAll<T>(selector));
+		const result = Array.from(container.querySelectorAll<T>(this.replaceInputSelector(selector)));
 
 		if (context != undefined) return result;
 
@@ -2063,7 +2073,7 @@ Type 'help' to see available options displayed in the console.`;
 		if (options.contentSelector != undefined) {
 			await PetiteVue.nextTick(); // Just in case kaml js set property that would trigger updating this content
 
-			const selectContent = this.select(options.contentSelector); // .not("template " + options.contentSelector);
+			const selectContent = this.select(options.contentSelector).first(); // .not("template " + options.contentSelector);
 
 			if (selectContent.length == 0) {
 				throw new Error(`The content selector (${options.contentSelector}) did not return any content.`);

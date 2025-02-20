@@ -109,15 +109,14 @@
 				});
 			}
 	
-			const select = (search: string, application: KatApp | undefined, context?: HTMLElement): NodeListOf<HTMLElement> =>
-				(context ?? application?.el[0])?.querySelectorAll(search) ??
-				document.querySelectorAll(search);
+			const selectHelptipInfo = (search: string, application: KatApp | undefined, context?: HTMLElement): JQuery<HTMLElement> =>
+				$(search, $(context ?? application?.el[0] ?? document))
 	
 			const getTipContent = function (h: HTMLElement) {
 				const dataContentSelector = h.getAttribute('data-bs-content-selector');
 	
 				if (dataContentSelector != undefined) {
-					const contentSource = select(dataContentSelector, KatApp.get(h));
+					const contentSource = selectHelptipInfo(dataContentSelector, KatApp.get(h));
 					HelpTips.visiblePopupContentSource = contentSource.length > 0 ? contentSource[0] : undefined;
 
 					if (HelpTips.visiblePopupContentSource == undefined) return undefined;
@@ -135,7 +134,7 @@
 				const labelFix = h.getAttribute("data-label-fix");
 	
 				return labelFix != undefined
-					? content.replace(/\{Label}/g, select("." + labelFix, KatApp.get(h))[0].innerHTML)
+					? content.replace(/\{Label}/g, selectHelptipInfo("." + labelFix, KatApp.get(h))[0].innerHTML)
 					: content;
 			};
 	
@@ -144,7 +143,7 @@
 					
 				const titleSelector = h.getAttribute('data-bs-content-selector');
 				if (titleSelector != undefined) {
-					const title = select(titleSelector + "Title", KatApp.get(h));
+					const title = selectHelptipInfo(titleSelector + "Title", KatApp.get(h));
 					if (title.length > 0 && title[0].innerHTML != "") {
 						return title[0].innerHTML;
 					}
@@ -153,8 +152,8 @@
 				return "";
 			};
 	
-			const currentTips = tipsToProcess ??
-				select(
+			const currentTips = ( tipsToProcess != undefined ? $(tipsToProcess) : undefined) ??
+				selectHelptipInfo(
 					selector ?? "[data-bs-toggle='tooltip'], [data-bs-toggle='popover']",
 					KatApp.get(container),
 					container.tagName == "A" || container.tagName == "BUTTON"
@@ -162,7 +161,7 @@
 						: container
 				);
 			
-			currentTips.forEach(tip => {
+			currentTips.each((i, tip) => {
 				if (tip.getAttribute("ka-init-tip") == "true") return;
 
 				const isTooltip = tip.getAttribute("data-bs-toggle") == "tooltip";
