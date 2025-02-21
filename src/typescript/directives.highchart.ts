@@ -7,19 +7,14 @@
 		private application: KatApp | undefined;
 
 		// Automatic reflow...
-		// 1. After app is originally displayed, all application charts are reflowed
-		// 2. If chart is inside a tab-pane, hook to 'shown.bs.tab' using aria-labelledby attribute will reflow current chart
-		// 3. If a v-if item contains a v-ka-highchart, a mounted event is added to v-if element to reflow child charts
+		// 1. After app is originally displayed, all application charts are reflowed (via processDomElementsAsync)
+		// 2. If chart is inside a tab-pane, hook to 'shown.bs.tab' using aria-labelledby attribute will reflow current chart (via processDomElementsAsync)
+		// 3. If a v-if item contains a v-ka-highchart, a _domElementMounted mounted event is added that will ultimately reflow child charts (via processDomElementsAsync)
 		public getDefinition(application: KatApp): Directive<Element> {
 
 			return ctx => {
 				this.application = application;
-
-				const navItemId = application.closestElement(ctx.el as HTMLElement, ".tab-pane, [role='tabpanel']")?.getAttribute("aria-labelledby");
-				if (navItemId != undefined) {
-					const navItem = application.select("#" + navItemId);
-					navItem.on('shown.bs.tab', () => ($(ctx.el).highcharts() as HighchartsChartObject).reflow());
-				}
+				const el = ctx.el as HTMLElement;
 
 				let highchart: HighchartsChartObject | undefined;
 
@@ -28,7 +23,6 @@
 						Utils.trace(application, "DirectiveKaHighchart", "getDefinition", `Highcharts javascript is not present.`, TraceVerbosity.None, ctx.exp);
 						return;
 					}
-
 					const scope: IKaHighchartModel = ctx.get();
 					const data = application.state.rbl.source(`HighCharts-${scope.data}-Data`, scope.ce, scope.tab) as Array<IRblHighChartsDataRow>;
 					const optionRows = application.state.rbl.source<IRblHighChartsOptionRow>(`HighCharts-${scope.options ?? scope.data}-Options`, scope.ce, scope.tab);
@@ -37,12 +31,7 @@
 					const dataRows = data.filter(r => !r.category.startsWith("config-"));
 					const seriesConfigurationRows = data.filter(r => r.category.startsWith("config-"));
 
-					// Key automatically added to container for identifying this chart
-					const exists = (highchart = Highcharts.charts[ctx.el.getAttribute('data-highcharts-chart') ?? -1]) != undefined;
-					if (highchart !== undefined) {
-						highchart.destroy();
-						highchart = undefined;
-					}
+					Highcharts.charts[+( el.getAttribute('data-highcharts-chart') ?? "-1" )]?.destroy();
 
 					if (dataRows.length > 0) {
 						this.ensureCulture();
@@ -56,11 +45,11 @@
 						const configStyle = getOptionValue("config-style");
 
 						if (configStyle !== undefined) {
-							let renderStyle = ctx.el.getAttribute("style") ?? "";
+							let renderStyle = el.getAttribute("style") ?? "";
 							if (renderStyle !== "" && !renderStyle.endsWith(";")) {
 								renderStyle += ";";
 							}
-							ctx.el.setAttribute("style", renderStyle + configStyle);
+							el.setAttribute("style", renderStyle + configStyle);
 						}
 
 						const chartType = getOptionValue("chart.type");
@@ -69,12 +58,9 @@
 						const chartOptions = this.getChartOptions(chartType, tooltipFormat, dataRows, optionRows, overrideRows, seriesConfigurationRows);
 
 						try {
-							$(ctx.el).highcharts(chartOptions);
-							highchart = Highcharts.charts[ctx.el.getAttribute('data-highcharts-chart')!];
-							if (exists) {
-								// Screen probably not redrawing, so need to ensure it reflows into the proper height
-								($(ctx.el).highcharts() as HighchartsChartObject).reflow();
-							}
+							Highcharts.chart(el, chartOptions);
+							// So need to ensure it reflows into the proper height
+							( highchart = Highcharts.charts[+el.getAttribute('data-highcharts-chart')!] )?.reflow();
 						} catch (error) {
 							Utils.trace(application, "DirectiveKaHighchart", "getDefinition", `Error during highchart creation.`, TraceVerbosity.None, ctx.exp, error);
 						}
@@ -83,9 +69,7 @@
 
 				return () => {
 					// Destroy highchart
-					if (highchart !== undefined) {
-						highchart.destroy();
-					}
+					highchart?.destroy();
 				}
 			};
 		}

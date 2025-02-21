@@ -2,9 +2,6 @@
     "version": "1.0.0",
     "name": "rcl.katapp",
     "private": true,
-    "dependencies": {
-        "@types/jquery": "^3.5.5"
-    },
     "devDependencies": {
         "uglify-js": "^3.17.4"
     },

@@ -41,10 +41,10 @@
 				if (ctx.el.tagName == "A") {
 					ctx.el.setAttribute("href", "#");
 				}
-				$(ctx.el).on("click.ka-api", submitApi);
+				ctx.el.addEventListener("click", submitApi);
 
 				return () => {
-					$(ctx.el).off("click.ka-api");
+					ctx.el.removeEventListener("click", submitApi);
 				}
 			};
 		}
