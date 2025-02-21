@@ -53,8 +53,10 @@ declare class KatApp implements IKatApp {
     setInputValue(name: string, value: string | undefined, calculate?: boolean): JQuery | undefined;
     getInputs(customInputs?: ICalculationInputs): ICalculationInputs;
     private getKatAppId;
-    on(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatApp;
-    off(selector: string, events: string, context?: HTMLElement): IKatApp;
+    on(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): JQuery;
+    off(selector: string, events: string, context?: HTMLElement): JQuery;
+    private inputSelectorRegex;
+    private replaceInputSelector;
     selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
     selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;
     closestElement<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined;
@@ -426,8 +428,8 @@ interface IKatApp {
     getInputs(customInputs?: ICalculationInputs): ICalculationInputs;
     getInputValue(name: string, allowDisabled?: boolean): string | undefined;
     setInputValue(name: string, value: string | undefined, calculate?: boolean): JQuery | undefined;
-    on(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatApp;
-    off(selector: string, events: string, context?: HTMLElement): IKatApp;
+    on(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): JQuery;
+    off(selector: string, events: string, context?: HTMLElement): JQuery;
     selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
     selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;
     closestElement<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined;

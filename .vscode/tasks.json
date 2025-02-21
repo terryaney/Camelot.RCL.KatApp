@@ -45,6 +45,7 @@
 			"args": [
 				"build", "${workspaceFolder:RCL.KatApp}/src/Camelot.RCL.KatApp.csproj",
 				"-c", "${input:buildType}",
+				"-v", "detailed",
 				"/property:GenerateFullPaths=true",
 				"/consoleloggerparameters:NoSummary"
 			],
