@@ -130,39 +130,39 @@ class KatApp {
         if (document.querySelector("ka-resources") == undefined) {
             const kaResources = document.createElement("ka-resources");
             kaResources.innerHTML =
-                "<style>\
-	ka-resources, [v-cloak], [ka-cloak] { display: none; }\r\n\
-	.kaModalInit { cursor: progress; }\r\n\
-	body.ka-inspector-value .ka-inspector-value { border: 2px dashed #78aff6; }\r\n\
-	body.ka-inspector-api .ka-inspector-api { border: 2px dotted #785900; }\r\n\
-	body.ka-inspector-app .ka-inspector-app { border: 2px dotted #785900; }\r\n\
-	body.ka-inspector-modal .ka-inspector-modal { border: 2px dotted #785900; }\r\n\
-	body.ka-inspector-navigate .ka-inspector-navigate { border: 2px dotted #785900; }\r\n\
-	body.ka-inspector-highcharts .ka-inspector-highcharts { border: 2px dotted #087849; }\r\n\
-	body.ka-inspector-attributes .ka-inspector-attributes { border: 2px dashed #34495E; }\r\n\
-	body.ka-inspector-inline .ka-inspector-inline { border: 2px dashed #fcce00; }\r\n\
-	body.ka-inspector-table .ka-inspector-table { border: 2px dotted #444; }\r\n\
-	body.ka-inspector-rbl-no-calc .ka-inspector-rbl-no-calc, body.ka-inspector-rbl-exclude .ka-inspector-rbl-exclude { border: 2px dotted #f93b1d; }\r\n\
-	body.ka-inspector-unmount-clears-inputs .ka-inspector-unmount-clears-inputs { border: 2px dotted #f93b1d; }\r\n\
-	body.ka-inspector-needs-calc .ka-inspector-needs-calc { border: 2px dotted #f93b1d; }\r\n\
-	body.ka-inspector-template .ka-inspector-template { border: 2px dotted #10a84a; }\r\n\
-	body.ka-inspector-input .ka-inspector-input, body.ka-inspector-input-group .ka-inspector-input-group { border: 2px dotted #770519; }\r\n\
-	body.ka-inspector-on .ka-inspector-on { border: 2px dotted #ff9e76; }\r\n\
-	body.ka-inspector-bind .ka-inspector-bind { border: 2px dotted #78aff6; }\r\n\
-	body.ka-inspector-html .ka-inspector-html { border: 2px dashed #b6de29; }\r\n\
-	body.ka-inspector-text .ka-inspector-text { border: 2px dashed #b6de29; }\r\n\
-	body.ka-inspector-pre .ka-inspector-pre { border: 2px dotted #f93b1d; }\r\n\
-	body.ka-inspector-scope .ka-inspector-scope { border: 2px dotted #57625a; }\r\n\
-	body.ka-inspector-for .ka-inspector-for { border: 2px dotted #f93b1d; }\r\n\
-	body .ka-inspector-if-hidden { display: none; color: #b232c0; }\r\n\
-	body .ka-inspector-show-hidden { display: none; color: #b232c0; }\r\n\
-	body.ka-inspector-if .ka-inspector-if-hidden, body.ka-inspector-show .ka-inspector-show-hidden { display: block; }\r\n\
-	body.ka-inspector-if .ka-inspector-if { border: 2px dotted #b232c0; }\r\n\
-	body.ka-inspector-show .ka-inspector-show { border: 2px dotted #b232c0; }\r\n\
-	body.ka-inspector-resource .ka-inspector-resource { border: 3px dashed #2067b3; }\r\n\
-	body.ka-inspector-resource .ka-inspector-resource.missing { border: 3px dashed #f93b1d; }\r\n\
-	body.ka-inspector-resource .ka-inspector-resource.missing-culture { border: 3px dashed #10a84a; }\r\n\
-</style>";
+                `<style>
+	ka-resources, [v-cloak], [ka-cloak] { display: none; }
+	.kaModalInit { cursor: progress; }
+	body.ka-inspector-value .ka-inspector-value { border: 2px dashed #78aff6; }
+	body.ka-inspector-api .ka-inspector-api { border: 2px dotted #785900; }
+	body.ka-inspector-app .ka-inspector-app { border: 2px dotted #785900; }
+	body.ka-inspector-modal .ka-inspector-modal { border: 2px dotted #785900; }
+	body.ka-inspector-navigate .ka-inspector-navigate { border: 2px dotted #785900; }
+	body.ka-inspector-highcharts .ka-inspector-highcharts { border: 2px dotted #087849; }
+	body.ka-inspector-attributes .ka-inspector-attributes { border: 2px dashed #34495E; }
+	body.ka-inspector-inline .ka-inspector-inline { border: 2px dashed #fcce00; }
+	body.ka-inspector-table .ka-inspector-table { border: 2px dotted #444; }
+	body.ka-inspector-rbl-no-calc .ka-inspector-rbl-no-calc, body.ka-inspector-rbl-exclude .ka-inspector-rbl-exclude { border: 2px dotted #f93b1d; }
+	body.ka-inspector-unmount-clears-inputs .ka-inspector-unmount-clears-inputs { border: 2px dotted #f93b1d; }
+	body.ka-inspector-needs-calc .ka-inspector-needs-calc { border: 2px dotted #f93b1d; }
+	body.ka-inspector-template .ka-inspector-template { border: 2px dotted #10a84a; }
+	body.ka-inspector-input .ka-inspector-input, body.ka-inspector-input-group .ka-inspector-input-group { border: 2px dotted #770519; }
+	body.ka-inspector-on .ka-inspector-on { border: 2px dotted #ff9e76; }
+	body.ka-inspector-bind .ka-inspector-bind { border: 2px dotted #78aff6; }
+	body.ka-inspector-html .ka-inspector-html { border: 2px dashed #b6de29; }
+	body.ka-inspector-text .ka-inspector-text { border: 2px dashed #b6de29; }
+	body.ka-inspector-pre .ka-inspector-pre { border: 2px dotted #f93b1d; }
+	body.ka-inspector-scope .ka-inspector-scope { border: 2px dotted #57625a; }
+	body.ka-inspector-for .ka-inspector-for { border: 2px dotted #f93b1d; }
+	body .ka-inspector-if-hidden { display: none; color: #b232c0; }
+	body .ka-inspector-show-hidden { display: none; color: #b232c0; }
+	body.ka-inspector-if .ka-inspector-if-hidden, body.ka-inspector-show .ka-inspector-show-hidden { display: block; }
+	body.ka-inspector-if .ka-inspector-if { border: 2px dotted #b232c0; }
+	body.ka-inspector-show .ka-inspector-show { border: 2px dotted #b232c0; }
+	body.ka-inspector-resource .ka-inspector-resource { border: 3px dashed #2067b3; }
+	body.ka-inspector-resource .ka-inspector-resource.missing { border: 3px dashed #f93b1d; }
+	body.ka-inspector-resource .ka-inspector-resource.missing-culture { border: 3px dashed #10a84a; }
+</style>`;
             document.body.appendChild(kaResources);
         }
         const that = this;
@@ -713,8 +713,10 @@ class KatApp {
                             { name: "table", description: "v-ka-table" },
                         ];
                         const getInspectorOptions = () => {
-                            const promptMessage = `What do you want to inspect?\r\n\r\n\
-Enter a comma delimitted list of names or numbers.\r\n\r\n\
+                            const promptMessage = `What do you want to inspect?
+
+Enter a comma delimitted list of names or numbers.
+
 Type 'help' to see available options displayed in the console.`;
                             var defaultOptions = (KatApps.Utils.pageParameters["showinspector"] ?? "1") != "1"
                                 ? KatApps.Utils.pageParameters["showinspector"]
@@ -764,34 +766,34 @@ Type 'help' to see available options displayed in the console.`;
         const viewName = this.options.view ??
             (this.options.modalAppOptions.contentSelector != undefined ? `selector: ${this.options.modalAppOptions.contentSelector}` : "static content");
         const modal = $(`<div v-scope class="modal fade kaModal" tabindex="-1" aria-modal="true" aria-labelledby="kaModalLabel" role="dialog" data-bs-backdrop="static"
-				:data-bs-keyboard="application.options.modalAppOptions.allowKeyboardDismiss"
-				data-view-name="${viewName}">\
-                
-				<div class="modal-dialog">\
-                    <div class="modal-content" v-scope="{\
-							get hasInitializationError() { return application.state.errors.find( r => r.initialization ) != undefined; },\
-							get title() { return application.getLocalizedString(application.options.modalAppOptions.labels.title); },\
-							get hasHeaderTemplate() { return application.options.modalAppOptions.headerTemplate != undefined; }\
-						}">\
-						<div v-if="uiBlocked" class="ui-blocker"></div>\
-						<div v-if="title != undefined || hasHeaderTemplate"
-							:class="['modal-header', { 'invalid-content': hasInitializationError, 'valid-content': !hasInitializationError }]">\
-							<h2 id="kaModalLabel" class="modal-title" v-html="title ?? ''"></h2>\
-							<button v-if="application.options.modalAppOptions.allowKeyboardDismiss != false" type="button" class="btn-close" :aria-label="application.getLocalizedString('Close')"></button>\
-						</div>\
-						<div class="modal-body"></div>\
-                        <div class="modal-footer">\
-							<div v-if="hasInitializationError" class="modal-invalid-footer-buttons text-center d-none">\
-								<button type="button" :class="[\'${cssContinue}\', \'continueButton\']">${this.getLocalizedString("Close")}</button>\
-	                        </div>\
-							<div v-if="!hasInitializationError" class="modal-footer-buttons text-center d-none">\
-								<button v-if="application.options.modalAppOptions.showCancel" type="button" :class="[\'${cssCancel}\', \'cancelButton\', { disabled: uiBlocked}]">${options.labels.cancel}</button>\
-								<button type="button" :class="[\'${cssContinue}\', \'continueButton\', { disabled: uiBlocked}]">${options.labels.continue}</button>\
-	                        </div>\
-                        </div>\
-                    </div>\
-                </div>\
-            </div>`);
+	:data-bs-keyboard="application.options.modalAppOptions.allowKeyboardDismiss"
+	data-view-name="${viewName}">
+	
+	<div class="modal-dialog">
+		<div class="modal-content" v-scope="{
+				get hasInitializationError() { return application.state.errors.find( r => r.initialization ) != undefined; },
+				get title() { return application.getLocalizedString(application.options.modalAppOptions.labels.title); },
+				get hasHeaderTemplate() { return application.options.modalAppOptions.headerTemplate != undefined; }
+			}">
+			<div v-if="uiBlocked" class="ui-blocker"></div>
+			<div v-if="title != undefined || hasHeaderTemplate
+				:class="['modal-header', { 'invalid-content': hasInitializationError, 'valid-content': !hasInitializationError }]">
+				<h2 id="kaModalLabel" class="modal-title" v-html="title ?? ''"></h2>
+				<button v-if="application.options.modalAppOptions.allowKeyboardDismiss != false" type="button" class="btn-close" :aria-label="application.getLocalizedString('Close')"></button>
+			</div>
+			<div class="modal-body"></div>
+			<div class="modal-footer">
+				<div v-if="hasInitializationError" class="modal-invalid-footer-buttons text-center d-none">
+					<button type="button" :class="[\'${cssContinue}\', \'continueButton\']">${this.getLocalizedString("Close")}</button>
+				</div>
+				<div v-if="!hasInitializationError" class="modal-footer-buttons text-center d-none">
+					<button v-if="application.options.modalAppOptions.showCancel" type="button" :class="[\'${cssCancel}\', \'cancelButton\', { disabled: uiBlocked}]">${options.labels.cancel}</button>
+					<button type="button" :class="[\'${cssContinue}\', \'continueButton\', { disabled: uiBlocked}]">${options.labels.continue}</button>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>`);
         if (options.scrollable) {
             $(".modal-dialog", modal).addClass("modal-dialog-scrollable");
             $(".modal-body", modal).attr("tabindex", "0");
@@ -1270,20 +1272,25 @@ Type 'help' to see available options displayed in the console.`;
         return undefined;
     }
     on(selector, events, handler, context) {
-        this.selectElements(selector, context).forEach(e => {
-            $(e).on(events, handler);
-        });
-        return this;
+        const elements = this.select(selector, context);
+        elements.on(events, handler);
+        return elements;
     }
     off(selector, events, context) {
-        this.selectElements(selector, context).forEach(e => {
-            $(e).off(events);
+        const elements = this.select(selector, context);
+        elements.off(events);
+        return elements;
+    }
+    inputSelectorRegex = /:input([\w\s.:#=\[\]'^$*|~]*)(?=(,|$))/g;
+    replaceInputSelector(selector) {
+        return selector.replace(this.inputSelectorRegex, (match, capturedSelectors) => {
+            const inputTypes = ['input', 'textarea', 'select', 'button'];
+            return inputTypes.map(type => `${type}${capturedSelectors}`).join(', ');
         });
-        return this;
     }
     selectElement(selector, context) {
         const container = context ?? this.el[0];
-        const result = container.querySelector(selector) ?? undefined;
+        const result = container.querySelector(this.replaceInputSelector(selector)) ?? undefined;
         if (result == undefined || context != undefined)
             return result;
         var appId = this.getKatAppId(container);
@@ -1291,7 +1298,7 @@ Type 'help' to see available options displayed in the console.`;
     }
     selectElements(selector, context) {
         const container = context ?? this.el[0];
-        const result = Array.from(container.querySelectorAll(selector));
+        const result = Array.from(container.querySelectorAll(this.replaceInputSelector(selector)));
         if (context != undefined)
             return result;
         var appId = this.getKatAppId(container);
@@ -1478,7 +1485,7 @@ Type 'help' to see available options displayed in the console.`;
         let cloneHost = false;
         if (options.contentSelector != undefined) {
             await PetiteVue.nextTick();
-            const selectContent = this.select(options.contentSelector);
+            const selectContent = this.select(options.contentSelector).first();
             if (selectContent.length == 0) {
                 throw new Error(`The content selector (${options.contentSelector}) did not return any content.`);
             }
@@ -3920,12 +3927,11 @@ var KatApps;
                     }, 200);
                 });
             }
-            const select = (search, application, context) => (context ?? application?.el[0])?.querySelectorAll(search) ??
-                document.querySelectorAll(search);
+            const selectHelptipInfo = (search, application, context) => $(search, $(context ?? application?.el[0] ?? document));
             const getTipContent = function (h) {
                 const dataContentSelector = h.getAttribute('data-bs-content-selector');
                 if (dataContentSelector != undefined) {
-                    const contentSource = select(dataContentSelector, KatApp.get(h));
+                    const contentSource = selectHelptipInfo(dataContentSelector, KatApp.get(h));
                     HelpTips.visiblePopupContentSource = contentSource.length > 0 ? contentSource[0] : undefined;
                     if (HelpTips.visiblePopupContentSource == undefined)
                         return undefined;
@@ -3936,7 +3942,7 @@ var KatApps;
                 const content = h.getAttribute('data-bs-content') ?? h.nextElementSibling?.innerHTML;
                 const labelFix = h.getAttribute("data-label-fix");
                 return labelFix != undefined
-                    ? content.replace(/\{Label}/g, select("." + labelFix, KatApp.get(h))[0].innerHTML)
+                    ? content.replace(/\{Label}/g, selectHelptipInfo("." + labelFix, KatApp.get(h))[0].innerHTML)
                     : content;
             };
             const getTipTitle = function (h) {
@@ -3944,18 +3950,18 @@ var KatApps;
                     return getTipContent(h);
                 const titleSelector = h.getAttribute('data-bs-content-selector');
                 if (titleSelector != undefined) {
-                    const title = select(titleSelector + "Title", KatApp.get(h));
+                    const title = selectHelptipInfo(titleSelector + "Title", KatApp.get(h));
                     if (title.length > 0 && title[0].innerHTML != "") {
                         return title[0].innerHTML;
                     }
                 }
                 return "";
             };
-            const currentTips = tipsToProcess ??
-                select(selector ?? "[data-bs-toggle='tooltip'], [data-bs-toggle='popover']", KatApp.get(container), container.tagName == "A" || container.tagName == "BUTTON"
+            const currentTips = (tipsToProcess != undefined ? $(tipsToProcess) : undefined) ??
+                selectHelptipInfo(selector ?? "[data-bs-toggle='tooltip'], [data-bs-toggle='popover']", KatApp.get(container), container.tagName == "A" || container.tagName == "BUTTON"
                     ? container.parentElement
                     : container);
-            currentTips.forEach(tip => {
+            currentTips.each((i, tip) => {
                 if (tip.getAttribute("ka-init-tip") == "true")
                     return;
                 const isTooltip = tip.getAttribute("data-bs-toggle") == "tooltip";
@@ -4259,10 +4265,11 @@ var KatApps;
                         const inspectorIndicator = document.createElement("div");
                         const tagTitle = conditions.length > 1 ? "v-if/v-else-if" : isIf ? "v-if" : "v-show";
                         const expressionTitle = conditions.length > 1 ? "all following expression(s) evaluated to false:" : "the following expression evaluated to false:";
-                        inspectorIndicator.innerHTML = `<i class='fa-solid fa-eye'></i>\r\n\
-<!--\r\n\
-Inspector: ${tagTitle} hidden, ${expressionTitle}\r\n\
-${conditions.map(c => `\t${c}`).join("\r\n")}\r\n\
+                        inspectorIndicator.innerHTML =
+                            `<i class='fa-solid fa-eye'></i>
+<!--
+Inspector: ${tagTitle} hidden, ${expressionTitle}
+${conditions.map(c => `\t${c}`).join("\r\n")}
 -->`;
                         inspectorIndicator.setAttribute(isIf ? "v-if" : "v-show", `!(${conditions.join(" && ")})`);
                         inspectorIndicator.classList.add("v-opposite", isIf ? "ka-inspector-if-hidden" : "ka-inspector-show-hidden");
@@ -4346,7 +4353,7 @@ ${conditions.map(c => `\t${c}`).join("\r\n")}\r\n\
                     }
                     else if (name != "ka-inspector-pre") {
                         details.push(values.length > 1
-                            ? `${directiveIndent}${name} expressions:\r\n${values.map(v => "\t" + v).join("\r\n")}`
+                            ? `${directiveIndent}${name} expressions:${"\r\n" + values.map(v => "\t" + v).join("\r\n")}`
                             : `${directiveIndent}${name}: ${values[0]}`);
                     }
                 };
@@ -4385,7 +4392,7 @@ ${conditions.map(c => `\t${c}`).join("\r\n")}\r\n\
                             }
                         }
                     }
-                    target.before(target.inspector = new Comment(`\r\n${details.join("\r\n")}\r\n`));
+                    target.before(target.inspector = new Comment("\r\n" + details.join("\r\n") + "\r\n"));
                 }
             }
             else if (node.nodeType == 3 && node.parentNode.tagName != "SCRIPT") {
@@ -4401,8 +4408,8 @@ ${conditions.map(c => `\t${c}`).join("\r\n")}\r\n\
                 }
                 if (textBindings.length > 0) {
                     parent.before(parent.inspector = textBindings.length > 1
-                        ? new Comment(`\r\nka-inspector-text bindings:\r\n${textBindings.map(b => "\t" + b).join("\r\n")}\r\n`)
-                        : new Comment(`\r\nka-inspector-text binding: ${textBindings[0]}\r\n`));
+                        ? new Comment("\r\nka-inspector-text bindings:\r\n" + textBindings.map(b => "\t" + b).join("\r\n") + "\r\n")
+                        : new Comment("\r\nka-inspector-text binding: " + textBindings[0] + "\r\n"));
                 }
             }
         }

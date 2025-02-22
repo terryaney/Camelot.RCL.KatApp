@@ -328,10 +328,11 @@
 						const inspectorIndicator = document.createElement("div");
 						const tagTitle = conditions.length > 1 ? "v-if/v-else-if" : isIf ? "v-if" : "v-show";
 						const expressionTitle = conditions.length > 1 ? "all following expression(s) evaluated to false:" : "the following expression evaluated to false:";
-						inspectorIndicator.innerHTML = `<i class='fa-solid fa-eye'></i>\r\n\
-<!--\r\n\
-Inspector: ${tagTitle} hidden, ${expressionTitle}\r\n\
-${conditions.map(c => `\t${c}`).join("\r\n")}\r\n\
+						inspectorIndicator.innerHTML =
+`<i class='fa-solid fa-eye'></i>
+<!--
+Inspector: ${tagTitle} hidden, ${expressionTitle}
+${conditions.map(c => `\t${c}`).join("\r\n")}
 -->`;
 					
 						// If directive is v-show, have to use that as well b/c v-show is permitted as immediate child of <template v-for/>
@@ -462,7 +463,7 @@ ${conditions.map(c => `\t${c}`).join("\r\n")}\r\n\
 					}
 					else if (name != "ka-inspector-pre") {
 						details.push(values.length > 1
-							? `${directiveIndent}${name} expressions:\r\n${values.map(v => "\t" + v).join("\r\n")}`
+							? `${directiveIndent}${name} expressions:${"\r\n" + values.map(v => "\t" + v).join("\r\n")}`
 							: `${directiveIndent}${name}: ${values[0]}`
 						);
 					}
@@ -515,7 +516,7 @@ ${conditions.map(c => `\t${c}`).join("\r\n")}\r\n\
 					}
 
 					// Inject inspector comment
-					target.before(target.inspector = new Comment(`\r\n${details.join("\r\n")}\r\n`));
+					target.before(target.inspector = new Comment("\r\n" + details.join("\r\n") + "\r\n"));
 				}
 			}
 			else if (node.nodeType == 3 && (node.parentNode as Element).tagName != "SCRIPT") {
@@ -535,8 +536,8 @@ ${conditions.map(c => `\t${c}`).join("\r\n")}\r\n\
 
 				if (textBindings.length > 0) {
 					parent.before((parent as any).inspector = textBindings.length > 1
-						? new Comment(`\r\nka-inspector-text bindings:\r\n${textBindings.map(b => "\t" + b).join("\r\n")}\r\n`)
-						: new Comment(`\r\nka-inspector-text binding: ${textBindings[0]}\r\n`)
+						? new Comment("\r\nka-inspector-text bindings:\r\n" + textBindings.map(b => "\t" + b).join("\r\n") + "\r\n")
+						: new Comment("\r\nka-inspector-text binding: " + textBindings[0] + "\r\n")
 					);
 				}
 			}

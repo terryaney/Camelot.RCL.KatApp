@@ -1,15 +1,15 @@
 {
-	"version": "1.0.0",
-	"name": "rcl.katapp",
-	"private": true,
-	"dependencies": {
-		"@types/jquery": "^3.5.5"
-	},
-	"devDependencies": {
-		"uglify-js": "^3.17.4"
-	},
-	"scripts": {
-		"uglify": "uglifyjs wwwroot/js/katapp.js -c -m --output wwwroot/js/katapp.min.js",
-		"uglify-map": "uglifyjs wwwroot/js/katapp.js -c -m --source-map --output wwwroot/js/katapp.min.js"
-	}
+    "version": "1.0.0",
+    "name": "rcl.katapp",
+    "private": true,
+    "dependencies": {
+        "@types/jquery": "^3.5.5"
+    },
+    "devDependencies": {
+        "uglify-js": "^3.17.4"
+    },
+    "scripts": {
+        "uglify": "uglifyjs wwwroot/js/katapp.js -c -m --output wwwroot/js/katapp.min.js && npm run convert-line-endings",
+        "convert-line-endings": "node -e \"const fs = require('fs'); const filePath = 'wwwroot/js/katapp.min.js'; const content = fs.readFileSync(filePath, 'utf8'); const updatedContent = content.replace(/\\n/g, '\\r\\n'); fs.writeFileSync(filePath, updatedContent, 'utf8');\""
+    }
 }

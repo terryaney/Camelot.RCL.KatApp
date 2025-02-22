@@ -8,8 +8,14 @@
 			"args": {
 				"description": "Dependent library commit status?",
 				"options": [
-					{ "label": "Require all libraries to be synced", "value": "synced" },
-					{ "label": "Use latest code from TFS", "value": "latest" }
+					{
+						"label": "Require all libraries to be synced",
+						"value": "synced"
+					},
+					{
+						"label": "Use latest code from TFS",
+						"value": "latest"
+					}
 				]
 			}
 		},
@@ -30,11 +36,11 @@
 				"text": "666"
 			}
 		},
-        {
-            "id": "buildBranch",
-            "type": "promptString",
-            "description": "Please provide a branch name (hotfix/XXX):"
-  		}
+		{
+			"id": "buildBranch",
+			"type": "promptString",
+			"description": "Please provide a branch name (hotfix/XXX):"
+		}
 	],
 	"tasks": [
 		{
@@ -43,9 +49,12 @@
 			"command": "dotnet",
 			"type": "process",
 			"args": [
-				"build", "${workspaceFolder:RCL.KatApp}/src/Camelot.RCL.KatApp.csproj",
-				"-c", "${input:buildType}",
-				"-v", "detailed",
+				"build",
+				"${workspaceFolder:RCL.KatApp}/src/Camelot.RCL.KatApp.csproj",
+				"-c",
+				"${input:buildType}",
+				"-v",
+				"detailed",
 				"/property:GenerateFullPaths=true",
 				"/consoleloggerparameters:NoSummary"
 			],
@@ -55,97 +64,112 @@
 				"showReuseMessage": false
 			},
 			"problemMatcher": "$msCompile"
-        },
-
-        {
-            "label": "debug KatApps",
+		},
+		{
+			"label": "debug KatApps",
 			"hide": true,
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "build",
-                "test/KatAppVUE.csproj",
-                "/property:GenerateFullPaths=true",
-                "/consoleloggerparameters:NoSummary"
-            ],
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"test/KatAppVUE.csproj",
+				"/property:GenerateFullPaths=true",
+				"/consoleloggerparameters:NoSummary"
+			],
 			"presentation": {
 				"clear": true
 			},
-            "problemMatcher": "$msCompile"
-        },
-		
+			"problemMatcher": "$msCompile"
+		},
 		{
-            "label": "Typescript RCL KatApp",
-            "dependsOn":[
-                "ts - comments",
-                "uglify",
-                "ts - no comments",
+			"label": "Typescript RCL KatApp",
+			"dependsOn": [
+				"ts - comments",
+				"ts - uglify",
+				"ts - no comments",
 				"ts - copy to test"
-            ],
-            "problemMatcher": "$tsc",
-            "dependsOrder": "sequence"
-        },
-        {
-            "label": "ts - comments",
-            "hide": true,
-            "type": "typescript",
-            "tsconfig": "src/tsconfig.json",
-            "problemMatcher": "$tsc",
-            "group": "build",
+			],
+			"problemMatcher": "$tsc",
+			"dependsOrder": "sequence"
+		},
+		{
+			"label": "ts - comments",
+			"hide": true,
+			"type": "typescript",
+			"tsconfig": "src/tsconfig.json",
+			"problemMatcher": "$tsc",
+			"group": "build",
 			"options": {
 				"env": {
 					// Tell KAT powershell prompt to not pull latest gitconfig
 					"SKIP_GITCONFIG": "true"
 				}
+			},
+			"presentation": {
+				"reveal": "silent",
+				"echo": false,
+				"focus": false,
+				"panel": "dedicated"
 			}
-        },
-        {
-            "label": "ts - no comments",
-            "hide": true,
-            "type": "typescript",
-            "tsconfig": "src/tsconfig.d.json",
-            "problemMatcher": "$tsc",
-            "group": "build",
+		},
+		{
+			"label": "ts - no comments",
+			"hide": true,
+			"type": "typescript",
+			"tsconfig": "src/tsconfig.d.json",
+			"problemMatcher": "$tsc",
+			"group": "build",
 			"options": {
 				"env": {
 					// Tell KAT powershell prompt to not pull latest gitconfig
 					"SKIP_GITCONFIG": "true"
 				}
+			},
+			"presentation": {
+				"reveal": "silent",
+				"echo": false,
+				"focus": false,
+				"panel": "dedicated"
 			}
-        },
-        {
-            "label": "uglify",
-            "hide": true,
-            "type": "npm",
-            "problemMatcher": [],
-            "script": "uglify",
+		},
+		{
+			"label": "ts - uglify",
+			"hide": true,
+			"type": "npm",
+			"problemMatcher": [],
+			"script": "uglify",
 			"options": {
 				"cwd": "${workspaceFolder}/src",
 				"env": {
 					// Tell KAT powershell prompt to not pull latest gitconfig
 					"SKIP_GITCONFIG": "true"
 				}
+			},
+			"presentation": {
+				"reveal": "silent",
+				"echo": false,
+				"focus": false,
+				"panel": "dedicated"
 			}
 		},
-        {
-            "label": "ts - copy to test",
+		{
+			"label": "ts - copy to test",
 			"hide": true,
-            "type": "shell",
-            "command": "xcopy",
-            "args": [
-                "${workspaceFolder}\\src\\wwwroot\\js\\KatApp*.js",
-                "${workspaceFolder}\\test\\wwwroot\\js\\",
-                "/Y"
-            ],
-            "problemMatcher": [],
+			"type": "shell",
+			"command": "xcopy",
+			"args": [
+				"${workspaceFolder}\\src\\wwwroot\\js\\KatApp*.js",
+				"${workspaceFolder}\\test\\wwwroot\\js\\",
+				"/Y"
+			],
+			"problemMatcher": [],
 			"options": {
 				"env": {
 					// Tell KAT powershell prompt to not pull latest gitconfig
 					"SKIP_GITCONFIG": "true"
 				}
 			}
-        },
-
+		},
 		{
 			"label": "debug",
 			"hide": true,
@@ -155,7 +179,8 @@
 				"clear": true
 			},
 			"args": [
-				"build", "${workspaceFolder:RCL.KatApp}/src/Camelot.RCL.KatApp.csproj",
+				"build",
+				"${workspaceFolder:RCL.KatApp}/src/Camelot.RCL.KatApp.csproj",
 				"/property:GenerateFullPaths=true",
 				"/consoleloggerparameters:NoSummary"
 			],
