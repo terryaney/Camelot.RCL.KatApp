@@ -32,13 +32,14 @@
 				const html = document.querySelector("html")!;
 				html.setAttribute("ka-init-tip", "true");
 				html.addEventListener("click", e => {
-					const target = e.target as HTMLElement;
+                    const target = e.target as HTMLElement;
 					const targetLink = target.closest("a, button");
-					const isInsideTip = target.closest(".popover-header, .popover-body") != undefined;
-					const processLinkJs = targetLink != undefined && targetLink.classList.contains("ka-ht-js");
+                    const isInsideTip = target.closest(".popover-header, .popover-body") != undefined;
+                    const processLinkJs = targetLink != undefined && targetLink.classList.contains("ka-ht-js");
+                    const targetTagName = targetLink?.tagName;
 					
 					// Not sure why 'button' is getting forced to hide, should decorate with ka-ht-js, but leaving for now.
-					if (target.tagName == 'BUTTON' || !(processLinkJs || isInsideTip)) {
+					if (targetTagName == 'BUTTON' || (targetTagName == "A" && !processLinkJs) || !isInsideTip) {
 						HelpTips.hideVisiblePopover();
 					}
 				});
