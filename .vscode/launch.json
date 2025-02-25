@@ -15,7 +15,7 @@
             // If you have changed target frameworks, make sure to update the program path.
             "program": "${workspaceFolder}/test/bin/Debug/net7.0/KatAppVUE.dll",
             "args": [],
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}/test",
             "stopAtEntry": false,
             // Enable launching a web browser when ASP.NET Core starts. For more information: https://aka.ms/VSCode-CS-LaunchJson-WebBrowser
             "serverReadyAction": {
@@ -26,8 +26,7 @@
 			},
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development"
-            },
-			"launchSettingsProfile": "Site"
+            }
         }
     ]
 }

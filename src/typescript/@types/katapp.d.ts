@@ -1,4 +1,10 @@
-/// <reference types="jquery" />
+declare class KatAppEventFluentApi<T extends HTMLElement> implements IKatAppEventFluentApi<T> {
+    private app;
+    private elements;
+    constructor(app: KatApp, elements: Array<T>);
+    on(events: string, handler: (e: Event) => void): KatAppEventFluentApi<T>;
+    off(events: string): KatAppEventFluentApi<T>;
+}
 declare class KatApp implements IKatApp {
     selector: string;
     static applications: Array<KatApp>;
@@ -13,7 +19,7 @@ declare class KatApp implements IKatApp {
     lastCalculation?: ILastCalculation;
     options: IKatAppOptions;
     state: IState;
-    el: JQuery;
+    el: HTMLElement;
     traceStart: Date;
     traceLast: Date;
     missingResources: Array<string>;
@@ -36,6 +42,7 @@ declare class KatApp implements IKatApp {
     triggerEventAsync(eventName: string, ...args: (object | string | undefined | unknown)[]): Promise<boolean | undefined>;
     configure(configAction: (config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
     handleEvents(configAction: (config: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
+    private appendAndExecuteScripts;
     private mountAsync;
     private initializeInspector;
     private createModalContainer;
@@ -44,17 +51,22 @@ declare class KatApp implements IKatApp {
     calculateAsync(customInputs?: ICalculationInputs, processResults?: boolean, calcEngines?: ICalcEngine[], allowLogging?: boolean): Promise<ITabDef[] | void>;
     notifyAsync(from: KatApp, name: string, information?: IStringAnyIndexer): Promise<void>;
     checkValidity(): boolean;
-    apiAsync(endpoint: string, apiOptions: IApiOptions | undefined, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
+    apiAsync(endpoint: string, apiOptions?: IApiOptions, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
     private addUnexpectedError;
     private downloadBlob;
     private getApiUrl;
     private processDomElementsAsync;
     getInputValue(name: string, allowDisabled?: boolean): string | undefined;
-    setInputValue(name: string, value: string | undefined, calculate?: boolean): JQuery | undefined;
+    setInputValue(name: string, value: string | undefined, calculate?: boolean): Array<HTMLInputElement> | undefined;
     getInputs(customInputs?: ICalculationInputs): ICalculationInputs;
     private getKatAppId;
+    on<T extends HTMLElement>(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): KatAppEventFluentApi<T>;
+    off<T extends HTMLElement>(selector: string, events: string, context?: HTMLElement): KatAppEventFluentApi<T>;
+    private inputSelectorRegex;
+    private replaceInputSelector;
+    selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
+    selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;
     closestElement<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined;
-    select<T extends HTMLElement>(selector: string, context?: JQuery | HTMLElement | undefined): JQuery<T>;
     private getResourceString;
     getLocalizedString(key: string | undefined, formatObject?: IStringIndexer<string>, defaultValue?: string): string | undefined;
     getTemplateContent(name: string): DocumentFragment;
@@ -246,6 +258,14 @@ declare namespace KatApps {
         static processHelpTips(container: HTMLElement, selector?: string, tipsToProcess?: NodeListOf<HTMLElement>): void;
     }
 }
+declare enum TraceVerbosity {
+    None = 0,
+    Quiet = 1,
+    Minimal = 2,
+    Normal = 3,
+    Detailed = 4,
+    Diagnostic = 5
+}
 interface IKatAppCalculationResponse {
     CalcEngine: string;
     Diagnostics?: IRblCalculationDiagnostics;
@@ -346,13 +366,13 @@ interface IRblCalculationSuccessResponse {
         };
     };
 }
-declare enum TraceVerbosity {
-    None = 0,
-    Quiet = 1,
-    Minimal = 2,
-    Normal = 3,
-    Detailed = 4,
-    Diagnostic = 5
+interface ITraceVerbosity {
+    None: number;
+    Quiet: number;
+    Minimal: number;
+    Normal: number;
+    Detailed: number;
+    Diagnostic: number;
 }
 interface IKatAppDefaultOptions {
     calculationUrl: string;
@@ -360,7 +380,7 @@ interface IKatAppDefaultOptions {
     kamlVerifyUrl: string;
     anchoredQueryStrings?: string;
     debug: {
-        traceVerbosity: TraceVerbosity;
+        traceVerbosity: ITraceVerbosity;
         useTestCalcEngine: boolean;
         useTestView: boolean;
         showInspector: string;
@@ -373,7 +393,7 @@ interface IKatAppDefaultOptions {
 }
 interface IKatAppOptions extends IKatAppDefaultOptions {
     view?: string;
-    content?: string | JQuery;
+    content?: string | HTMLElement;
     baseUrl?: string;
     dataGroup: string;
     currentPage: string;
@@ -398,12 +418,13 @@ interface IKatAppOptions extends IKatAppDefaultOptions {
 }
 interface IKatAppStatic {
     getDirty(): Array<IKatApp>;
-    createAppAsync(selector: string, options: IKatAppOptions): Promise<KatApp>;
-    get(key: string | number | Element): KatApp | undefined;
+    createAppAsync(selector: string, options: IKatAppOptions): Promise<IKatApp>;
+    get(key: string | number | Element): IKatApp | undefined;
     handleEvents(selector: string, configAction: (config: IKatAppEventsConfiguration) => void): void;
 }
 interface IKatApp {
-    el: JQuery;
+    id: string;
+    el: HTMLElement;
     calcEngines: ICalcEngine[];
     options: IKatAppOptions;
     isCalculating: boolean;
@@ -415,19 +436,27 @@ interface IKatApp {
     allowCalculation(ceKey: string, enabled: boolean): void;
     checkValidity(): boolean;
     calculateAsync(customInputs?: ICalculationInputs, processResults?: boolean, calcEngines?: ICalcEngine[], allowLogging?: boolean): Promise<ITabDef[] | void>;
-    apiAsync(endpoint: string, apiOptions: IApiOptions, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
+    apiAsync(endpoint: string, apiOptions?: IApiOptions, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
     showModalAsync(options: IModalOptions, triggerLink?: HTMLElement): Promise<IModalResponse>;
     navigateAsync(navigationId: string, options?: INavigationOptions): void;
     blockUI(): void;
     unblockUI(): void;
     getInputs(customInputs?: ICalculationInputs): ICalculationInputs;
     getInputValue(name: string, allowDisabled?: boolean): string | undefined;
-    setInputValue(name: string, value: string | undefined, calculate?: boolean): JQuery | undefined;
-    select<T extends HTMLElement>(selector: string, context?: JQuery | HTMLElement | undefined): JQuery<T>;
-    notifyAsync(from: KatApp, name: string, information?: IStringAnyIndexer): Promise<void>;
+    setInputValue(name: string, value: string | undefined, calculate?: boolean): Array<HTMLInputElement> | undefined;
+    on<T extends HTMLElement>(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatAppEventFluentApi<T>;
+    off<T extends HTMLElement>(selector: string, events: string, context?: HTMLElement): IKatAppEventFluentApi<T>;
+    selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
+    selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;
+    closestElement<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined;
+    notifyAsync(from: IKatApp, name: string, information?: IStringAnyIndexer): Promise<void>;
     getTemplateContent(name: string): DocumentFragment;
     getLocalizedString(key: string | undefined, formatObject?: IStringIndexer<string>, defaultValue?: string): string | undefined;
     debugNext(saveLocations?: string | boolean, serverSideOnly?: boolean, trace?: boolean, expireCache?: boolean): void;
+}
+interface IKatAppEventFluentApi<T extends HTMLElement> {
+    on(events: string, handler: (e: Event) => void): IKatAppEventFluentApi<T>;
+    off(events: string): IKatAppEventFluentApi<T>;
 }
 interface ICalcEngine {
     key: string;
@@ -457,6 +486,7 @@ interface IConfigureOptions {
     events: IKatAppEventsConfiguration;
 }
 interface IKatAppEventsConfiguration {
+    [key: string]: any;
     initialized?: (application: IKatApp) => void;
     modalAppInitialized?: (modalApplication: IKatApp, hostApplication: IKatApp) => void;
     nestedAppInitialized?: (nestedApplication: IKatApp, hostApplication: IKatApp) => void;
@@ -471,9 +501,9 @@ interface IKatAppEventsConfiguration {
     calculationErrors?: (key: string, exception: Error | undefined, application: IKatApp) => void;
     calculateEnd?: (application: IKatApp) => void;
     domUpdated?: (elements: Array<HTMLElement>, application: IKatApp) => void;
-    apiStart?: (endpoint: string, submitData: ISubmitApiData, trigger: JQuery<HTMLElement> | undefined, apiOptions: IApiOptions, application: IKatApp) => void | false;
-    apiComplete?: (endpoint: string, successResponse: IStringAnyIndexer | undefined, trigger: JQuery<HTMLElement> | undefined, apiOptions: IApiOptions, application: IKatApp) => void;
-    apiFailed?: (endpoint: string, errorResponse: IApiErrorResponse, trigger: JQuery<HTMLElement> | undefined, apiOptions: IApiOptions, application: IKatApp) => void;
+    apiStart?: (endpoint: string, submitData: ISubmitApiData, trigger: HTMLElement | undefined, apiOptions: IApiOptions, application: IKatApp) => void | false;
+    apiComplete?: (endpoint: string, successResponse: IStringAnyIndexer | undefined, trigger: HTMLElement | undefined, apiOptions: IApiOptions, application: IKatApp) => void;
+    apiFailed?: (endpoint: string, errorResponse: IApiErrorResponse, trigger: HTMLElement | undefined, apiOptions: IApiOptions, application: IKatApp) => void;
     /**
      * The 'notification' delegate is invoked when another KatApp wants to notify this application via the `notifyAsync` method.
      * @param {string} name - The name of the notification.
@@ -614,7 +644,7 @@ interface INextCalculation {
     }[];
     expireCache: boolean;
     trace: boolean;
-    originalVerbosity: TraceVerbosity;
+    originalVerbosity: ITraceVerbosity;
 }
 interface IKamlVerifyResult {
     path: string;
@@ -622,7 +652,7 @@ interface IKamlVerifyResult {
 }
 interface IModalOptions {
     view?: string;
-    content?: string | JQuery;
+    content?: string;
     contentSelector?: string;
     calculateOnConfirm?: boolean | ICalculationInputs;
     labels?: {
@@ -643,7 +673,10 @@ interface IModalOptions {
     inputs?: ICalculationInputs;
 }
 interface IModalAppOptions extends IModalOptions {
-    promise: JQuery.Deferred<IModalResponse>;
+    promise: {
+        resolve: (response: IModalResponse | PromiseLike<IModalResponse>) => void;
+        reject: (reason?: unknown) => void;
+    };
     confirmedAsync?: (response?: unknown) => Promise<void>;
     cancelled?: (response?: unknown) => void;
     triggerLink?: HTMLElement;
@@ -724,11 +757,11 @@ interface IKaNavigateModel {
     clearDirty?: boolean;
 }
 interface IKaModalModel extends IModalOptions {
-    beforeOpenAsync?: (hostApplication: KatApp) => Promise<void>;
-    confirmedAsync?: (response: unknown | undefined, application: KatApp) => Promise<void>;
-    cancelledAsync?: (response: unknown | undefined, application: KatApp) => Promise<void>;
-    catchAsync?: (e: unknown | undefined, application: KatApp) => Promise<void>;
-    closed?: (application: KatApp) => void;
+    beforeOpenAsync?: (hostApplication: IKatApp) => Promise<void>;
+    confirmedAsync?: (response: unknown | undefined, application: IKatApp) => Promise<void>;
+    cancelledAsync?: (response: unknown | undefined, application: IKatApp) => Promise<void>;
+    catchAsync?: (e: unknown | undefined, application: IKatApp) => Promise<void>;
+    closed?: (application: IKatApp) => void;
     model?: string;
 }
 interface IKaAppModel {
@@ -738,8 +771,8 @@ interface IKaAppModel {
 }
 interface IKaApiModel extends IApiOptions {
     endpoint: string;
-    thenAsync?: (response: IStringAnyIndexer | undefined, application: KatApp) => Promise<void>;
-    catchAsync?: (e: unknown | undefined, application: KatApp) => Promise<void>;
+    thenAsync?: (response: IStringAnyIndexer | undefined, application: IKatApp) => Promise<void>;
+    catchAsync?: (e: unknown | undefined, application: IKatApp) => Promise<void>;
     confirm?: IModalOptions;
 }
 interface IKaHighchartModel {
@@ -784,7 +817,7 @@ interface IKaInputModel {
     isNoCalc?: ((base: IKaInputScopeBase) => boolean) | boolean;
     isDisabled?: ((base: IKaInputScopeBase) => boolean) | boolean;
     isDisplay?: ((base: IKaInputScopeBase) => boolean) | boolean;
-    events?: IStringIndexer<((e: Event, application: KatApp) => void)>;
+    events?: IStringIndexer<((e: Event, application: IKatApp) => void)>;
 }
 interface IKaInputModelHelp {
     title?: string;
@@ -868,7 +901,7 @@ interface IKaInputGroupModel {
     isNoCalc?: ((index: number, base: IKaInputGroupScopeBase) => boolean) | boolean;
     isDisabled?: ((index: number, base: IKaInputGroupScopeBase) => boolean) | boolean;
     isDisplay?: ((index: number, base: IKaInputGroupScopeBase) => boolean) | boolean;
-    events?: IStringIndexer<((e: Event, application: KatApp) => void)>;
+    events?: IStringIndexer<((e: Event, application: IKatApp) => void)>;
 }
 interface IKaInputGroupScope {
     readonly $template: string | undefined;
@@ -963,14 +996,6 @@ declare namespace KatApps {
         resourceKey: string;
         constructor(message: string, resourceKey: string);
     }
-}
-interface JQueryStatic {
-    _data(element: HTMLElement, property: string): Record<string, {
-        handler: any;
-        kaProxy: boolean | undefined;
-        namespace: string | undefined;
-        guid: number;
-    }[] | undefined>;
 }
 declare namespace KatApps {
     class Utils {

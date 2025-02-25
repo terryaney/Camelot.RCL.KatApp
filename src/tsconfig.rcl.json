@@ -1,0 +1,26 @@
+{
+	"compilerOptions": {
+		"newLine": "crlf",					  	  /* Set the new line character for emitted files. */
+		"target": "ESNext", 					  /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017', 'ES2018', 'ES2019', 'ES2020', or 'ESNEXT'. */
+		"declaration": false, 					  /* Generates corresponding '.d.ts' file. */
+		"sourceMap": false, 					  /* Generates corresponding '.map' file. */
+		"outFile": "./wwwroot/js/RCL.js",		  /* Concatenate and emit output to single file. */
+		"removeComments": true, 				  /* Do not emit comments to output. */
+		"strict": true, 						  /* Enable all strict type-checking options. */
+		"noImplicitAny": true, 					  /* Raise error on expressions and declarations with an implied 'any' type. */
+		"noEmitOnError": true,					  /* Do not emit compiler output files like JavaScript source code, source-maps or declarations if any errors were reported */
+		"listEmittedFiles": true
+	},
+	"compileOnSave": false,
+	"exclude": [
+		"node_modules",
+		"typescript/@types",
+		"wwwroot",
+		"typescript/interfaces.katapp.enums.ts"
+	],
+	"include": [
+		"typescript/RCL.ts",
+		"typescript/**/*.d.ts",
+		"typescript/interfaces.katapp*.ts"
+	]
+}

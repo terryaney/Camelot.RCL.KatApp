@@ -1,0 +1,11 @@
+{
+	/* 
+	This file was needed to make sure VS Code correctly compiled RCL.ts in the IDE.  
+	Without it, `tsc -p src/tsconfig.rcl.json` would compile RCL.ts, but VS Code would not. 
+	*/
+    "files": [],
+    "references": [
+        { "path": "./src/tsconfig.json" },
+        { "path": "./src/tsconfig.rcl.json" }
+    ]
+}

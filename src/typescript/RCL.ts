@@ -1,42 +1,97 @@
-/// <reference path="../../typescript/@types/KatApp.d.ts"/>
+// Hack to get type checking on 'static' methods
+interface IKatApp {
+    debugNext(saveLocation: string, serverOnly: boolean, trace: boolean, expireCe: boolean): void;
+}
+interface KatAppStatic {
+	get(selector: string): IKatApp;
+	handleEvents(selector: string, configAction: (config: IKatAppEventsConfiguration) => void): void;
+}
+interface KatAppsStatic {
+	Utils: {
+		getSessionItem(options: any, key: string): string | undefined;
+		setSessionItem(options: any, key: string, value: string): void;
+	}
+}
+declare const KatApp: KatAppStatic;
+declare const KatApps: KatAppsStatic;
 
 (function () {
-	window.rcl = window.rcl || {};
-	window.rcl.katApp = {
-		hideLoader: function (hasUnhandledException) {
-			$(document.querySelector(".katapp-host .loader-container")).hide();
+	window.rcl = ( window.rcl ?? {} ) as any;
+	window.rcl!.katApp = {
+		hideLoader: hasUnhandledException => {
+			document.querySelector<HTMLElement>(".katapp-host .loader-container")!.style.display = "none";
+		
 			if (!hasUnhandledException) {
-				$(document.querySelector(".katapp-host .app-container")).fadeIn();
+				// equivalent to jQuery fadeIn()
+				const container = document.querySelector<HTMLElement>(".katapp-host .app-container")!;
+				const duration = 400;
+				container.style.opacity = "0";
+				container.style.display = "";
+		
+				let last = +new Date();
+				const tick = () => {
+					const date = +new Date();
+					const opacity = +container.style.opacity + (date - last) / duration;
+					container.style.opacity = `${opacity}`;
+					last = date;
+		
+					if (opacity < 1) {
+						requestAnimationFrame(tick);
+					}
+					else {
+						container.style.removeProperty('opacity');
+					}
+				};
+		
+				tick();
 			}
 		},
-	
-		showUnexpectedError: function (application) {
-			// application.state.errors.push({ id: "System", "text": "An unexpected error has occurred.  Please try again and if the problem persists, contact technical support." });
+
+		showUnexpectedError: application => {
 			const summaryTemplate = application.getTemplateContent("validation-summary");
-			const summary = $(summaryTemplate);
-	
-			$(".validation-warning-summary, .v-opposite, script", summary).remove();
-			$(".validation-summary", summary).removeAttr(":id v-if v-on:vue:mounted").attr("id", application.id + "_ModelerValidationTable");
-			$("li, .visually-hidden p", summary).remove();
-			$("[v-ka-resource]", summary).each((i, e) => {
-				e.innerHTML = application.getLocalizedString(e.getAttribute("v-ka-resource"));
-				e.removeAttribute("v-ka-resource");
+		
+			let template = document.createElement('template');
+			template.innerHTML = Array.from(summaryTemplate.children).find(e => e.classList.contains("validation-summary"))!.outerHTML;
+			const validationSummary = template.content.firstElementChild!;
+			validationSummary.querySelectorAll("li, .visually-hidden p").forEach(e => e.remove());
+
+			validationSummary.querySelectorAll<HTMLElement>("[v-ka-resource]").forEach(e => {
+				e.innerHTML = application.getLocalizedString(e.getAttribute("v-ka-resource")!)!;
 			});
-	
-			$("ul", summary).append(`<li>${application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.")}</li>`);
-			$(".visually-hidden", summary).append(`<p>${application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.")}</p>`);
-			$(".katapp-host .summary-container").append(summary);
-			$(".katapp-host .summary-container .validation-summary, .katapp-host .validation-container").show();
-			$(".katapp-host .loader-container").hide();
+
+			Array.from(validationSummary.attributes).forEach(a => {
+				if ((a.name.startsWith("v-") && a.name != "v-ka-resource") || a.name.startsWith(":") || a.name.startsWith("@")) {
+					validationSummary.removeAttribute(a.name);
+				}
+			});
+			Array.from(validationSummary.classList).forEach(c => {
+				if (c.startsWith("ka-")) {
+					validationSummary.classList.remove(c);
+				}
+			});
+			validationSummary.id = application.id + "_ModelerValidationTable";
+
+			template = document.createElement('template');
+			template.innerHTML = `<li>${application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.")}</li>`;
+			validationSummary.querySelector<HTMLElement>("ul")!.append(template.content.firstElementChild!);
+
+			template = document.createElement('template');
+			template.innerHTML = `<p>${application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.")}</p>`;
+			validationSummary.querySelector<HTMLElement>(".visually-hidden")!.append(template.content.firstElementChild!);
+
+			document.querySelector<HTMLElement>(".katapp-host .summary-container")!.append(validationSummary);
+
+			document.querySelectorAll<HTMLElement>(".katapp-host .summary-container .validation-summary, .katapp-host .validation-container").forEach(e => e.style.display = "");
+			document.querySelector<HTMLElement>(".katapp-host .loader-container")!.style.display = "none";
 		},
-	
-		initializeDebugModal: function (modalSelector, appSelector) {
-			const modal = document.querySelector(modalSelector);
+
+		initializeDebugModal: (modalSelector, appSelector) => {
+			const modal = document.querySelector<HTMLElement>(modalSelector);
 			const app = KatApp.get(appSelector ?? ".katapp");
 
 			if (modal == undefined || app == undefined) return;
 
-			const ceInput = modal.querySelector(".iRBLSaveCalcEngine");
+			const ceInput = modal.querySelector<HTMLInputElement>(".iRBLSaveCalcEngine")!;
 			modal.addEventListener("show.bs.modal", () => {
 				ceInput.value = KatApps.Utils.getSessionItem(app.options, "debug.location") ?? "";
 			});
@@ -44,13 +99,12 @@
 				ceInput.focus();
 				ceInput.select();
 			});
-	
+
 			const closeDebugNext = () => {
 				const saveLocation = ceInput.value;
-				const trace = modal.querySelector(".iRBLTraceCalcEngine").checked;
-				const serverOnly = modal.querySelector(".iRBLSaveServerOnly").checked;
-				const expireCe = modal.querySelector(".iRBLExpireCache").checked;
-
+				const trace = modal.querySelector<HTMLInputElement>(".iRBLTraceCalcEngine")!.checked;
+				const serverOnly = modal.querySelector<HTMLInputElement>(".iRBLSaveServerOnly")!.checked;
+				const expireCe = modal.querySelector<HTMLInputElement>(".iRBLExpireCache")!.checked;
 				if (saveLocation != "") {
 					KatApps.Utils.setSessionItem(app.options, "debug.location", saveLocation);
 				}
@@ -58,33 +112,20 @@
 				app.debugNext(saveLocation, serverOnly, trace, expireCe);
 				bootstrap.Modal.getInstance(modal).hide();
 			};
-	
+
 			ceInput.addEventListener("keypress", e => {
 				if (e.keyCode == 13) {
 					e.preventDefault();
 					closeDebugNext();
 				}
 			});
-			modal.querySelector(".btnDebugNext").addEventListener("click", e => {
+			modal.querySelector(".btnDebugNext")!.addEventListener("click", e => {
 				e.preventDefault();
 				closeDebugNext();
 			});
 		},
 
-		/**
-		 * @callback IGetKatAppEvents
-		 * @param {IKatApp|undefined} hostApplication - If the event is being bound to a modal or nested application, the hostApplication will be available.
-		 * @param {IKatApp|undefined} modalApplication - If the event is being bound to a modal application, the modalApplication will be available.
-		 * @param {IKatApp|undefined} nestedApplication - If the event is being bound to a nested application, the nestedApplication will be available.
-		 * @returns {IKatAppEventsConfiguration} - The events to bind to current application.
-		 */
-		/**
-		 *  Binds events to the main katapp and any modal or nested applications it hosts.
-		 *  @param {IGetKatAppEvents} getEvents - Delegate to get custom events based on 'applications' passed in.'.
-		 *  @param {string | undefined} [selector=.katapp] - The selector to use to determine which application to bind events to.
-		 *  @param {boolean | undefined} [includeContainedApps=true] - Whether or not to bind any contained modal/nested applications
-		 */
-		bindAllKatApps: function (getEvents, selector, includeContainedApps) {
+		bindAllKatApps: (getEvents, selector, includeContainedApps) => {
 			const coreEvents = getEvents();
 			KatApp.handleEvents(selector ?? ".katapp", events => {
 				for (const propertyName in coreEvents) {
@@ -131,15 +172,16 @@
 			});
 		},
 
-		initializeHostEvents: function (selector) {
-			var unhandledException = false;
+		initializeHostEvents: function(selector) {
+			let unhandledException = false;
+			const that = this;
 
 			KatApp.handleEvents(selector ?? ".katapp", events => {
-				events.configureUICalculation = events.calculation = () => rcl.katApp.hideLoader(unhandledException);
+				events.configureUICalculation = () => that.hideLoader(unhandledException);
 
 				events.rendered = initializationErrors => {
 					if (initializationErrors != undefined && initializationErrors.length > 0) {
-						rcl.katApp.hideLoader(false);
+						that.hideLoader(false);
 					}
 				};
 
@@ -147,8 +189,8 @@
 					if (key == "SubmitCalculation.ConfigureUI") {
 						// KatApp loaded, but error occurred during processing and don't even have results to show/hide things appropriately
 						unhandledException = true;
-						console.log({exception});
-						rcl.katApp.showUnexpectedError(application);
+						console.log({ exception });
+						that.showUnexpectedError(application);
 					}
 				};
 			});
@@ -165,7 +207,12 @@
 				return {
 					calculation: (lastCalculation, application) => {
 						// console.time("Nexgen.js.calculationLogHandler for " + application.options.view);
-						const logTitle = title ?? lastCalculation?.configuration.CurrentPage ?? application.options.currentPage;
+						
+						if ((lastCalculation?.configuration as any).CurrentPage) {
+							console.error("CurrentPage is set in the ISubmitApiConfiguration value.  This is not allowed.  Determine what is using it and how to fix.");
+						}
+
+						const logTitle = title ?? application.options.currentPage;
 						console.group(logTitle + " KatApp calculation");
 
 						if (lastCalculation != undefined) {
@@ -188,10 +235,10 @@
 				};
 			}, selector);
 		},
-		
-        initializeReferrerEvents: function(primarySelector, secondarySelectors, currentPagePrefix) {
-			const addReferrer = function (application, results, inputs) {
-				const result = results.find(r => r["@calcEngine"].replace("_PROD", "").startsWith(application.calcEngines[0].name));
+
+		initializeReferrerEvents: function (primarySelector, secondarySelectors, currentPagePrefix) {
+			const addReferrer = function (application: IKatApp, results: Array<ITabDef>, inputs: ICalculationInputs) {
+				const result = results.find(r => (r["@calcEngine"] as unknown as string).replace("_PROD", "").startsWith(application.calcEngines[0].name));
 
 				if (result != undefined) {
 					application.state.rbl.mergeRows(result, "rbl-value",
@@ -201,17 +248,17 @@
 							{ "id": "referrerPage", "value": inputs.iReferrer ?? "" },
 							{ "id": "isModal", "value": inputs.iModalApplication ?? "0" },
 							{ "id": "isNested", "value": inputs.iNestedApplication ?? "0" }
-						]
+						] as Array<ITabDefRow>
 					);
 				}
-            };
+			};
     
-            // Referrer Page Mechanics ('back to origin')...
-            // 1) Always inject a iCurrentPage input (additionally add a iParentPage for rbl-modal items) before calculation is submitted
-            // 2) Before KatApp processes results, inject rbl-value rows of currentPage, parentPage, referrerPage, isModal (via addReferrer())
-            //		- note referrerPage will only be present if rbl-navigate injected iReferrer
-            // 3) Origin page: rbl-navigate links add manual input of iReferrer via rbl-attr="data-input-referrer:currentPage"
-            // 4) Destination page: 'cancel/back' links set up rbl-navigate via rbl-attr="rbl-navigate:referrerPage"
+			// Referrer Page Mechanics ('back to origin')...
+			// 1) Always inject a iCurrentPage input (additionally add a iParentPage for rbl-modal items) before calculation is submitted
+			// 2) Before KatApp processes results, inject rbl-value rows of currentPage, parentPage, referrerPage, isModal (via addReferrer())
+			//		- note referrerPage will only be present if rbl-navigate injected iReferrer
+			// 3) Origin page: rbl-navigate links add manual input of iReferrer via rbl-attr="data-input-referrer:currentPage"
+			// 4) Destination page: 'cancel/back' links set up rbl-navigate via rbl-attr="rbl-navigate:referrerPage"
 			this.bindAllKatApps(
 				(hostApplication, modalApplication, nestedApplication) => {
 					var parentPage =
@@ -250,6 +297,6 @@
 					};
 				});
 			}
-        }
-	};
+		}
+	}
 })();

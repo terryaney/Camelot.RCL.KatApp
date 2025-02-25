@@ -9,7 +9,7 @@
 		}
 
 		// https://blog.logrocket.com/4-different-techniques-for-copying-objects-in-javascript-511e422ceb1e/
-		// Wanted explicitly 'undefined' properties set to undefined and jquery .Extend() didn't do that
+		// Wanted explicitly 'undefined' properties set to undefined
 		public static extend<T>(target: IStringAnyIndexer, ...sources: (IStringAnyIndexer | undefined)[]): T {
 			sources.forEach((source) => {
 				if (source === undefined) return;
@@ -29,8 +29,15 @@
 					? replacer(key, source[key])
 					: source[key];
 
-				// Always do deep copy unless modalAppOptions or hostApplication, then simply assign
-				if (value != undefined && typeof value === "object" && !Array.isArray(value) && !(value instanceof jQuery) && !(value instanceof HTMLElement) && key != "hostApplication") {
+				// Always do deep copy unless hostApplication, then simply assign
+				if (
+					value != undefined &&
+					key != "hostApplication" &&
+					typeof value === "object" &&
+					!(value instanceof HTMLElement) &&
+					!(value instanceof Promise) &&
+					!Array.isArray(value)
+				) {
 					if (target[key] === undefined || typeof target[key] !== "object") {
 						target[key] = {};
 					}
@@ -106,9 +113,9 @@
 		}
 
 		public static trace(application: KatApp, callerType: string, methodName: string, message: string, verbosity: TraceVerbosity, ...groupItems: Array<any>): void {
-			const verbosityOption = application.options.debug.traceVerbosity ?? TraceVerbosity.None;
+			const verbosityOption = application.options.debug.traceVerbosity ?? TraceVerbosity.None as unknown as ITraceVerbosity;
 
-			if (verbosityOption >= verbosity) {
+			if (verbosityOption as unknown as TraceVerbosity >= verbosity) {
 				const currentTrace = new Date();
 				const origin = `${callerType}\tKatApp Framework`;
 				const katApp = application.selector ?? application.id;
