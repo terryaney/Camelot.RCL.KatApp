@@ -174,8 +174,7 @@ namespace KatApps {
 					if (props.uploadEndpoint == undefined) {
 						throw new Error("Cannot use uploadAsync if uploadEndpoint is not set.");
 					}
-					
-					const files = application.selectElement<HTMLInputElement>("." + name)!.files;
+					const files = (application.select("." + name)[0] as HTMLInputElement).files;
 
 					try {
 						await application.apiAsync(props.uploadEndpoint, { files: files });

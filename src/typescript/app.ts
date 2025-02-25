@@ -9,40 +9,21 @@
 //	1. v-ka-template
 //		- if element assigned is a <template> just replace inline?
 //		- look at v-ka-inline to get idea on how to handle
+//	1. Help Tips
+//		Content is treated as it's own VUE app...but if data-bs-content-selector is used and it is just pointing to a hidden div
+//		VUE will have already mounted everything and any @eventHandlers would be lost. I made my v-ka directives work by using jquery.on()
+//		instead of addEventListener, so when helpTips gets the cotnent and 'clones' elements all the event handlers move with.  But there is a problem
+//		if I need unique 'scope values' AND @eventHandlers.  Because to use scope values, I'd have to render a hidden div when processing a scope row
+//		and use scope properties as needed.  But if @event or v-on was used, they would be lost.
+//
+//		To solve this, I think I need a v-ka-helptip directive that can expose an event for when the tip is inserted...then event handlers could be attached
+//		by selecting appropriate items inside the tip content.  If I make a directive, could make some assumptions about properties and auto add appropriate
+//		data-bs-* attributes to trigger helptips maybe.
+//
+//		I might want to consider supporting content-selector that also points to a template and then returns 'children' elements...vs default handling when
+//		assuming the matched item is simply a htmlelement.
 
 // TODO: Decide on modules vs iife? Modules seems better/recommended practices, but iife and static methods support console debugging better
-class KatAppEventFluentApi<T extends HTMLElement> {
-	constructor(private app: KatApp, private elements: Array<T>) { }
-	
-	public on(events: string, handler: (e: Event) => void): KatAppEventFluentApi<T> {
-		var eventTypes = events.split(" ");
-
-		this.elements.forEach(e => {
-			eventTypes.forEach(t => e.addEventListener(t, handler));
-		});
-
-		return this;
-	}
-
-	public off(events: string): KatAppEventFluentApi<T> {
-		var eventTypes = events.split(" ");
-
-		this.elements.forEach(e => {
-			if (e.kaEventListeners == undefined) return;
-			
-			eventTypes.forEach(t => {
-				const listeners = e.kaEventListeners![t];
-				if (listeners == undefined) return;
-				// Would like to just pass l as second param, but it isn't recognizing that overload option.
-				// See comment on the removeEventListener interface declaration in interfaces.d.ts.
-				listeners.forEach(l => e.removeEventListener(t, l.listener, l.options));
-			});
-		});
-
-		return this;
-	}
-}
-
 class KatApp implements IKatApp {
 	public static applications: Array<KatApp> = [];
 	private static globalEventConfigurations: Array<{ selector: string, events: IKatAppEventsConfiguration }> = [];
@@ -55,7 +36,7 @@ class KatApp implements IKatApp {
 		if (item.isMounted) {
 			item.vueApp!.unmount();
 		}
-		document.querySelector(`template[id$='${item.id}']`)?.remove();
+		$("template[id$='" + item.id + "']").remove();
 		this.applications = this.applications.filter(a => a.id != item.id);
 	}
 
@@ -104,7 +85,7 @@ class KatApp implements IKatApp {
 			await katApp.mountAsync();
 			return katApp;
 		} catch (e) {
-			document.querySelector(".kaModal")?.remove();
+			$(".kaModal").remove();
 
 			if (katApp != undefined) {
 				KatApp.remove(katApp);
@@ -119,7 +100,7 @@ class KatApp implements IKatApp {
 	public lastCalculation?: ILastCalculation;
 	public options: IKatAppOptions;
 	public state: IState;
-	public el: HTMLElement;
+	public el: JQuery;
 	public traceStart: Date;
 	public traceLast: Date;
 	public missingResources: Array<string> = [];
@@ -191,7 +172,7 @@ class KatApp implements IKatApp {
 			this.options.debug.traceVerbosity = TraceVerbosity.Detailed;
 		}
 
-		const selectorResults = options.modalAppOptions == undefined ? document.querySelectorAll<HTMLElement>(selector) : undefined;
+		const selectorResults = options.modalAppOptions == undefined ? $(selector) : undefined;
 		if (selectorResults != undefined && selectorResults.length != 1) {
 			throw new Error("'selector' of '" + this.selector + "' did not match any elements.");
 		}
@@ -199,26 +180,26 @@ class KatApp implements IKatApp {
 			throw new Error("No 'selector' or 'modalAppOptions' were provided.");
 		}
 
-		this.el = selectorResults?.item(0) ?? this.createModalContainer();
+		this.el = selectorResults ?? this.createModalContainer();
 
 		// Initialize to process entire container one time...
-		this.domElementQueue = [this.el];
+		this.domElementQueue = [this.el[0]];
 
-		this.el.setAttribute("ka-id", this.id);
-		this.el.classList.add("katapp-css", this.applicationCss.substring(1));
+		this.el.attr("ka-id", this.id);
+		this.el.addClass("katapp-css " + this.applicationCss.substring(1));
 
-		if (this.el.getAttribute("v-scope") == undefined) {
+		if (this.el.attr("v-scope") == undefined) {
 			// Supposedly always need this on there...
-			this.el.setAttribute("v-scope", "");
+			this.el.attr("v-scope", "");
 		}
 
 		// Not sure why I added ka-cloak ONLY when view/content provided vs content-selector, but if I added content-selector
 		// then LWC profile popup width not calculated right with data-bs-offset since hidden, so instead of simply adding all the
 		// time if missing, I continued with view/content provided OR if cloneHost was provided (i.e. LWC alert center - which is why
 		// I wanted ka-cloak anyway b/c v-pre elements need to process before page looks good)
-		if (this.el.getAttribute("ka-cloak") == undefined && (options.view != undefined || options.content != undefined || ( options.cloneHost ?? false ) !== false )) {
+		if (this.el.attr("ka-cloak") == undefined && (options.view != undefined || options.content != undefined || ( options.cloneHost ?? false ) !== false )) {
 			// Hide app until first calc done...
-			this.el.setAttribute("ka-cloak", "");
+			this.el.attr("ka-cloak", "");
 		}
 
 		if (document.querySelector("ka-resources") == undefined) {
@@ -324,7 +305,7 @@ class KatApp implements IKatApp {
 				// based on how https://v2.vuejs.org/v2/guide/reactivity.html#For-Arrays mentions to do it.
 				// The problem with this is I reassign resultTabDef which doesn't affect the REAL table in the results
 				// it makes a new object.  I had the following:
-				//	resultTabDef = Object.assign({}, resultTabDef, { [table]: [] });
+				// 	resultTabDef = Object.assign({}, resultTabDef, { [table]: [] });
 				// but I think since resultTabDef is already under reactivity, I am safe to just assign a property to a new array
 				resultTabDef[table] = [];
 			}
@@ -369,7 +350,9 @@ class KatApp implements IKatApp {
 
 			inputs: KatApps.Utils.extend(
 				{
-					getOptionText: (inputId: string): string | undefined => that.selectElement(`.${inputId} option:checked`)?.textContent ?? undefined,
+					getOptionText: (inputId: string): string | undefined => {
+						return that.select(`.${inputId} option:selected`).text();
+					},
 					getNumber: (inputId: string): number | undefined => {
 						// `^\-?[0-9]+(\\${currencySeparator}[0-9]{1,2})?$`
 						
@@ -489,9 +472,9 @@ class KatApp implements IKatApp {
 			_domElementMounted(el) {
 
 				// If still rendering the first time...then don't add any elements during the first render
-				if (that.el.hasAttribute("ka-cloak")) return;
+				if (that.el[0].hasAttribute("ka-cloak")) return;
 
-				if (!that.domElementQueue.includes(that.el) && !that.domElementQueue.includes(el)) {
+				if (!that.domElementQueue.includes(that.el[0]) && !that.domElementQueue.includes(el)) {
 					let queueElement = true;
 
 					// https://stackoverflow.com/a/9882349
@@ -603,6 +586,50 @@ class KatApp implements IKatApp {
 				}
 			}
 			
+			/*
+			// If event is cancelled, return false;
+			try {
+				const event = jQuery.Event(eventName + ".ka");
+
+				const currentEvents = $._data(this.el[0], "events")?.[eventName];
+
+				// Always prevent bubbling, KatApp events should never bubble up, had a problem where
+				// events were triggered on a nested rbl-app view element, but every event was then
+				// bubbled up to the containing application handlers as well
+				if (currentEvents != undefined) {
+					currentEvents.filter(e => e.namespace == "ka" && (e.kaProxy ?? false) == false).forEach(e => {
+						e.kaProxy = true;
+						const origHandler = e.handler;
+						e.handler = function () {
+							arguments[0].stopPropagation();
+							return origHandler.apply(this, arguments);
+						}
+					});
+
+					$(this.el).trigger(event, eventArgs);
+				}
+
+				let eventResult = (event as JQuery.TriggeredEvent).result;
+
+				if (eventResult instanceof Promise) {
+					eventResult = await eventResult;
+				}
+
+				if (event.isDefaultPrevented()) {
+					return false;
+				}
+
+				if ( isReturnable(eventResult) ) {
+					return eventResult;
+				}
+			} catch (error) {
+				// apiAsync already traces error, so I don't need to do again
+				if (!(error instanceof ApiError)) {
+					 KatApps.Utils.trace(this, "KatApp", "triggerEventAsync", `Error triggering ${eventName}`, TraceVerbosity.None, ( error as IStringAnyIndexer ).responseJSON ?? error);
+				}
+			}
+			*/
+			
 			return true;
 		} finally {
 			 KatApps.Utils.trace(this, "KatApp", "triggerEventAsync", `Complete: ${eventName}.`, TraceVerbosity.Detailed);
@@ -643,34 +670,12 @@ class KatApp implements IKatApp {
 		return this;
 	}
 
-	private appendAndExecuteScripts(target: HTMLElement, viewElement: HTMLElement): void {
-		// Extract script elements
-		const scripts = viewElement.querySelectorAll('script');
-		const nonScripts =
-			Array.from(viewElement.children)
-				.filter(node => node.tagName !== 'SCRIPT');
-	
-		// Append non-script elements
-		nonScripts.forEach(node => target.appendChild(node));
-	
-		// Append and execute script elements
-		scripts.forEach(script => {
-			const newScript = document.createElement('script');
-			if (script.src) {
-				newScript.src = script.src;
-			} else {
-				newScript.textContent = script.textContent;
-			}
-			target.appendChild(newScript);
-		});
-	}
-		
 	private async mountAsync(): Promise<void> {
 		try {
 			 KatApps.Utils.trace(this, "KatApp", "mountAsync", `Start`, TraceVerbosity.Detailed);
 
 			if (this.options.view != undefined) {
-				this.el.setAttribute("data-view-name", this.options.view);
+				this.el.attr("data-view-name", this.options.view);
 			}
 			
 			const viewElement = await this.getViewElementAsync();
@@ -780,15 +785,15 @@ class KatApp implements IKatApp {
 				if (this.options.hostApplication != undefined && this.options.inputs?.iModalApplication == "1") {
 					if (this.options.content != undefined) {
 						if (typeof this.options.content == "string") {
-							this.selectElement(".modal-body")!.innerHTML = this.options.content;
+							this.select(".modal-body").html(this.options.content);
 						}
 						else {
-							this.selectElement(".modal-body")!.append(this.options.content);
+							// Need to append() so jquery DOM events remain in place
+							this.select(".modal-body").append(this.options.content);
 						}
-
-						// Even with appending the 'content' object (if selector was provided) the help tips don't function, 
-						// so need to remove init flag and let them reprocess
-						this.selectElements("[data-bs-toggle='tooltip'], [data-bs-toggle='popover']").forEach( e => e.removeAttribute("ka-init-tip") );
+						// Even with appending the 'content' object (if selector was provided) the help tips don't function, so
+						// need to remove init flag and let them reprocess
+						this.select("[data-bs-toggle='tooltip'], [data-bs-toggle='popover']").removeAttr("ka-init-tip");
 
 						// There is still an issue with things that used {id} notation (i.e. bootstrap accordians) because now
 						// the original ID is baked into the markup, so in the modal when they are expanding an accordian
@@ -796,11 +801,12 @@ class KatApp implements IKatApp {
 						// contentSelector with showModalAsync.
 					}
 					else {
-						this.appendAndExecuteScripts(this.selectElement(".modal-body")!, viewElement);
+						this.select(".modal-body").append(viewElement);
 					}
 				}
 				else {
-					this.appendAndExecuteScripts(this.el, viewElement);
+					// Need to append() so script runs to call update() inside Kaml
+					$(this.el).append(viewElement);
 				}
 			}
 
@@ -837,20 +843,15 @@ class KatApp implements IKatApp {
 			if (isModalApplication) {
 
 				if (this.options.modalAppOptions?.buttonsTemplate != undefined) {
-					this.selectElements(".modal-footer-buttons button").forEach( b => b.remove() );
-					this.selectElement(".modal-footer-buttons")?.setAttribute("v-scope", "components.template({name: '" + this.options.modalAppOptions.buttonsTemplate + "'})");
+					this.select(".modal-footer-buttons button").remove();
+					this.select(".modal-footer-buttons").attr("v-scope", "components.template({name: '" + this.options.modalAppOptions.buttonsTemplate + "'})");
 				}
 
 				if (this.options.modalAppOptions?.headerTemplate != undefined) {
-					const modalBody = this.selectElement(".modal-body");
-					const modalHeader = modalBody?.previousElementSibling; // modal-header - no class to select since it is driven by :class="[]"
-						
-					if (modalHeader) {
-						modalHeader.setAttribute("v-scope", `components.template({name: '${this.options.modalAppOptions.headerTemplate}'})`);
-						while (modalHeader.firstChild) {
-							modalHeader.removeChild(modalHeader.firstChild);
-						}
-					}
+					this.select(".modal-body")
+						.prev() // modal-header - no class to select since it is driven by :class="[]"
+						.attr("v-scope", "components.template({name: '" + this.options.modalAppOptions.headerTemplate + "'})")
+						.children().remove();
 				}
 
 				await ( this.options.hostApplication as KatApp ).triggerEventAsync("modalAppInitialized", this);
@@ -949,7 +950,7 @@ class KatApp implements IKatApp {
 			if (isModalApplication) {
 				await this.showModalApplicationAsync();
 			}
-			this.el.removeAttribute("ka-cloak");
+			this.el.removeAttr("ka-cloak");
 			await this.processDomElementsAsync(); // process main application
 
 			this.state.inputsChanged = false; // If needed, rendered can have some logic  set to true if needed
@@ -973,50 +974,52 @@ class KatApp implements IKatApp {
 	}
 	
 	private initializeInspector() {
-		if (this.options.debug.showInspector != "0") {
-			const inspectorKeyDown = (e: KeyboardEvent) => {
-				if (e.ctrlKey && e.altKey && e.key == "i") {
-					if (document.body.classList.contains("ka-inspector")) {
-						Array.from(document.body.classList).forEach(className => {
-							if (className.startsWith('ka-inspector')) {
-								document.body.classList.remove(className);
-							}
-						});
-					}
-					else {
-						const inspectorMappings = [
-							{ name: "resource", description: "v-ka-resource" },
-							{ name: "value", description: "v-ka-value" },
-							{ name: "template", description: "v-ka-template" },
+		if (this.options.debug.showInspector != "0" ) {
+			$(document.body)
+				.off("keydown.ka")
+				.on("keydown.ka", function (e) {
+					if (e.ctrlKey && e.shiftKey) {
+						if (document.body.classList.contains("ka-inspector")) {
+							Array.from(document.body.classList).forEach(className => {
+								if (className.startsWith('ka-inspector')) {
+									document.body.classList.remove(className);
+								}
+							});
+						}
+						else {
+							const inspectorMappings = [
+								{ name: "resource", description: "v-ka-resource" },
+								{ name: "value", description: "v-ka-value" },
+								{ name: "template", description: "v-ka-template" },
 
-							{ name: "for", description: "v-for" },
-							{ name: "if", description: "v-if, v-else-if, v-else" },
-							{ name: "show", description: "v-show" },
+								{ name: "for", description: "v-for" },
+								{ name: "if", description: "v-if, v-else-if, v-else" },
+								{ name: "show", description: "v-show" },
 
-							{ name: "on", description: "v-on:event=, @event=" },
-							{ name: "bind", description: "v-bind:attribute=, :attribute=, v-bind={ attribute: }" },
-							{ name: "html", description: "v-html" },
-							{ name: "text", description: "v-text, {{ }}" },
-							{ name: "scope", description: "v-scope" },
+								{ name: "on", description: "v-on:event=, @event=" },
+								{ name: "bind", description: "v-bind:attribute=, :attribute=, v-bind={ attribute: }" },
+								{ name: "html", description: "v-html" },
+								{ name: "text", description: "v-text, {{ }}" },
+								{ name: "scope", description: "v-scope" },
 
-							{ name: "navigate", description: "v-ka-navigate" },
-							{ name: "app", description: "v-ka-app" },
-							{ name: "api", description: "v-ka-api" },
-							{ name: "modal", description: "v-ka-modal" },
-							{ name: "input", description: "v-ka-input" },
-							{ name: "input-group", description: "v-ka-input-group" },
+								{ name: "navigate", description: "v-ka-navigate" },
+								{ name: "app", description: "v-ka-app" },
+								{ name: "api", description: "v-ka-api" },
+								{ name: "modal", description: "v-ka-modal" },
+								{ name: "input", description: "v-ka-input" },
+								{ name: "input-group", description: "v-ka-input-group" },
 
-							{ name: "no-calc", description: "v-ka-rbl-no-calc", class: "rbl-no-calc" },
-							{ name: "exlude", description: "v-ka-rbl-exclude", class: "rbl-exclude" },
-							{ name: "unmount", description: "v-ka-unmount-clears-inputs", class: "unmount-clears-inputs" },
-							{ name: "needs-calc", description: "v-ka-needs-calc" },
+								{ name: "no-calc", description: "v-ka-rbl-no-calc", class: "rbl-no-calc" },
+								{ name: "exlude", description: "v-ka-rbl-exclude", class: "rbl-exclude" },
+								{ name: "unmount", description: "v-ka-unmount-clears-inputs", class: "unmount-clears-inputs" },
+								{ name: "needs-calc", description: "v-ka-needs-calc" },
 
-							{ name: "pre", description: "v-pre" },
-							{ name: "highcharts", description: "v-ka-highcharts" },
-							{ name: "attributes", description: "v-ka-attributes" },
-							{ name: "inline", description: "v-ka-inline" },
-							{ name: "table", description: "v-ka-table" },
-						]
+								{ name: "pre", description: "v-pre" },
+								{ name: "highcharts", description: "v-ka-highcharts" },
+								{ name: "attributes", description: "v-ka-attributes" },
+								{ name: "inline", description: "v-ka-inline" },
+								{ name: "table", description: "v-ka-table" },
+							]
 
 							const getInspectorOptions = () => {
 								const promptMessage =
@@ -1025,43 +1028,38 @@ class KatApp implements IKatApp {
 Enter a comma delimitted list of names or numbers.
 
 Type 'help' to see available options displayed in the console.`;
+								
+								var defaultOptions = (KatApps.Utils.pageParameters["showinspector"] ?? "1") != "1"
+									? KatApps.Utils.pageParameters["showinspector"]
+									: "resource,value,modal,template,html,text";
+								return prompt(promptMessage, defaultOptions);
+							};
+							const inspectorOptions = inspectorMappings.map((m, i) => `${i}. ${m.name} - ${m.description}`).join("\r\n");
 							
-							var defaultOptions = (KatApps.Utils.pageParameters["showinspector"] ?? "1") != "1"
-								? KatApps.Utils.pageParameters["showinspector"]
-								: "resource,value,modal,template,html,text";
-							return prompt(promptMessage, defaultOptions);
-						};
-						const inspectorOptions = inspectorMappings.map((m, i) => `${i}. ${m.name} - ${m.description}`).join("\r\n");
-						
-						let response = getInspectorOptions();
+							let response = getInspectorOptions();
 
-						if (response == "help") {
-							console.log(inspectorOptions);
-							response = getInspectorOptions();
-						}
+							if (response == "help") {
+								console.log(inspectorOptions);
+								response = getInspectorOptions();
+							}
 
-						if (response) {
-							const options = response.split(",")
-								.map(r => r.trim())
-								.map(r => isNaN(+r)
-									? inspectorMappings.find(m => m.name == r) ?? { name: r, class: `ka-inspector-${r}` }
-									: (+r < inspectorMappings.length ? inspectorMappings[+r] : undefined)
-								);
+							if (response) {
+								const options = response.split(",")
+									.map(r => r.trim())
+									.map(r => isNaN(+r)
+										? inspectorMappings.find(m => m.name == r) ?? { name: r, class: `ka-inspector-${r}` }
+										: (+r < inspectorMappings.length ? inspectorMappings[+r] : undefined)
+									);
 
-							document.body.classList.add('ka-inspector', ...options.filter(o => o != undefined).map(o => `ka-inspector-${o!.class ?? o!.name}`));
+								document.body.classList.add('ka-inspector', ...options.filter(o => o != undefined).map(o => `ka-inspector-${o!.class ?? o!.name}`));
+							}
 						}
 					}
-				}
-			};
-
-			if (document.body.getAttribute("ka-inspector-init") != "1") {
-				document.body.setAttribute("ka-inspector-init", "1");
-				document.body.addEventListener("keydown", inspectorKeyDown);
-			}
+				});
 		}
 	}
 
-	private createModalContainer(): HTMLElement {
+	private createModalContainer(): JQuery {
 
 		const options = this.options.modalAppOptions = KatApps.Utils.extend(
 			{
@@ -1093,7 +1091,7 @@ Type 'help' to see available options displayed in the console.`;
 			this.options.view ??
 			(this.options.modalAppOptions.contentSelector != undefined ? `selector: ${this.options.modalAppOptions.contentSelector}` : "static content");
 		
-		const modalHtml =
+		const modal = $(
 `<div v-scope class="modal fade kaModal" tabindex="-1" aria-modal="true" aria-labelledby="kaModalLabel" role="dialog" data-bs-backdrop="static"
 	:data-bs-keyboard="application.options.modalAppOptions.allowKeyboardDismiss"
 	data-view-name="${viewName}">
@@ -1122,26 +1120,22 @@ Type 'help' to see available options displayed in the console.`;
 			</div>
 		</div>
 	</div>
-</div>`;
+</div>`);
 
-		const modalTemplate = document.createElement("template");
-		modalTemplate.innerHTML = modalHtml;
-		const modal = modalTemplate.content.firstChild as HTMLElement
-		
 		if (options.scrollable) {
-			modal.querySelector(".modal-dialog")!.classList.add("modal-dialog-scrollable");
-			modal.querySelector(".modal-body")!.setAttribute("tabindex", "0");
+			$(".modal-dialog", modal).addClass("modal-dialog-scrollable");
+			$(".modal-body", modal).attr("tabindex", "0");
 		}
 		if (options.size != undefined) {
-			modal.querySelector(".modal-dialog")!.classList.add("modal-dialog-centered", "modal-" + options.size);
+			$(".modal-dialog", modal).addClass("modal-dialog-centered modal-" + options.size);
 		}
 
 		if (this.options.modalAppOptions.view != undefined) {
-			document.querySelector("[ka-id]")!.after(modal);
+			$("[ka-id]").first().after(modal);
 		}
 		else {
-			// If just 'content' for a modal dialog, append inside current application 
-			// so that any CSS from current application/view is applied as well.
+			// If just 'content' for a modal dialog, append inside current application so that any CSS from
+			// current application/view is applied as well.
 			this.options.hostApplication!.el.append(modal);
 		}
 
@@ -1149,140 +1143,134 @@ Type 'help' to see available options displayed in the console.`;
     }
 
 	private async showModalApplicationAsync(): Promise<boolean> {
-		return new Promise<boolean>((resolve, reject) => {
-			if (this.el.classList.contains("show")) {
-				console.log("When this is hit, document why condition is there");
-				debugger;
-				resolve(true);
-				return;
-			}
+		const d: JQuery.Deferred<boolean> = $.Deferred();
+		
+		if (this.el.hasClass("show")) {
+			console.log("When this is hit, document why condition is there");
+			debugger;
+			d.resolve(true);
+			return d;
+		}
 
-			const options = this.options.modalAppOptions!;
-			const that = this;
-			let katAppModalClosing = false;
-	
-			const closeModal = function () {
-				katAppModalClosing = true;
-				KatApps.HelpTips.hideVisiblePopover();
-				modalBS5.hide();
-				that.el.remove();
-				KatApp.remove(that);
-				options.triggerLink?.focus();
-			}
-	
-			// If response if of type Event, 'confirmedAsync/cancelled' was just attached to a button and default processing occurred and the first param was
-			// click event object.  Just pass undefined back as a response in that scenario.		
-			options.confirmedAsync = async response => {
-				closeModal();
-	
-				if (options.calculateOnConfirm != undefined) {
-					const calculateOnConfirm = (typeof options.calculateOnConfirm == 'boolean') ? options.calculateOnConfirm : true;
-					const calculationInputs = (typeof options.calculateOnConfirm == 'object') ? options.calculateOnConfirm : undefined;
-					if (calculateOnConfirm) {
-						await that.options.hostApplication!.calculateAsync(calculationInputs, true, undefined, false);
-					}
+		const options = this.options.modalAppOptions!;
+		const that = this;
+		let katAppModalClosing = false;
+
+		const closeModal = function () {
+			katAppModalClosing = true;
+			KatApps.HelpTips.hideVisiblePopover();
+			modalBS5.hide();
+			that.el.remove();
+			KatApp.remove(that);
+			options.triggerLink?.focus();
+		}
+
+		// If response if of type Event, 'confirmedAsync/cancelled' was just attached to a button and default processing occurred and the first param was
+		// click event object.  Just pass undefined back as a response in that scenario.		
+		options.confirmedAsync = async response => {
+			closeModal();
+
+			if (options.calculateOnConfirm != undefined) {
+				const calculateOnConfirm = (typeof options.calculateOnConfirm == 'boolean') ? options.calculateOnConfirm : true;
+				const calculationInputs = (typeof options.calculateOnConfirm == 'object') ? options.calculateOnConfirm : undefined;
+				if (calculateOnConfirm) {
+					await that.options.hostApplication!.calculateAsync(calculationInputs, true, undefined, false);
 				}
-	
-				options.promise.resolve({ confirmed: true, response: response instanceof Event ? undefined : response, modalApp: that });
-			};
-			options.cancelled = response => {
-				closeModal();
-				options.promise.resolve({ confirmed: false, response: response instanceof Event ? undefined : response, modalApp: that });
-			};
-	
-			// if any errors during initialized event or during iConfigureUI calculation, modal is probably 'dead', show a 'close' button and
-			// just trigger a cancelled
-			const isInvalid = this.state.errors.length > 0;
-			const hasCustomHeader = options.headerTemplate != undefined;
-			const hasCustomButtons = options.buttonsTemplate != undefined;
-			// If custom buttons, framework should ignore the options (kaml can use them)
-			const tryCancelClickOnClose = hasCustomButtons || ( options.showCancel ?? true );
-	
-			// Could put an options about whether or not to set this
-			// this.el.attr("data-bs-keyboard", "false");
-	
-			const closeButtonClickAsync = async (e: Event) => {
-				if (!katAppModalClosing) {
-					e.preventDefault();
-					if (isInvalid) {
-						options.cancelled!();
-					}
-					else if (options.closeButtonTrigger != undefined) {
-						that.selectElement(options.closeButtonTrigger)!.click();
-					}
-					else if (tryCancelClickOnClose) {
-						const cancelButton = that.selectElement<HTMLButtonElement>(".modal-footer-buttons .cancelButton");
+			}
 
-						if (cancelButton != undefined) {
-							cancelButton.click();
-						}
-						else {
-							options.cancelled!();
-						}
+			options.promise.resolve({ confirmed: true, response: response instanceof Event ? undefined : response, modalApp: that });
+		};
+		options.cancelled = response => {
+			closeModal();
+			options.promise.resolve({ confirmed: false, response: response instanceof Event ? undefined : response, modalApp: that });
+		};
+
+		// if any errors during initialized event or during iConfigureUI calculation, modal is probably 'dead', show a 'close' button and
+		// just trigger a cancelled
+		const isInvalid = this.state.errors.length > 0;
+		const hasCustomHeader = options.headerTemplate != undefined;
+		const hasCustomButtons = options.buttonsTemplate != undefined;
+		// If custom buttons, framework should ignore the options (kaml can use them)
+		const tryCancelClickOnClose = hasCustomButtons || ( options.showCancel ?? true );
+
+		// Could put an options about whether or not to set this
+		// this.el.attr("data-bs-keyboard", "false");
+
+		const closeButtonClickAsync = async (e: JQuery.TriggeredEvent) => {
+			if (!katAppModalClosing) {
+				e.preventDefault();
+				if (isInvalid) {
+					options.cancelled!();
+				}
+				else if (options.closeButtonTrigger != undefined) {
+					that.select(options.closeButtonTrigger)[0].click();
+				}
+				else if (tryCancelClickOnClose) {
+					if (that.select(".modal-footer-buttons .cancelButton").length == 1) {
+						that.select(".modal-footer-buttons .cancelButton")[0].click();
 					}
 					else {
-						const continueButton = that.selectElement<HTMLButtonElement>(".modal-footer-buttons .continueButton");
-						if (continueButton != undefined) {
-							continueButton.click();
-						}
-						else {
-							await options.confirmedAsync!();
-						}
+						options.cancelled!();
 					}
 				}
-			};
-	
-			this.selectElements(".modal-invalid-footer-buttons .continueButton, .modal-header.invalid-content .btn-close")
-				.forEach(b => b.addEventListener("click", e => {
-					e.preventDefault();
-					options.cancelled!();
-				}));
-	
-			if (!hasCustomHeader && options.allowKeyboardDismiss != false) {
-				this.selectElement<HTMLButtonElement>(".modal-header.valid-content .btn-close")?.addEventListener("click", closeButtonClickAsync);
+				else {
+					if (that.select(".modal-footer-buttons .continueButton").length == 1) {
+						that.select(".modal-footer-buttons .continueButton")[0].click();
+					}
+					else {
+						await options.confirmedAsync!();
+					}
+				}
 			}
-	
-			if (!hasCustomButtons) {
-				let button = this.selectElement<HTMLButtonElement>(".modal-footer-buttons .cancelButton")
-				button?.addEventListener("click", e => {
-					e.preventDefault();
-					options.cancelled!();
-				});
+		};
 
-				button = this.selectElement<HTMLButtonElement>(".modal-footer-buttons .continueButton")
-				button?.addEventListener("click", async e => {
-					e.preventDefault();
-					await options.confirmedAsync!();
-				});
-			}
-	
-			this.el.addEventListener("shown.bs.modal", () => {
-				that.el
-					.querySelectorAll(".modal-footer-buttons, .modal-invalid-footer-buttons")
-					.forEach(e => e.classList.remove("d-none"));
-				resolve(true);
+		this.select('.modal-invalid-footer-buttons .continueButton, .modal-header.invalid-content .btn-close').on("click.ka", async (e) => {
+			e.preventDefault();
+			options.cancelled!();
+		});
+
+		if (!hasCustomHeader && options.allowKeyboardDismiss != false) {
+			this.select(".modal-header.valid-content .btn-close").on("click.ka", async e => await closeButtonClickAsync(e) );
+		}
+
+		if (!hasCustomButtons) {
+			this.select('.modal-footer-buttons .continueButton').on("click.ka", async e => {
+				e.preventDefault();
+				await options.confirmedAsync!();
 			});
-			this.el.addEventListener("hide.bs.modal", async e => {
-				// Triggered when ESC is clicked (when programmatically closed, this isn't triggered)
-				// After modal is shown, resolve promise to caller to know modal is fully displayed
+			this.select('.modal-footer-buttons .cancelButton').on("click.ka", function (e) {
+				e.preventDefault();
+				options.cancelled!();
+			});
+		}
+
+		this.el
+			.on("shown.bs.modal", () => {
+				that.select(".modal-footer-buttons, .modal-invalid-footer-buttons").removeClass("d-none");
+				d.resolve(true);
+			})
+			// Triggered when ESC is clicked (when programmatically closed, this isn't triggered)
+			// After modal is shown, resolve promise to caller to know modal is fully displayed
+			.on("hide.bs.modal", async e => {
 				if (KatApps.HelpTips.hideVisiblePopover()) {
 					e.preventDefault();
 					return;
 				}
 				await closeButtonClickAsync(e);
-			})
-	
-			const modalBS5 = new bootstrap.Modal(this.el);
-			modalBS5.show(options.triggerLink);
-	
-			if (options.triggerLink != undefined) {
-				options.triggerLink.removeAttribute("disabled");
-				options.triggerLink.classList.remove("disabled", "kaModalInit");
-				document.querySelector("body")!.classList.remove("kaModalInit");
-			}
-	
-			this.options.hostApplication!.unblockUI();
-		});
+			});
+
+		const modalBS5 = new bootstrap.Modal(this.el[0]);
+		modalBS5.show(options.triggerLink);
+
+		if (options.triggerLink != undefined) {
+			options.triggerLink.removeAttribute("disabled");
+			options.triggerLink.classList.remove("disabled", "kaModalInit");
+			$("body").removeClass("kaModalInit");
+		}
+
+		this.options.hostApplication!.unblockUI();
+
+		return d;
 	}
 
 	public async navigateAsync(navigationId: string, options?: INavigationOptions) {
@@ -1444,15 +1432,15 @@ Type 'help' to see available options displayed in the console.`;
 
 	public checkValidity(): boolean {
 		let isValid = true;
-		this.selectElements("input").forEach(e => {
-			if (!(e as HTMLInputElement).checkValidity()) {
+		this.select("input").each((i, e) => {
+			if (( e as HTMLInputElement ).checkValidity() === false) {
 				isValid = false;
 			}
 		});
 		return isValid;
 	}
 
-	public async apiAsync(endpoint: string, apiOptions?: IApiOptions, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined> {
+	public async apiAsync(endpoint: string, apiOptions: IApiOptions | undefined, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined> {
 		// calculationSubmitApiConfiguration is only passed internally, when apiAsync is called within the calculation pipeline and there is already a configuration determined
 
 		if (!(apiOptions?.skipValidityCheck ?? false) && !this.checkValidity()) {
@@ -1467,7 +1455,7 @@ Type 'help' to see available options displayed in the console.`;
 			throw new ValidityError();
 		}
 
-		if (!this.el.hasAttribute("ka-cloak")) {
+		if (!this.el[0].hasAttribute("ka-cloak")) {
 			this.traceStart = this.traceLast = new Date();
 		}
 
@@ -1668,55 +1656,26 @@ Type 'help' to see available options displayed in the console.`;
 		};
 
 		for (const el of this.domElementQueue) {
+			// console.log(this.selector + " charts: " + this.select('[data-highcharts-chart]', $(el)).length + ", hasCloak: " + el.hasAttribute("ka-cloak"));
+
 			// Default markup processing...think about creating a public method that triggers calculation
 			// in case KAMLs have code that needs to run inside calculation handler? Or create another
 			// event that is called from this new public method AND from calculation workflow and then
 			// KAML could put code in there...b/c this isn't really 'calculation' if they just call
 			// 'processModel'
-			const preventDefault = (e: Event) => e.preventDefault();
-			
-			this.selectElements("a[href='#']")
-				.forEach(a => {
-					a.removeEventListener("click", preventDefault);
-					a.addEventListener("click", preventDefault);
-				});
+			this.select("a[href='#']", el.tagName == "A" ? el.parentElement! : el ).off("click.ka").on("click.ka", e => e.preventDefault());
 
 			KatApps.HelpTips.processHelpTips(el);
-
-			const reflowElementCharts = (el: HTMLElement) => {
-				el.querySelectorAll<HTMLElement>("[data-highcharts-chart]").forEach(c => {
-					const chart = Highcharts.charts[+c.getAttribute("data-highcharts-chart")!];
-					chart?.reflow();
-				});
-			};
-			reflowElementCharts(el);
-
-			// Had to move this logic here from Highcharts directive b/c when the directive's
-			// effect() was triggering, if the highchart was inside a v-if (especially, maybe even
-			// normal rendering) it wasn't yet connected to the DOM (isConnect = false), so trying to 
-			// walk up the ancestor tree always failed.  Putting it here was only way to ensure that
-			// it was injected in the dom and would correctly work.
-			const reflowTabCharts = (e: Event) => {
-				var tab = e.target as HTMLElement;
-				var pane = this.selectElement(tab.getAttribute("data-bs-target")!)!;
-				reflowElementCharts(pane);
-			};
 			
-			el.querySelectorAll<HTMLElement>("[data-highcharts-chart]").forEach(c => {
-				// if inside tabs, need to reflow chart when tab is shown
-				const navItemId = this.closestElement(c, ".tab-pane, [role='tabpanel']")?.getAttribute("aria-labelledby");
-				if (navItemId != undefined) {
-					const navItem = this.selectElement("#" + navItemId);
-					navItem?.removeEventListener('shown.bs.tab', reflowTabCharts);
-					navItem?.addEventListener('shown.bs.tab', reflowTabCharts);
-				}
-			});
+			this.select('[data-highcharts-chart]', $(el)).each((i, c) => ($(c).highcharts() as HighchartsChartObject).reflow());
 
 			if (el.classList.contains("ui-blocker")) {
 				addUiBlockerWrapper(el);
 			}
 			else {
-				el.querySelectorAll<HTMLElement>(".ui-blocker").forEach(e => addUiBlockerWrapper(e));
+				this.select(".ui-blocker", $(el)).each((i, e) => {
+					addUiBlockerWrapper(e);
+				});
 			}
 		}
 
@@ -1733,39 +1692,36 @@ Type 'help' to see available options displayed in the console.`;
 	*/
 
 	public getInputValue(name: string, allowDisabled = false): string | undefined {
-		const inputs = this.selectElements<HTMLInputElement>("." + name);
+		const el = this.select<HTMLInputElement>("." + name);
 
-		if (inputs.length == 0) return undefined;
+		if (el.length == 0) return undefined;
 
-		if (!allowDisabled && inputs[0].disabled) return undefined;
+		if (!allowDisabled && el.prop("disabled")) return undefined;
 
-		if (inputs.length > 1 && inputs[0].getAttribute("type") == "radio") {
-			const v = inputs.find(o => o.checked)?.value;
+		if (el.length > 1 && el[0].getAttribute("type") == "radio") {
+			const v = el.filter((i, o) => o.checked).val();
 			return v != undefined ? v + '' : undefined;
 		}
 
-		if (inputs[0].classList.contains("checkbox-list")) {
-			const v = Array.from(inputs[0].querySelectorAll<HTMLInputElement>("input"))
-				.filter(c => c.checked)
-				.map(c => c.value)
-				.join(",");
+		if (el.hasClass("checkbox-list")) {
+			const v = Array.from( el.find<HTMLInputElement>("input:checked") ).map( c => c.value ).join(",");
 			return ( v ?? "" ) != "" ? v : undefined;
 		}
 
-		if (inputs[0].getAttribute("type") == "checkbox") {
-			return inputs[0].checked ? "1" : "0";
+		if (el[0].getAttribute("type") == "checkbox") {
+			return el[0].checked ? "1" : "0";
 		}
 
-		if (inputs[0].getAttribute("type") == "file") {
-			const files = inputs[0].files;
+		if (el[0].getAttribute("type") == "file") {
+			const files = el[0].files;
 			const numFiles = files?.length ?? 1;
-			return numFiles > 1 ? numFiles + ' files selected' : inputs[0].value.replace(/\\/g, '/').replace(/.*\//, ''); // remove c:\fakepath
+			return numFiles > 1 ? numFiles + ' files selected' : (el.val() as string).replace(/\\/g, '/').replace(/.*\//, ''); // remove c:\fakepath
 		}
 
-		return inputs[0].value;
+		return el.val() as string;
 	}
 
-	public setInputValue(name: string, value: string | undefined, calculate = false) : Array<HTMLInputElement> | undefined {
+	public setInputValue(name: string, value: string | undefined, calculate = false) : JQuery | undefined {
 
 		if (value == undefined) {
 			delete this.state.inputs[name];
@@ -1776,41 +1732,45 @@ Type 'help' to see available options displayed in the console.`;
 				: value;
 		}
 
-		let inputs = this.selectElements<HTMLInputElement>("." + name);
+		const el = this.select<HTMLInputElement>("." + name);
 
-		if (inputs.length > 0) {
-			const isCheckboxList = inputs[0].classList.contains("checkbox-list");
+		if (el.length > 0) {
+			const isCheckboxList = el.hasClass("checkbox-list");
 
-			if (inputs.length > 0 && inputs[0].getAttribute("type") == "radio") {
-				inputs.forEach(i => i.checked = (i.value == value));
+			if (el.length > 0 && el[0].getAttribute("type") == "radio") {
+				el.prop("checked", false);
+				el.filter((i, o) => o.value == value).prop("checked", true);
 			}
 			else if (isCheckboxList) {
-				const values = value?.split(",")
+				el.find<HTMLInputElement>("input").prop("checked", false);
 
-				inputs = Array.from(inputs[0].querySelectorAll<HTMLInputElement>("input"));
-
-				inputs.forEach(i => {
-					i.checked = (values != undefined && values.indexOf(i.value) > -1);
-				});
+				if (value != undefined) {
+					const values = value?.split(",")
+					el.find<HTMLInputElement>("input:checked").each((i, c) => {
+						if (values.indexOf(c.value)) {
+							c.checked = true;
+						}
+					});
+				}
 			}
-			else if (inputs[0].getAttribute("type") == "checkbox") {
-				inputs[0].checked = typeof value == 'boolean' ? value : value == "1";
+			else if (el[0].getAttribute("type") == "checkbox") {
+				el[0].checked = typeof value == 'boolean' ? value : value == "1";
 			}
 			else {
-				inputs[0].value = value ?? "";
+				el.val(value ?? "");
 			}
 
 
-			if (inputs[0].getAttribute("type") == "range") {
-				inputs[0].dispatchEvent(new Event('rangeset.ka'));
+			if (el[0].getAttribute("type") == "range") {
+				el[0].dispatchEvent(new Event('rangeset.ka'));
 			}
 			if (calculate) {
-				const target = inputs[0];
+				const target = isCheckboxList ? el.find("input")[0] : el[0];
 				target.dispatchEvent(new Event('change'));
 			}
 		}
 
-		return inputs;
+		return el;
 	}
 
 	public getInputs(customInputs?: ICalculationInputs): ICalculationInputs {
@@ -1838,52 +1798,25 @@ Type 'help' to see available options displayed in the console.`;
 		return undefined;
 	}
 
-	public on<T extends HTMLElement>(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): KatAppEventFluentApi<T> {
-		const eventFluentApi = new KatAppEventFluentApi<T>(this, this.selectElements<T>(selector, context));
-		eventFluentApi.on(events, handler);
-		return eventFluentApi;
-	}
-
- 	public off<T extends HTMLElement>(selector: string, events: string, context?: HTMLElement): KatAppEventFluentApi<T> {
-		const eventFluentApi = new KatAppEventFluentApi<T>(this, this.selectElements<T>(selector, context));
-		eventFluentApi.off(events);
-		return eventFluentApi;
-	}
-
-	private inputSelectorRegex = /:input([\w\s.:#=\[\]'^$*|~]*)(?=(,|$))/g;
-	private replaceInputSelector(selector: string): string {
-		return selector.replace(this.inputSelectorRegex, (match, capturedSelectors) => {
-			// Split the captured selectors into individual parts (if any)
-			const inputTypes = ['input', 'textarea', 'select', 'button'];
-			// Apply the captured selectors to each input type
-			return inputTypes.map(type => `${type}${capturedSelectors}`).join(', ');
-		});
-	}
-
-	public selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined {
-		const container = context ?? this.el;	
-		const result = container.querySelector<T>(this.replaceInputSelector(selector)) ?? undefined;
-
-		if ( result == undefined || context != undefined ) return result;
-
-		var appId = this.getKatAppId(container);
-		return this.getKatAppId(result) == appId ? result : undefined;
-	}
-
-	public selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T> {
-		const container = context ?? this.el;	
-		const result = Array.from(container.querySelectorAll<T>(this.replaceInputSelector(selector)));
-
-		if (context != undefined) return result;
-
-		var appId = this.getKatAppId(container);
-		return result.filter(e => this.getKatAppId(e) == appId);
-	}
-
 	public closestElement<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined {
 		const c = element.closest<T>(selector) ?? undefined;
 		const cAppId = c != undefined ? this.getKatAppId(c) : undefined;
 		return cAppId == this.id ? c : undefined;
+	}
+
+	public select<T extends HTMLElement>(selector: string, context?: JQuery | HTMLElement | undefined): JQuery<T> {
+		const container = !(context instanceof jQuery) && context != undefined
+			? $(context)
+			: context as JQuery ?? $(this.el);
+
+		var appId = context == undefined
+			? this.id
+			: container.attr("ka-id") || container.parents("[ka-id]").attr("ka-id");
+
+		return $(selector, container).filter(function () {
+			// Sometimes have to select the child app to ask for inputs and selector will have rbl-app= in it, so allow
+			return $(this).parents("[ka-id]").attr("ka-id") == appId;
+		}) as JQuery<T>;
 	}
 
 	private getResourceString(key: string): string | undefined {
@@ -2098,26 +2031,31 @@ Type 'help' to see available options displayed in the console.`;
 	public async showModalAsync(options: IModalOptions, triggerLink?: HTMLElement): Promise<IModalResponse> {
 		let cloneHost: boolean | string = false;
 
-		let selectorContent: HTMLElement | undefined;
-
 		if (options.contentSelector != undefined) {
 			await PetiteVue.nextTick(); // Just in case kaml js set property that would trigger updating this content
 
-			const selectContent = this.selectElement(options.contentSelector); // .not("template " + options.contentSelector);
+			const selectContent = this.select(options.contentSelector).first(); // .not("template " + options.contentSelector);
 
-			if (selectContent == undefined) {
+			if (selectContent.length == 0) {
 				throw new Error(`The content selector (${options.contentSelector}) did not return any content.`);
 			}
 
-			cloneHost = this.getCloneHostSetting(selectContent);
-			// Need to clone so DOM events remain in place
-			selectorContent = selectContent.cloneWithEvents();
+			cloneHost = this.getCloneHostSetting(selectContent[0]);
+
+			const selectorContent = $("<div/>");
+			// JQuery Dependency: Use .contents().clone() instead of .html() so I keep my bootstrap events registerd via .on()
+			// There was a scanner that listed JQuery library as a security vulnerability, but until we are forced to, KatApps
+			// will continue to leverage JQuery.  Would have to create own custom .on/.off handlers on KatApp that registered
+			// events like JQuery and supported keeping those events when clone is called.
+			// https://stackoverflow.com/questions/15408394/how-to-copy-a-dom-node-with-event-listeners
+			selectorContent.append(selectContent.contents().clone(true));
+			options.content = selectorContent;
 		}
 
-		if (selectorContent == undefined && options.content == undefined && options.view == undefined) {
+		if (options.content == undefined && options.view == undefined) {
 			throw new Error("You must provide content or viewId when using showModal.");
 		}
-		if (document.querySelector(".kaModal") != undefined) {
+		if ($(".kaModal").length > 0) {
 			throw new Error("You can not use the showModalAsync method if you have markup on the page already containing the class kaModal.");
 		}
 
@@ -2126,7 +2064,7 @@ Type 'help' to see available options displayed in the console.`;
 		if (triggerLink != undefined) {
 			triggerLink.setAttribute("disabled", "true");
 			triggerLink.classList.add("disabled", "kaModalInit");
-			document.querySelector("body")!.classList.add("kaModalInit");
+			$("body").addClass("kaModalInit");			
 		}
 
 		try {
@@ -2135,50 +2073,53 @@ Type 'help' to see available options displayed in the console.`;
 				KatApp.remove(previousModalApp);
 			}
 
-			return new Promise<IModalResponse>(async (resolve, reject) => {
-				const propertiesToSkip = ["content", "view"];
-				// Omitting properties that will be picked up from the .extend<> below
-				const modalOptions: Omit<IKatAppOptions, 'debug' | 'dataGroup' | 'calculationUrl' | 'katDataStoreUrl' | 'kamlVerifyUrl' | 'inputCaching' | 'canProcessExternalHelpTips' | 'encryptCache' | 'decryptCache'> = {
-					view: options.view,
-					content: selectorContent ?? options.content,
-					currentPage: options.view ?? this.options.currentPage,
-					// If modal is launching from a popover, the popover CANNOT be the hostApplication because it
-					// is removed, so I have to use passed in host-application or current hostApplication.
-					hostApplication: this.selector.startsWith( "#popover" ) ? this.options.hostApplication : this,
-					cloneHost: cloneHost,
-					modalAppOptions: KatApps.Utils.extend<IModalAppOptions>(
-						{ promise: { resolve, reject }, triggerLink: triggerLink },
-						KatApps.Utils.clone(options, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v)
-					),
-					inputs: {
-						iModalApplication: "1"
-					}
-				};
-	
-				const modalAppOptions = KatApps.Utils.extend<IKatAppOptions>(
-					( modalOptions.hostApplication as KatApp ).cloneOptions(modalOptions.content == undefined || cloneHost !== false ),
-					modalOptions,
-					options.inputs != undefined ? { inputs: options.inputs } : undefined
-				);
-	
-				if (modalAppOptions.anchoredQueryStrings != undefined && modalAppOptions.inputs != undefined) {
-					modalAppOptions.anchoredQueryStrings = KatApps.Utils.generateQueryString(
-						KatApps.Utils.parseQueryString(modalAppOptions.anchoredQueryStrings),
-						// If showing modal and the url has an input with same name as input passed in, then don't include it...
-						key => !key.startsWith("ki-") || modalAppOptions.inputs![ 'i' + key.split('-').slice(1).map(segment => segment.charAt(0).toUpperCase() + segment.slice(1)).join("") ] == undefined
-					);
+			const d: JQuery.Deferred<IModalResponse> = $.Deferred();
+
+			const propertiesToSkip = ["content", "view"];
+			// Omitting properties that will be picked up from the .extend<> below
+			const modalOptions: Omit<IKatAppOptions, 'debug' | 'dataGroup' | 'calculationUrl' | 'katDataStoreUrl' | 'kamlVerifyUrl' | 'inputCaching' | 'canProcessExternalHelpTips' | 'encryptCache' | 'decryptCache'> = {
+				view: options.view,
+				content: options.content,
+				currentPage: options.view ?? this.options.currentPage,
+				// If modal is launching from a popover, the popover CANNOT be the hostApplication because it
+				// is removed, so I have to use passed in host-application or current hostApplication.
+				hostApplication: this.selector.startsWith( "#popover" ) ? this.options.hostApplication : this,
+				cloneHost: cloneHost,
+				modalAppOptions: KatApps.Utils.extend<IModalAppOptions>(
+					{ promise: d, triggerLink: triggerLink },
+					KatApps.Utils.clone(options, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v)
+				),
+				inputs: {
+					iModalApplication: "1"
 				}
-	
-				delete modalAppOptions.inputs!.iNestedApplication;
-				await KatApp.createAppAsync(".kaModal", modalAppOptions);
-			});
+			};
+
+			const hostOptions = (modalOptions.hostApplication as KatApp).cloneOptions(options.content == undefined || cloneHost !== false);
+			const modalAppOptions = KatApps.Utils.extend<IKatAppOptions>(
+				hostOptions,
+				modalOptions,
+				options.inputs != undefined ? { inputs: options.inputs } : undefined
+			);
+
+			if (modalAppOptions.anchoredQueryStrings != undefined && modalAppOptions.inputs != undefined) {
+				modalAppOptions.anchoredQueryStrings = KatApps.Utils.generateQueryString(
+					KatApps.Utils.parseQueryString(modalAppOptions.anchoredQueryStrings),
+					// If showing modal and the url has an input with same name as input passed in, then don't include it...
+					key => !key.startsWith("ki-") || modalAppOptions.inputs![ 'i' + key.split('-').slice(1).map(segment => segment.charAt(0).toUpperCase() + segment.slice(1)).join("") ] == undefined
+				);
+			}
+
+			delete modalAppOptions.inputs!.iNestedApplication;
+			await KatApp.createAppAsync(".kaModal", modalAppOptions);
+
+			return d;
 		} catch (e) {
 			this.unblockUI();
 
 			if (triggerLink != undefined) {
 				triggerLink.removeAttribute("disabled");
 				triggerLink.classList.remove("disabled", "kaModalInit");
-				document.querySelector("body")!.classList.remove("kaModalInit");
+				$("body").removeClass("kaModalInit");
 			}
 
 			throw e;
@@ -2308,10 +2249,9 @@ Type 'help' to see available options displayed in the console.`;
 				// If they run a different CE than is configured via this event handler
 				// the CalcEngine might not be in calcEngine options, so find will be 
 				// undefined, just treat results as 'primary' CE
-                
-				updateApiOptions: (submitApiOptions, endpoint, application) => { 
-					submitApiOptions.Configuration.CalcEngine = "Conduent_Nexgen_Profile_SE";
-				}
+                .on("calculationOptions.ka", function (event, submitOptions, application) {
+                    submitOptions.Configuration.CalcEngine = "Conduent_Nexgen_Profile_SE";
+                })
 				*/
 				 KatApps.Utils.trace(this, "KatApp", "toTabDefs", `Unable to find calcEngine: ${ceName}.  Determine if this should be supported.`, TraceVerbosity.None);
 			}

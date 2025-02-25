@@ -32,23 +32,24 @@ namespace KatApps {
 
 						if (currentRequest != undefined) {
 							// Already being requested...add call back
-							return new Promise<IKamlResourceResponse>((resolve, reject) => {
-								currentRequest.push((errorMessage) => {
-									if (errorMessage != undefined) {
-										reject({
-											resourceKey: resourceKey,
-											errorMessage: errorMessage,
-											processedByOtherApp: true
-										});
-									}
-									else {
-										resolve({
-											resourceKey: resourceKey,
-											processedByOtherApp: true
-										});
-									}
-								});
+							var currentRequestPromise: JQuery.Deferred<IKamlResourceResponse> = $.Deferred();
+
+							currentRequest.push((errorMessage) => {
+								if (errorMessage != undefined) {
+									currentRequestPromise.reject({
+										resourceKey: resourceKey,
+										errorMessage: errorMessage,
+										processedByOtherApp: true
+									});
+								}
+								else {
+									currentRequestPromise.resolve({
+										resourceKey: resourceKey,
+										processedByOtherApp: true
+									});
+								}
 							});
+							return currentRequestPromise;
 						}
 						KamlRepository.resourceRequests[resourceKey] = [];
 					}

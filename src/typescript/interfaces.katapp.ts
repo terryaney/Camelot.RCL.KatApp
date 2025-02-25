@@ -36,7 +36,7 @@ interface IKatAppOptions extends IKatAppDefaultOptions {
 	// Only missing when showModalAsync called 'createAppAsync' and modal was built with 'content' instead of a view
 	view?: string;
 	// Only present when showModalAsync called 'createAppAsync' and modal was built with 'content' instead of a view
-	content?: string | HTMLElement;
+	content?: string | JQuery;
 
 	baseUrl?: string;
 	dataGroup: string;
@@ -62,6 +62,9 @@ interface IKatAppOptions extends IKatAppDefaultOptions {
 	cloneHost?: boolean | string;
 }
 
+
+
+
 // KatApp interfaces
 interface IKatAppStatic {
 	getDirty(): Array<IKatApp>;
@@ -70,7 +73,7 @@ interface IKatAppStatic {
 	handleEvents(selector: string, configAction: (config: IKatAppEventsConfiguration) => void): void;
 }
 interface IKatApp {
-	el: HTMLElement;
+	el: JQuery;
 	calcEngines: ICalcEngine[];
 	options: IKatAppOptions;
 	isCalculating: boolean;
@@ -84,7 +87,7 @@ interface IKatApp {
 
 	checkValidity(): boolean;
 	calculateAsync(customInputs?: ICalculationInputs, processResults?: boolean, calcEngines?: ICalcEngine[], allowLogging?: boolean): Promise<ITabDef[] | void>;
-	apiAsync(endpoint: string, apiOptions?: IApiOptions, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
+	apiAsync(endpoint: string, apiOptions: IApiOptions, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
 	showModalAsync(options: IModalOptions, triggerLink?: HTMLElement): Promise<IModalResponse>;
 	navigateAsync(navigationId: string, options?: INavigationOptions): void;
 
@@ -93,13 +96,9 @@ interface IKatApp {
 
 	getInputs(customInputs?: ICalculationInputs): ICalculationInputs;
 	getInputValue(name: string, allowDisabled?: boolean): string | undefined;
-	setInputValue(name: string, value: string | undefined, calculate?: boolean): Array<HTMLInputElement> | undefined;
+	setInputValue(name: string, value: string | undefined, calculate?: boolean): JQuery | undefined;
 
-	on<T extends HTMLElement>(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): KatAppEventFluentApi<T>;
-	off<T extends HTMLElement>(selector: string, events: string, context?: HTMLElement): KatAppEventFluentApi<T>;
-	selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
-	selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;
-	closestElement<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined;
+	select<T extends HTMLElement>(selector: string, context?: JQuery | HTMLElement | undefined): JQuery<T>;
 
 	notifyAsync(from: KatApp, name: string, information?: IStringAnyIndexer): Promise<void>;
 	getTemplateContent(name: string): DocumentFragment;
@@ -156,9 +155,9 @@ interface IKatAppEventsConfiguration {
 	calculationErrors?: (key: string, exception: Error | undefined, application: IKatApp) => void;
 	calculateEnd?: (application: IKatApp) => void;
 	domUpdated?: (elements: Array<HTMLElement>, application: IKatApp) => void;
-	apiStart?: (endpoint: string, submitData: ISubmitApiData, trigger: HTMLElement | undefined, apiOptions: IApiOptions, application: IKatApp) => void | false;
-	apiComplete?: (endpoint: string, successResponse: IStringAnyIndexer | undefined, trigger: HTMLElement | undefined, apiOptions: IApiOptions, application: IKatApp) => void;
-	apiFailed?: (endpoint: string, errorResponse: IApiErrorResponse, trigger: HTMLElement | undefined, apiOptions: IApiOptions, application: IKatApp) => void;
+	apiStart?: (endpoint: string, submitData: ISubmitApiData, trigger: JQuery<HTMLElement> | undefined, apiOptions: IApiOptions, application: IKatApp) => void | false;
+	apiComplete?: (endpoint: string, successResponse: IStringAnyIndexer | undefined, trigger: JQuery<HTMLElement> | undefined, apiOptions: IApiOptions, application: IKatApp) => void;
+	apiFailed?: (endpoint: string, errorResponse: IApiErrorResponse, trigger: JQuery<HTMLElement> | undefined, apiOptions: IApiOptions, application: IKatApp) => void;
 	/**
 	 * The 'notification' delegate is invoked when another KatApp wants to notify this application via the `notifyAsync` method.
 	 * @param {string} name - The name of the notification.
@@ -330,7 +329,7 @@ interface IKamlVerifyResult {
 }
 interface IModalOptions {
 	view?: string;
-	content?: string;
+	content?: string | JQuery;
 	contentSelector?: string;
 	calculateOnConfirm?: boolean | ICalculationInputs;
 
@@ -354,10 +353,7 @@ interface IModalOptions {
 	inputs?: ICalculationInputs;
 }
 interface IModalAppOptions extends IModalOptions {
-	promise: {
-		resolve: (response: IModalResponse | PromiseLike<IModalResponse>) => void;
-		reject: (reason?: unknown) => void;
-	}
+	promise: JQuery.Deferred<IModalResponse>;
 
 	// These methods are used when the modal needs to return more than just true/false to the caller
 	// in conjunction with creating their own toolbar

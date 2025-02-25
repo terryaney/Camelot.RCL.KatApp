@@ -9,7 +9,7 @@
 		}
 
 		// https://blog.logrocket.com/4-different-techniques-for-copying-objects-in-javascript-511e422ceb1e/
-		// Wanted explicitly 'undefined' properties set to undefined
+		// Wanted explicitly 'undefined' properties set to undefined and jquery .Extend() didn't do that
 		public static extend<T>(target: IStringAnyIndexer, ...sources: (IStringAnyIndexer | undefined)[]): T {
 			sources.forEach((source) => {
 				if (source === undefined) return;
@@ -29,15 +29,8 @@
 					? replacer(key, source[key])
 					: source[key];
 
-				// Always do deep copy unless hostApplication, then simply assign
-				if (
-					value != undefined &&
-					key != "hostApplication" &&
-					typeof value === "object" &&
-					!(value instanceof HTMLElement) &&
-					!(value instanceof Promise) &&
-					!Array.isArray(value)
-				) {
+				// Always do deep copy unless modalAppOptions or hostApplication, then simply assign
+				if (value != undefined && typeof value === "object" && !Array.isArray(value) && !(value instanceof jQuery) && !(value instanceof HTMLElement) && key != "hostApplication") {
 					if (target[key] === undefined || typeof target[key] !== "object") {
 						target[key] = {};
 					}

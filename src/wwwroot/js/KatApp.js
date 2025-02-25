@@ -1,33 +1,4 @@
 "use strict";
-class KatAppEventFluentApi {
-    app;
-    elements;
-    constructor(app, elements) {
-        this.app = app;
-        this.elements = elements;
-    }
-    on(events, handler) {
-        var eventTypes = events.split(" ");
-        this.elements.forEach(e => {
-            eventTypes.forEach(t => e.addEventListener(t, handler));
-        });
-        return this;
-    }
-    off(events) {
-        var eventTypes = events.split(" ");
-        this.elements.forEach(e => {
-            if (e.kaEventListeners == undefined)
-                return;
-            eventTypes.forEach(t => {
-                const listeners = e.kaEventListeners[t];
-                if (listeners == undefined)
-                    return;
-                listeners.forEach(l => e.removeEventListener(t, l.listener, l.options));
-            });
-        });
-        return this;
-    }
-}
 class KatApp {
     selector;
     static applications = [];
@@ -39,7 +10,7 @@ class KatApp {
         if (item.isMounted) {
             item.vueApp.unmount();
         }
-        document.querySelector(`template[id$='${item.id}']`)?.remove();
+        $("template[id$='" + item.id + "']").remove();
         this.applications = this.applications.filter(a => a.id != item.id);
     }
     static get(key) {
@@ -80,7 +51,7 @@ class KatApp {
             return katApp;
         }
         catch (e) {
-            document.querySelector(".kaModal")?.remove();
+            $(".kaModal").remove();
             if (katApp != undefined) {
                 KatApp.remove(katApp);
             }
@@ -139,22 +110,22 @@ class KatApp {
             this.nextCalculation = nc;
             this.options.debug.traceVerbosity = TraceVerbosity.Detailed;
         }
-        const selectorResults = options.modalAppOptions == undefined ? document.querySelectorAll(selector) : undefined;
+        const selectorResults = options.modalAppOptions == undefined ? $(selector) : undefined;
         if (selectorResults != undefined && selectorResults.length != 1) {
             throw new Error("'selector' of '" + this.selector + "' did not match any elements.");
         }
         else if (selectorResults == undefined && options.modalAppOptions == undefined) {
             throw new Error("No 'selector' or 'modalAppOptions' were provided.");
         }
-        this.el = selectorResults?.item(0) ?? this.createModalContainer();
-        this.domElementQueue = [this.el];
-        this.el.setAttribute("ka-id", this.id);
-        this.el.classList.add("katapp-css", this.applicationCss.substring(1));
-        if (this.el.getAttribute("v-scope") == undefined) {
-            this.el.setAttribute("v-scope", "");
+        this.el = selectorResults ?? this.createModalContainer();
+        this.domElementQueue = [this.el[0]];
+        this.el.attr("ka-id", this.id);
+        this.el.addClass("katapp-css " + this.applicationCss.substring(1));
+        if (this.el.attr("v-scope") == undefined) {
+            this.el.attr("v-scope", "");
         }
-        if (this.el.getAttribute("ka-cloak") == undefined && (options.view != undefined || options.content != undefined || (options.cloneHost ?? false) !== false)) {
-            this.el.setAttribute("ka-cloak", "");
+        if (this.el.attr("ka-cloak") == undefined && (options.view != undefined || options.content != undefined || (options.cloneHost ?? false) !== false)) {
+            this.el.attr("ka-cloak", "");
         }
         if (document.querySelector("ka-resources") == undefined) {
             const kaResources = document.createElement("ka-resources");
@@ -270,7 +241,9 @@ class KatApp {
             canSubmit(whenInputsHaveChanged) { return (whenInputsHaveChanged ? this.inputsChanged : this.isDirty) && this.errors.filter(r => r.id.startsWith('i')).length == 0 && !this.uiBlocked; },
             needsCalculation: false,
             inputs: KatApps.Utils.extend({
-                getOptionText: (inputId) => that.selectElement(`.${inputId} option:checked`)?.textContent ?? undefined,
+                getOptionText: (inputId) => {
+                    return that.select(`.${inputId} option:selected`).text();
+                },
                 getNumber: (inputId) => {
                     const currencyString = that.state.inputs[inputId];
                     if (currencyString == undefined)
@@ -354,9 +327,9 @@ class KatApp {
             handlers: cloneApplication ? KatApps.Utils.clone(cloneApplication.state.handlers ?? {}) : {},
             components: {},
             _domElementMounted(el) {
-                if (that.el.hasAttribute("ka-cloak"))
+                if (that.el[0].hasAttribute("ka-cloak"))
                     return;
-                if (!that.domElementQueue.includes(that.el) && !that.domElementQueue.includes(el)) {
+                if (!that.domElementQueue.includes(that.el[0]) && !that.domElementQueue.includes(el)) {
                     let queueElement = true;
                     var i = that.domElementQueue.length;
                     while (i--) {
@@ -475,27 +448,11 @@ class KatApp {
         this.eventConfigurations.push(config);
         return this;
     }
-    appendAndExecuteScripts(target, viewElement) {
-        const scripts = viewElement.querySelectorAll('script');
-        const nonScripts = Array.from(viewElement.children)
-            .filter(node => node.tagName !== 'SCRIPT');
-        nonScripts.forEach(node => target.appendChild(node));
-        scripts.forEach(script => {
-            const newScript = document.createElement('script');
-            if (script.src) {
-                newScript.src = script.src;
-            }
-            else {
-                newScript.textContent = script.textContent;
-            }
-            target.appendChild(newScript);
-        });
-    }
     async mountAsync() {
         try {
             KatApps.Utils.trace(this, "KatApp", "mountAsync", `Start`, TraceVerbosity.Detailed);
             if (this.options.view != undefined) {
-                this.el.setAttribute("data-view-name", this.options.view);
+                this.el.attr("data-view-name", this.options.view);
             }
             const viewElement = await this.getViewElementAsync();
             this.viewTemplates = viewElement != undefined
@@ -587,19 +544,19 @@ class KatApp {
                 if (this.options.hostApplication != undefined && this.options.inputs?.iModalApplication == "1") {
                     if (this.options.content != undefined) {
                         if (typeof this.options.content == "string") {
-                            this.selectElement(".modal-body").innerHTML = this.options.content;
+                            this.select(".modal-body").html(this.options.content);
                         }
                         else {
-                            this.selectElement(".modal-body").append(this.options.content);
+                            this.select(".modal-body").append(this.options.content);
                         }
-                        this.selectElements("[data-bs-toggle='tooltip'], [data-bs-toggle='popover']").forEach(e => e.removeAttribute("ka-init-tip"));
+                        this.select("[data-bs-toggle='tooltip'], [data-bs-toggle='popover']").removeAttr("ka-init-tip");
                     }
                     else {
-                        this.appendAndExecuteScripts(this.selectElement(".modal-body"), viewElement);
+                        this.select(".modal-body").append(viewElement);
                     }
                 }
                 else {
-                    this.appendAndExecuteScripts(this.el, viewElement);
+                    $(this.el).append(viewElement);
                 }
             }
             KatApps.Components.initializeCoreComponents(this, name => this.getTemplateId(name));
@@ -620,18 +577,14 @@ class KatApp {
             const isNestedApplication = this.options.hostApplication != undefined && this.options.inputs?.iNestedApplication == "1";
             if (isModalApplication) {
                 if (this.options.modalAppOptions?.buttonsTemplate != undefined) {
-                    this.selectElements(".modal-footer-buttons button").forEach(b => b.remove());
-                    this.selectElement(".modal-footer-buttons")?.setAttribute("v-scope", "components.template({name: '" + this.options.modalAppOptions.buttonsTemplate + "'})");
+                    this.select(".modal-footer-buttons button").remove();
+                    this.select(".modal-footer-buttons").attr("v-scope", "components.template({name: '" + this.options.modalAppOptions.buttonsTemplate + "'})");
                 }
                 if (this.options.modalAppOptions?.headerTemplate != undefined) {
-                    const modalBody = this.selectElement(".modal-body");
-                    const modalHeader = modalBody?.previousElementSibling;
-                    if (modalHeader) {
-                        modalHeader.setAttribute("v-scope", `components.template({name: '${this.options.modalAppOptions.headerTemplate}'})`);
-                        while (modalHeader.firstChild) {
-                            modalHeader.removeChild(modalHeader.firstChild);
-                        }
-                    }
+                    this.select(".modal-body")
+                        .prev()
+                        .attr("v-scope", "components.template({name: '" + this.options.modalAppOptions.headerTemplate + "'})")
+                        .children().remove();
                 }
                 await this.options.hostApplication.triggerEventAsync("modalAppInitialized", this);
             }
@@ -699,7 +652,7 @@ class KatApp {
             if (isModalApplication) {
                 await this.showModalApplicationAsync();
             }
-            this.el.removeAttribute("ka-cloak");
+            this.el.removeAttr("ka-cloak");
             await this.processDomElementsAsync();
             this.state.inputsChanged = false;
             await this.triggerEventAsync("rendered", initializationErrors ? this.state.errors : undefined);
@@ -719,8 +672,10 @@ class KatApp {
     }
     initializeInspector() {
         if (this.options.debug.showInspector != "0") {
-            const inspectorKeyDown = (e) => {
-                if (e.ctrlKey && e.altKey && e.key == "i") {
+            $(document.body)
+                .off("keydown.ka")
+                .on("keydown.ka", function (e) {
+                if (e.ctrlKey && e.shiftKey) {
                     if (document.body.classList.contains("ka-inspector")) {
                         Array.from(document.body.classList).forEach(className => {
                             if (className.startsWith('ka-inspector')) {
@@ -784,11 +739,7 @@ Type 'help' to see available options displayed in the console.`;
                         }
                     }
                 }
-            };
-            if (document.body.getAttribute("ka-inspector-init") != "1") {
-                document.body.setAttribute("ka-inspector-init", "1");
-                document.body.addEventListener("keydown", inspectorKeyDown);
-            }
+            });
         }
     }
     createModalContainer() {
@@ -814,7 +765,7 @@ Type 'help' to see available options displayed in the console.`;
         const cssContinue = options.css.continue;
         const viewName = this.options.view ??
             (this.options.modalAppOptions.contentSelector != undefined ? `selector: ${this.options.modalAppOptions.contentSelector}` : "static content");
-        const modalHtml = `<div v-scope class="modal fade kaModal" tabindex="-1" aria-modal="true" aria-labelledby="kaModalLabel" role="dialog" data-bs-backdrop="static"
+        const modal = $(`<div v-scope class="modal fade kaModal" tabindex="-1" aria-modal="true" aria-labelledby="kaModalLabel" role="dialog" data-bs-backdrop="static"
 	:data-bs-keyboard="application.options.modalAppOptions.allowKeyboardDismiss"
 	data-view-name="${viewName}">
 	
@@ -842,19 +793,16 @@ Type 'help' to see available options displayed in the console.`;
 			</div>
 		</div>
 	</div>
-</div>`;
-        const modalTemplate = document.createElement("template");
-        modalTemplate.innerHTML = modalHtml;
-        const modal = modalTemplate.content.firstChild;
+</div>`);
         if (options.scrollable) {
-            modal.querySelector(".modal-dialog").classList.add("modal-dialog-scrollable");
-            modal.querySelector(".modal-body").setAttribute("tabindex", "0");
+            $(".modal-dialog", modal).addClass("modal-dialog-scrollable");
+            $(".modal-body", modal).attr("tabindex", "0");
         }
         if (options.size != undefined) {
-            modal.querySelector(".modal-dialog").classList.add("modal-dialog-centered", "modal-" + options.size);
+            $(".modal-dialog", modal).addClass("modal-dialog-centered modal-" + options.size);
         }
         if (this.options.modalAppOptions.view != undefined) {
-            document.querySelector("[ka-id]").after(modal);
+            $("[ka-id]").first().after(modal);
         }
         else {
             this.options.hostApplication.el.append(modal);
@@ -862,114 +810,108 @@ Type 'help' to see available options displayed in the console.`;
         return modal;
     }
     async showModalApplicationAsync() {
-        return new Promise((resolve, reject) => {
-            if (this.el.classList.contains("show")) {
-                console.log("When this is hit, document why condition is there");
-                debugger;
-                resolve(true);
-                return;
-            }
-            const options = this.options.modalAppOptions;
-            const that = this;
-            let katAppModalClosing = false;
-            const closeModal = function () {
-                katAppModalClosing = true;
-                KatApps.HelpTips.hideVisiblePopover();
-                modalBS5.hide();
-                that.el.remove();
-                KatApp.remove(that);
-                options.triggerLink?.focus();
-            };
-            options.confirmedAsync = async (response) => {
-                closeModal();
-                if (options.calculateOnConfirm != undefined) {
-                    const calculateOnConfirm = (typeof options.calculateOnConfirm == 'boolean') ? options.calculateOnConfirm : true;
-                    const calculationInputs = (typeof options.calculateOnConfirm == 'object') ? options.calculateOnConfirm : undefined;
-                    if (calculateOnConfirm) {
-                        await that.options.hostApplication.calculateAsync(calculationInputs, true, undefined, false);
-                    }
+        const d = $.Deferred();
+        if (this.el.hasClass("show")) {
+            console.log("When this is hit, document why condition is there");
+            debugger;
+            d.resolve(true);
+            return d;
+        }
+        const options = this.options.modalAppOptions;
+        const that = this;
+        let katAppModalClosing = false;
+        const closeModal = function () {
+            katAppModalClosing = true;
+            KatApps.HelpTips.hideVisiblePopover();
+            modalBS5.hide();
+            that.el.remove();
+            KatApp.remove(that);
+            options.triggerLink?.focus();
+        };
+        options.confirmedAsync = async (response) => {
+            closeModal();
+            if (options.calculateOnConfirm != undefined) {
+                const calculateOnConfirm = (typeof options.calculateOnConfirm == 'boolean') ? options.calculateOnConfirm : true;
+                const calculationInputs = (typeof options.calculateOnConfirm == 'object') ? options.calculateOnConfirm : undefined;
+                if (calculateOnConfirm) {
+                    await that.options.hostApplication.calculateAsync(calculationInputs, true, undefined, false);
                 }
-                options.promise.resolve({ confirmed: true, response: response instanceof Event ? undefined : response, modalApp: that });
-            };
-            options.cancelled = response => {
-                closeModal();
-                options.promise.resolve({ confirmed: false, response: response instanceof Event ? undefined : response, modalApp: that });
-            };
-            const isInvalid = this.state.errors.length > 0;
-            const hasCustomHeader = options.headerTemplate != undefined;
-            const hasCustomButtons = options.buttonsTemplate != undefined;
-            const tryCancelClickOnClose = hasCustomButtons || (options.showCancel ?? true);
-            const closeButtonClickAsync = async (e) => {
-                if (!katAppModalClosing) {
-                    e.preventDefault();
-                    if (isInvalid) {
-                        options.cancelled();
-                    }
-                    else if (options.closeButtonTrigger != undefined) {
-                        that.selectElement(options.closeButtonTrigger).click();
-                    }
-                    else if (tryCancelClickOnClose) {
-                        const cancelButton = that.selectElement(".modal-footer-buttons .cancelButton");
-                        if (cancelButton != undefined) {
-                            cancelButton.click();
-                        }
-                        else {
-                            options.cancelled();
-                        }
+            }
+            options.promise.resolve({ confirmed: true, response: response instanceof Event ? undefined : response, modalApp: that });
+        };
+        options.cancelled = response => {
+            closeModal();
+            options.promise.resolve({ confirmed: false, response: response instanceof Event ? undefined : response, modalApp: that });
+        };
+        const isInvalid = this.state.errors.length > 0;
+        const hasCustomHeader = options.headerTemplate != undefined;
+        const hasCustomButtons = options.buttonsTemplate != undefined;
+        const tryCancelClickOnClose = hasCustomButtons || (options.showCancel ?? true);
+        const closeButtonClickAsync = async (e) => {
+            if (!katAppModalClosing) {
+                e.preventDefault();
+                if (isInvalid) {
+                    options.cancelled();
+                }
+                else if (options.closeButtonTrigger != undefined) {
+                    that.select(options.closeButtonTrigger)[0].click();
+                }
+                else if (tryCancelClickOnClose) {
+                    if (that.select(".modal-footer-buttons .cancelButton").length == 1) {
+                        that.select(".modal-footer-buttons .cancelButton")[0].click();
                     }
                     else {
-                        const continueButton = that.selectElement(".modal-footer-buttons .continueButton");
-                        if (continueButton != undefined) {
-                            continueButton.click();
-                        }
-                        else {
-                            await options.confirmedAsync();
-                        }
+                        options.cancelled();
                     }
                 }
-            };
-            this.selectElements(".modal-invalid-footer-buttons .continueButton, .modal-header.invalid-content .btn-close")
-                .forEach(b => b.addEventListener("click", e => {
+                else {
+                    if (that.select(".modal-footer-buttons .continueButton").length == 1) {
+                        that.select(".modal-footer-buttons .continueButton")[0].click();
+                    }
+                    else {
+                        await options.confirmedAsync();
+                    }
+                }
+            }
+        };
+        this.select('.modal-invalid-footer-buttons .continueButton, .modal-header.invalid-content .btn-close').on("click.ka", async (e) => {
+            e.preventDefault();
+            options.cancelled();
+        });
+        if (!hasCustomHeader && options.allowKeyboardDismiss != false) {
+            this.select(".modal-header.valid-content .btn-close").on("click.ka", async (e) => await closeButtonClickAsync(e));
+        }
+        if (!hasCustomButtons) {
+            this.select('.modal-footer-buttons .continueButton').on("click.ka", async (e) => {
+                e.preventDefault();
+                await options.confirmedAsync();
+            });
+            this.select('.modal-footer-buttons .cancelButton').on("click.ka", function (e) {
                 e.preventDefault();
                 options.cancelled();
-            }));
-            if (!hasCustomHeader && options.allowKeyboardDismiss != false) {
-                this.selectElement(".modal-header.valid-content .btn-close")?.addEventListener("click", closeButtonClickAsync);
-            }
-            if (!hasCustomButtons) {
-                let button = this.selectElement(".modal-footer-buttons .cancelButton");
-                button?.addEventListener("click", e => {
-                    e.preventDefault();
-                    options.cancelled();
-                });
-                button = this.selectElement(".modal-footer-buttons .continueButton");
-                button?.addEventListener("click", async (e) => {
-                    e.preventDefault();
-                    await options.confirmedAsync();
-                });
-            }
-            this.el.addEventListener("shown.bs.modal", () => {
-                that.el
-                    .querySelectorAll(".modal-footer-buttons, .modal-invalid-footer-buttons")
-                    .forEach(e => e.classList.remove("d-none"));
-                resolve(true);
             });
-            this.el.addEventListener("hide.bs.modal", async (e) => {
-                if (KatApps.HelpTips.hideVisiblePopover()) {
-                    e.preventDefault();
-                    return;
-                }
-                await closeButtonClickAsync(e);
-            });
-            const modalBS5 = new bootstrap.Modal(this.el);
-            modalBS5.show(options.triggerLink);
-            if (options.triggerLink != undefined) {
-                options.triggerLink.removeAttribute("disabled");
-                options.triggerLink.classList.remove("disabled", "kaModalInit");
-                document.querySelector("body").classList.remove("kaModalInit");
+        }
+        this.el
+            .on("shown.bs.modal", () => {
+            that.select(".modal-footer-buttons, .modal-invalid-footer-buttons").removeClass("d-none");
+            d.resolve(true);
+        })
+            .on("hide.bs.modal", async (e) => {
+            if (KatApps.HelpTips.hideVisiblePopover()) {
+                e.preventDefault();
+                return;
             }
-            this.options.hostApplication.unblockUI();
+            await closeButtonClickAsync(e);
         });
+        const modalBS5 = new bootstrap.Modal(this.el[0]);
+        modalBS5.show(options.triggerLink);
+        if (options.triggerLink != undefined) {
+            options.triggerLink.removeAttribute("disabled");
+            options.triggerLink.classList.remove("disabled", "kaModalInit");
+            $("body").removeClass("kaModalInit");
+        }
+        this.options.hostApplication.unblockUI();
+        return d;
     }
     async navigateAsync(navigationId, options) {
         if (options?.inputs != undefined) {
@@ -1067,8 +1009,8 @@ Type 'help' to see available options displayed in the console.`;
     }
     checkValidity() {
         let isValid = true;
-        this.selectElements("input").forEach(e => {
-            if (!e.checkValidity()) {
+        this.select("input").each((i, e) => {
+            if (e.checkValidity() === false) {
                 isValid = false;
             }
         });
@@ -1078,7 +1020,7 @@ Type 'help' to see available options displayed in the console.`;
         if (!(apiOptions?.skipValidityCheck ?? false) && !this.checkValidity()) {
             throw new ValidityError();
         }
-        if (!this.el.hasAttribute("ka-cloak")) {
+        if (!this.el[0].hasAttribute("ka-cloak")) {
             this.traceStart = this.traceLast = new Date();
         }
         apiOptions = apiOptions ?? {};
@@ -1228,38 +1170,16 @@ Type 'help' to see available options displayed in the console.`;
             }
         };
         for (const el of this.domElementQueue) {
-            const preventDefault = (e) => e.preventDefault();
-            this.selectElements("a[href='#']")
-                .forEach(a => {
-                a.removeEventListener("click", preventDefault);
-                a.addEventListener("click", preventDefault);
-            });
+            this.select("a[href='#']", el.tagName == "A" ? el.parentElement : el).off("click.ka").on("click.ka", e => e.preventDefault());
             KatApps.HelpTips.processHelpTips(el);
-            const reflowElementCharts = (el) => {
-                el.querySelectorAll("[data-highcharts-chart]").forEach(c => {
-                    const chart = Highcharts.charts[+c.getAttribute("data-highcharts-chart")];
-                    chart?.reflow();
-                });
-            };
-            reflowElementCharts(el);
-            const reflowTabCharts = (e) => {
-                var tab = e.target;
-                var pane = this.selectElement(tab.getAttribute("data-bs-target"));
-                reflowElementCharts(pane);
-            };
-            el.querySelectorAll("[data-highcharts-chart]").forEach(c => {
-                const navItemId = this.closestElement(c, ".tab-pane, [role='tabpanel']")?.getAttribute("aria-labelledby");
-                if (navItemId != undefined) {
-                    const navItem = this.selectElement("#" + navItemId);
-                    navItem?.removeEventListener('shown.bs.tab', reflowTabCharts);
-                    navItem?.addEventListener('shown.bs.tab', reflowTabCharts);
-                }
-            });
+            this.select('[data-highcharts-chart]', $(el)).each((i, c) => $(c).highcharts().reflow());
             if (el.classList.contains("ui-blocker")) {
                 addUiBlockerWrapper(el);
             }
             else {
-                el.querySelectorAll(".ui-blocker").forEach(e => addUiBlockerWrapper(e));
+                this.select(".ui-blocker", $(el)).each((i, e) => {
+                    addUiBlockerWrapper(e);
+                });
             }
         }
         const elementsProcessed = [...this.domElementQueue];
@@ -1268,31 +1188,28 @@ Type 'help' to see available options displayed in the console.`;
         await this.triggerEventAsync("domUpdated", elementsProcessed);
     }
     getInputValue(name, allowDisabled = false) {
-        const inputs = this.selectElements("." + name);
-        if (inputs.length == 0)
+        const el = this.select("." + name);
+        if (el.length == 0)
             return undefined;
-        if (!allowDisabled && inputs[0].disabled)
+        if (!allowDisabled && el.prop("disabled"))
             return undefined;
-        if (inputs.length > 1 && inputs[0].getAttribute("type") == "radio") {
-            const v = inputs.find(o => o.checked)?.value;
+        if (el.length > 1 && el[0].getAttribute("type") == "radio") {
+            const v = el.filter((i, o) => o.checked).val();
             return v != undefined ? v + '' : undefined;
         }
-        if (inputs[0].classList.contains("checkbox-list")) {
-            const v = Array.from(inputs[0].querySelectorAll("input"))
-                .filter(c => c.checked)
-                .map(c => c.value)
-                .join(",");
+        if (el.hasClass("checkbox-list")) {
+            const v = Array.from(el.find("input:checked")).map(c => c.value).join(",");
             return (v ?? "") != "" ? v : undefined;
         }
-        if (inputs[0].getAttribute("type") == "checkbox") {
-            return inputs[0].checked ? "1" : "0";
+        if (el[0].getAttribute("type") == "checkbox") {
+            return el[0].checked ? "1" : "0";
         }
-        if (inputs[0].getAttribute("type") == "file") {
-            const files = inputs[0].files;
+        if (el[0].getAttribute("type") == "file") {
+            const files = el[0].files;
             const numFiles = files?.length ?? 1;
-            return numFiles > 1 ? numFiles + ' files selected' : inputs[0].value.replace(/\\/g, '/').replace(/.*\//, '');
+            return numFiles > 1 ? numFiles + ' files selected' : el.val().replace(/\\/g, '/').replace(/.*\//, '');
         }
-        return inputs[0].value;
+        return el.val();
     }
     setInputValue(name, value, calculate = false) {
         if (value == undefined) {
@@ -1303,34 +1220,39 @@ Type 'help' to see available options displayed in the console.`;
                 ? (value ? "1" : "0")
                 : value;
         }
-        let inputs = this.selectElements("." + name);
-        if (inputs.length > 0) {
-            const isCheckboxList = inputs[0].classList.contains("checkbox-list");
-            if (inputs.length > 0 && inputs[0].getAttribute("type") == "radio") {
-                inputs.forEach(i => i.checked = (i.value == value));
+        const el = this.select("." + name);
+        if (el.length > 0) {
+            const isCheckboxList = el.hasClass("checkbox-list");
+            if (el.length > 0 && el[0].getAttribute("type") == "radio") {
+                el.prop("checked", false);
+                el.filter((i, o) => o.value == value).prop("checked", true);
             }
             else if (isCheckboxList) {
-                const values = value?.split(",");
-                inputs = Array.from(inputs[0].querySelectorAll("input"));
-                inputs.forEach(i => {
-                    i.checked = (values != undefined && values.indexOf(i.value) > -1);
-                });
+                el.find("input").prop("checked", false);
+                if (value != undefined) {
+                    const values = value?.split(",");
+                    el.find("input:checked").each((i, c) => {
+                        if (values.indexOf(c.value)) {
+                            c.checked = true;
+                        }
+                    });
+                }
             }
-            else if (inputs[0].getAttribute("type") == "checkbox") {
-                inputs[0].checked = typeof value == 'boolean' ? value : value == "1";
+            else if (el[0].getAttribute("type") == "checkbox") {
+                el[0].checked = typeof value == 'boolean' ? value : value == "1";
             }
             else {
-                inputs[0].value = value ?? "";
+                el.val(value ?? "");
             }
-            if (inputs[0].getAttribute("type") == "range") {
-                inputs[0].dispatchEvent(new Event('rangeset.ka'));
+            if (el[0].getAttribute("type") == "range") {
+                el[0].dispatchEvent(new Event('rangeset.ka'));
             }
             if (calculate) {
-                const target = inputs[0];
+                const target = isCheckboxList ? el.find("input")[0] : el[0];
                 target.dispatchEvent(new Event('change'));
             }
         }
-        return inputs;
+        return el;
     }
     getInputs(customInputs) {
         const inputs = KatApps.Utils.extend({}, this.state.inputs, customInputs);
@@ -1349,43 +1271,21 @@ Type 'help' to see available options displayed in the console.`;
         }
         return undefined;
     }
-    on(selector, events, handler, context) {
-        const eventFluentApi = new KatAppEventFluentApi(this, this.selectElements(selector, context));
-        eventFluentApi.on(events, handler);
-        return eventFluentApi;
-    }
-    off(selector, events, context) {
-        const eventFluentApi = new KatAppEventFluentApi(this, this.selectElements(selector, context));
-        eventFluentApi.off(events);
-        return eventFluentApi;
-    }
-    inputSelectorRegex = /:input([\w\s.:#=\[\]'^$*|~]*)(?=(,|$))/g;
-    replaceInputSelector(selector) {
-        return selector.replace(this.inputSelectorRegex, (match, capturedSelectors) => {
-            const inputTypes = ['input', 'textarea', 'select', 'button'];
-            return inputTypes.map(type => `${type}${capturedSelectors}`).join(', ');
-        });
-    }
-    selectElement(selector, context) {
-        const container = context ?? this.el;
-        const result = container.querySelector(this.replaceInputSelector(selector)) ?? undefined;
-        if (result == undefined || context != undefined)
-            return result;
-        var appId = this.getKatAppId(container);
-        return this.getKatAppId(result) == appId ? result : undefined;
-    }
-    selectElements(selector, context) {
-        const container = context ?? this.el;
-        const result = Array.from(container.querySelectorAll(this.replaceInputSelector(selector)));
-        if (context != undefined)
-            return result;
-        var appId = this.getKatAppId(container);
-        return result.filter(e => this.getKatAppId(e) == appId);
-    }
     closestElement(element, selector) {
         const c = element.closest(selector) ?? undefined;
         const cAppId = c != undefined ? this.getKatAppId(c) : undefined;
         return cAppId == this.id ? c : undefined;
+    }
+    select(selector, context) {
+        const container = !(context instanceof jQuery) && context != undefined
+            ? $(context)
+            : context ?? $(this.el);
+        var appId = context == undefined
+            ? this.id
+            : container.attr("ka-id") || container.parents("[ka-id]").attr("ka-id");
+        return $(selector, container).filter(function () {
+            return $(this).parents("[ka-id]").attr("ka-id") == appId;
+        });
     }
     getResourceString(key) {
         const currentUICulture = this.options.currentUICulture ?? "en-us";
@@ -1550,60 +1450,62 @@ Type 'help' to see available options displayed in the console.`;
     }
     async showModalAsync(options, triggerLink) {
         let cloneHost = false;
-        let selectorContent;
         if (options.contentSelector != undefined) {
             await PetiteVue.nextTick();
-            const selectContent = this.selectElement(options.contentSelector);
-            if (selectContent == undefined) {
+            const selectContent = this.select(options.contentSelector).first();
+            if (selectContent.length == 0) {
                 throw new Error(`The content selector (${options.contentSelector}) did not return any content.`);
             }
-            cloneHost = this.getCloneHostSetting(selectContent);
-            selectorContent = selectContent.cloneWithEvents();
+            cloneHost = this.getCloneHostSetting(selectContent[0]);
+            const selectorContent = $("<div/>");
+            selectorContent.append(selectContent.contents().clone(true));
+            options.content = selectorContent;
         }
-        if (selectorContent == undefined && options.content == undefined && options.view == undefined) {
+        if (options.content == undefined && options.view == undefined) {
             throw new Error("You must provide content or viewId when using showModal.");
         }
-        if (document.querySelector(".kaModal") != undefined) {
+        if ($(".kaModal").length > 0) {
             throw new Error("You can not use the showModalAsync method if you have markup on the page already containing the class kaModal.");
         }
         this.blockUI();
         if (triggerLink != undefined) {
             triggerLink.setAttribute("disabled", "true");
             triggerLink.classList.add("disabled", "kaModalInit");
-            document.querySelector("body").classList.add("kaModalInit");
+            $("body").addClass("kaModalInit");
         }
         try {
             const previousModalApp = KatApp.get(".kaModal");
             if (previousModalApp != undefined) {
                 KatApp.remove(previousModalApp);
             }
-            return new Promise(async (resolve, reject) => {
-                const propertiesToSkip = ["content", "view"];
-                const modalOptions = {
-                    view: options.view,
-                    content: selectorContent ?? options.content,
-                    currentPage: options.view ?? this.options.currentPage,
-                    hostApplication: this.selector.startsWith("#popover") ? this.options.hostApplication : this,
-                    cloneHost: cloneHost,
-                    modalAppOptions: KatApps.Utils.extend({ promise: { resolve, reject }, triggerLink: triggerLink }, KatApps.Utils.clone(options, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v)),
-                    inputs: {
-                        iModalApplication: "1"
-                    }
-                };
-                const modalAppOptions = KatApps.Utils.extend(modalOptions.hostApplication.cloneOptions(modalOptions.content == undefined || cloneHost !== false), modalOptions, options.inputs != undefined ? { inputs: options.inputs } : undefined);
-                if (modalAppOptions.anchoredQueryStrings != undefined && modalAppOptions.inputs != undefined) {
-                    modalAppOptions.anchoredQueryStrings = KatApps.Utils.generateQueryString(KatApps.Utils.parseQueryString(modalAppOptions.anchoredQueryStrings), key => !key.startsWith("ki-") || modalAppOptions.inputs['i' + key.split('-').slice(1).map(segment => segment.charAt(0).toUpperCase() + segment.slice(1)).join("")] == undefined);
+            const d = $.Deferred();
+            const propertiesToSkip = ["content", "view"];
+            const modalOptions = {
+                view: options.view,
+                content: options.content,
+                currentPage: options.view ?? this.options.currentPage,
+                hostApplication: this.selector.startsWith("#popover") ? this.options.hostApplication : this,
+                cloneHost: cloneHost,
+                modalAppOptions: KatApps.Utils.extend({ promise: d, triggerLink: triggerLink }, KatApps.Utils.clone(options, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v)),
+                inputs: {
+                    iModalApplication: "1"
                 }
-                delete modalAppOptions.inputs.iNestedApplication;
-                await KatApp.createAppAsync(".kaModal", modalAppOptions);
-            });
+            };
+            const hostOptions = modalOptions.hostApplication.cloneOptions(options.content == undefined || cloneHost !== false);
+            const modalAppOptions = KatApps.Utils.extend(hostOptions, modalOptions, options.inputs != undefined ? { inputs: options.inputs } : undefined);
+            if (modalAppOptions.anchoredQueryStrings != undefined && modalAppOptions.inputs != undefined) {
+                modalAppOptions.anchoredQueryStrings = KatApps.Utils.generateQueryString(KatApps.Utils.parseQueryString(modalAppOptions.anchoredQueryStrings), key => !key.startsWith("ki-") || modalAppOptions.inputs['i' + key.split('-').slice(1).map(segment => segment.charAt(0).toUpperCase() + segment.slice(1)).join("")] == undefined);
+            }
+            delete modalAppOptions.inputs.iNestedApplication;
+            await KatApp.createAppAsync(".kaModal", modalAppOptions);
+            return d;
         }
         catch (e) {
             this.unblockUI();
             if (triggerLink != undefined) {
                 triggerLink.removeAttribute("disabled");
                 triggerLink.classList.remove("disabled", "kaModalInit");
-                document.querySelector("body").classList.remove("kaModalInit");
+                $("body").removeClass("kaModalInit");
             }
             throw e;
         }
@@ -2554,36 +2456,38 @@ var KatApps;
         static percentFormat = /([/s/S]*?){0:p\d*}/;
         bindRangeEvents(name, input, refs, displayFormat, inputEventAsync) {
             let bubbleTimer;
-            const bubble = refs.bubble;
-            const bubbleValue = refs.bubbleValue ?? bubble;
-            const display = refs.display;
+            const bubble = refs.bubble != undefined ? $(refs.bubble) : undefined;
+            const bubbleValue = refs.bubbleValue != undefined ? $(refs.bubbleValue) : bubble;
+            const display = refs.display != undefined ? $(refs.display) : undefined;
             const setRangeValues = (showBubble) => {
                 if (bubbleTimer) {
                     clearTimeout(bubbleTimer);
                 }
-                const value = input.value, valueFormat = displayFormat(name), displayValue = valueFormat != undefined
+                const range = $(input);
+                const value = range.val(), valueFormat = displayFormat(name), displayValue = valueFormat != undefined
                     ? String.localeFormat(valueFormat, valueFormat.match(KatApps.InputComponent.percentFormat) ? +value / 100 : +value)
-                    : value.toString(), max = +(input.getAttribute("max")), min = +(input.getAttribute("min")), newValue = Number((+value - min) * 100 / (max - min)), newPosition = 10 - (newValue * 0.2);
+                    : value.toString(), max = +(range.attr("max")), min = +(range.attr("min")), newValue = Number((+value - min) * 100 / (max - min)), newPosition = 10 - (newValue * 0.2);
                 if (display != undefined) {
-                    display.innerHTML = displayValue;
+                    display.html(displayValue);
                 }
                 if (bubble != undefined) {
-                    bubbleValue.innerHTML = displayValue;
+                    bubbleValue.html(displayValue);
                     if (showBubble) {
                         let displayWidth = 30;
                         if (display != undefined) {
-                            const element = display;
+                            const element = display[0];
                             const cs = getComputedStyle(element);
                             const paddingX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
                             const borderX = parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
                             displayWidth = 15 + element.offsetWidth - paddingX - borderX;
                         }
-                        bubbleValue.style.width = `${displayWidth}px`;
-                        bubble.style.left = `calc(${newValue}% + (${newPosition}px))`;
-                        bubble.classList.add("active");
+                        bubbleValue.css("width", `${displayWidth}px`);
+                        bubble
+                            .css("left", `calc(${newValue}% + (${newPosition}px))`)
+                            .addClass("active");
                     }
                 }
-                input.style.backgroundSize = `${((+value - min) * 100) / (max - min)}% 100%`;
+                range.css("backgroundSize", `${((+value - min) * 100) / (max - min)}% 100%`);
             };
             setRangeValues(false);
             input.addEventListener("input", async () => {
@@ -2602,7 +2506,7 @@ var KatApps;
                     if (bubbleTimer) {
                         clearTimeout(bubbleTimer);
                     }
-                    bubble.classList.remove("active");
+                    bubble.removeClass("active");
                 });
             }
         }
@@ -2823,7 +2727,7 @@ var KatApps;
                     if (props.uploadEndpoint == undefined) {
                         throw new Error("Cannot use uploadAsync if uploadEndpoint is not set.");
                     }
-                    const files = application.selectElement("." + name).files;
+                    const files = application.select("." + name)[0].files;
                     try {
                         await application.apiAsync(props.uploadEndpoint, { files: files });
                     }
@@ -3082,9 +2986,9 @@ var KatApps;
                 if (ctx.el.tagName == "A") {
                     ctx.el.setAttribute("href", "#");
                 }
-                ctx.el.addEventListener("click", submitApi);
+                $(ctx.el).on("click.ka-api", submitApi);
                 return () => {
-                    ctx.el.removeEventListener("click", submitApi);
+                    $(ctx.el).off("click.ka-api");
                 };
             };
         }
@@ -3156,7 +3060,11 @@ var KatApps;
         getDefinition(application) {
             return ctx => {
                 this.application = application;
-                const el = ctx.el;
+                const navItemId = application.closestElement(ctx.el, ".tab-pane, [role='tabpanel']")?.getAttribute("aria-labelledby");
+                if (navItemId != undefined) {
+                    const navItem = application.select("#" + navItemId);
+                    navItem.on('shown.bs.tab', () => $(ctx.el).highcharts().reflow());
+                }
                 let highchart;
                 ctx.effect(() => {
                     if (typeof Highcharts !== "object") {
@@ -3169,7 +3077,11 @@ var KatApps;
                     const overrideRows = application.state.rbl.source("HighCharts-Overrides", scope.ce, scope.tab, r => String.compare(r.id, scope.data, true) == 0);
                     const dataRows = data.filter(r => !r.category.startsWith("config-"));
                     const seriesConfigurationRows = data.filter(r => r.category.startsWith("config-"));
-                    Highcharts.charts[+(el.getAttribute('data-highcharts-chart') ?? "-1")]?.destroy();
+                    const exists = (highchart = Highcharts.charts[ctx.el.getAttribute('data-highcharts-chart') ?? -1]) != undefined;
+                    if (highchart !== undefined) {
+                        highchart.destroy();
+                        highchart = undefined;
+                    }
                     if (dataRows.length > 0) {
                         this.ensureCulture();
                         const getOptionValue = function (configurationName) {
@@ -3178,18 +3090,21 @@ var KatApps;
                         };
                         const configStyle = getOptionValue("config-style");
                         if (configStyle !== undefined) {
-                            let renderStyle = el.getAttribute("style") ?? "";
+                            let renderStyle = ctx.el.getAttribute("style") ?? "";
                             if (renderStyle !== "" && !renderStyle.endsWith(";")) {
                                 renderStyle += ";";
                             }
-                            el.setAttribute("style", renderStyle + configStyle);
+                            ctx.el.setAttribute("style", renderStyle + configStyle);
                         }
                         const chartType = getOptionValue("chart.type");
                         const tooltipFormat = this.removeRBLEncoding(getOptionValue("config-tooltipFormat"));
                         const chartOptions = this.getChartOptions(chartType, tooltipFormat, dataRows, optionRows, overrideRows, seriesConfigurationRows);
                         try {
-                            Highcharts.chart(el, chartOptions);
-                            (highchart = Highcharts.charts[+el.getAttribute('data-highcharts-chart')])?.reflow();
+                            $(ctx.el).highcharts(chartOptions);
+                            highchart = Highcharts.charts[ctx.el.getAttribute('data-highcharts-chart')];
+                            if (exists) {
+                                $(ctx.el).highcharts().reflow();
+                            }
                         }
                         catch (error) {
                             KatApps.Utils.trace(application, "DirectiveKaHighchart", "getDefinition", `Error during highchart creation.`, TraceVerbosity.None, ctx.exp, error);
@@ -3197,7 +3112,9 @@ var KatApps;
                     }
                 });
                 return () => {
-                    highchart?.destroy();
+                    if (highchart !== undefined) {
+                        highchart.destroy();
+                    }
                 };
             };
         }
@@ -3469,47 +3386,8 @@ var KatApps;
         name = "ka-modal";
         getDefinition(application) {
             return ctx => {
-                let scope;
-                const showModal = async function (e) {
-                    e.preventDefault();
-                    try {
-                        if (scope.beforeOpenAsync != undefined) {
-                            await scope.beforeOpenAsync(application);
-                        }
-                        const response = await application.showModalAsync(KatApps.Utils.clone(scope, (k, v) => ["beforeOpenAsync", "confirmedAsync", "cancelledAsync", "catchAsync"].indexOf(k) > -1 ? undefined : v), e.currentTarget);
-                        if (response.confirmed) {
-                            if (scope.confirmedAsync != undefined) {
-                                await scope.confirmedAsync(response.response, application);
-                            }
-                            else {
-                                KatApps.Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} confirmed.`, TraceVerbosity.Normal, response.response);
-                            }
-                        }
-                        else {
-                            if (scope.cancelledAsync != undefined) {
-                                await scope.cancelledAsync(response.response, application);
-                            }
-                            else {
-                                KatApps.Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} cancelled.`, TraceVerbosity.Normal, response.response);
-                            }
-                        }
-                    }
-                    catch (e) {
-                        if (scope.catchAsync != undefined) {
-                            await scope.catchAsync(e, application);
-                        }
-                        else {
-                            KatApps.Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} failed.`, TraceVerbosity.None, e);
-                        }
-                    }
-                    finally {
-                        if (scope.closed != undefined) {
-                            scope.closed(application);
-                        }
-                    }
-                };
                 ctx.effect(() => {
-                    scope = ctx.get();
+                    let scope = ctx.get();
                     try {
                         if (scope.model != undefined) {
                             scope = ctx.get(scope.model);
@@ -3518,13 +3396,52 @@ var KatApps;
                     catch (e) {
                         KatApps.Utils.trace(application, "DirectiveKaModal", "getDefinition", `Unable to compile 'model' property: ${scope.model}`, TraceVerbosity.None, e);
                     }
+                    const showModal = async function (e) {
+                        e.preventDefault();
+                        try {
+                            if (scope.beforeOpenAsync != undefined) {
+                                await scope.beforeOpenAsync(application);
+                            }
+                            const response = await application.showModalAsync(KatApps.Utils.clone(scope, (k, v) => ["beforeOpenAsync", "confirmedAsync", "cancelledAsync", "catchAsync"].indexOf(k) > -1 ? undefined : v), e.currentTarget);
+                            if (response.confirmed) {
+                                if (scope.confirmedAsync != undefined) {
+                                    await scope.confirmedAsync(response.response, application);
+                                }
+                                else {
+                                    KatApps.Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} confirmed.`, TraceVerbosity.Normal, response.response);
+                                }
+                            }
+                            else {
+                                if (scope.cancelledAsync != undefined) {
+                                    await scope.cancelledAsync(response.response, application);
+                                }
+                                else {
+                                    KatApps.Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} cancelled.`, TraceVerbosity.Normal, response.response);
+                                }
+                            }
+                        }
+                        catch (e) {
+                            if (scope.catchAsync != undefined) {
+                                await scope.catchAsync(e, application);
+                            }
+                            else {
+                                KatApps.Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} failed.`, TraceVerbosity.None, e);
+                            }
+                        }
+                        finally {
+                            if (scope.closed != undefined) {
+                                scope.closed(application);
+                            }
+                        }
+                    };
                     if (ctx.el.tagName == "A") {
                         ctx.el.setAttribute("href", "#");
                     }
-                    ctx.el.removeEventListener("click", showModal);
-                    ctx.el.addEventListener("click", showModal);
+                    $(ctx.el).off("click.ka-modal").on("click.ka-modal", showModal);
                 });
-                return () => ctx.el.removeEventListener("click", showModal);
+                return () => {
+                    $(ctx.el).off("click.ka-modal");
+                };
             };
         }
     }
@@ -3575,8 +3492,10 @@ var KatApps;
                 if (ctx.el.tagName == "A") {
                     ctx.el.setAttribute("href", "#");
                 }
-                ctx.el.addEventListener("click", navigate);
-                return () => ctx.el.removeEventListener("click", navigate);
+                $(ctx.el).on("click.ka-navigate", navigate);
+                return () => {
+                    $(ctx.el).off("click.ka-navigate");
+                };
             };
         }
     }
@@ -3628,7 +3547,7 @@ var KatApps;
                 ctx.effect(() => {
                     const scope = ctx.get();
                     const data = application.state.rbl.source(scope.name, scope.ce, scope.tab);
-                    ctx.el.replaceChildren();
+                    $(ctx.el).empty();
                     if (data.length > 0) {
                         let tableCss = scope.css != undefined
                             ? `rbl ${scope.name} ${scope.css}`
@@ -3900,7 +3819,7 @@ var KatApps;
         static hideVisiblePopover(selectorPredicate) {
             const visiblePopover = HelpTips.visiblePopover;
             if (visiblePopover?.getAttribute("ka-init-tip") == "true" &&
-                (selectorPredicate == undefined || HelpTips.visiblePopoverApp.el.matches(selectorPredicate))) {
+                (selectorPredicate == undefined || HelpTips.visiblePopoverApp.el[0].matches(selectorPredicate))) {
                 bootstrap.Popover.getInstance(visiblePopover).hide();
                 return true;
             }
@@ -3976,19 +3895,22 @@ var KatApps;
                     }, 200);
                 });
             }
-            const selectHelptipContent = (search, application, context) => application?.selectElement(search, context) ?? document.querySelector(search) ?? undefined;
+            const selectHelptipInfo = (search, application, context) => $(search, $(context ?? application?.el[0] ?? document));
             const getTipContent = function (h) {
                 const dataContentSelector = h.getAttribute('data-bs-content-selector');
                 if (dataContentSelector != undefined) {
-                    HelpTips.visiblePopupContentSource = selectHelptipContent(dataContentSelector, KatApp.get(h));
+                    const contentSource = selectHelptipInfo(dataContentSelector, KatApp.get(h));
+                    HelpTips.visiblePopupContentSource = contentSource.length > 0 ? contentSource[0] : undefined;
                     if (HelpTips.visiblePopupContentSource == undefined)
                         return undefined;
-                    return HelpTips.visiblePopupContentSource.cloneWithEvents();
+                    const selectorContent = $("<div/>");
+                    selectorContent.append($(HelpTips.visiblePopupContentSource).contents().clone(true));
+                    return selectorContent;
                 }
                 const content = h.getAttribute('data-bs-content') ?? h.nextElementSibling?.innerHTML;
                 const labelFix = h.getAttribute("data-label-fix");
                 return labelFix != undefined
-                    ? content.replace(/\{Label}/g, selectHelptipContent("." + labelFix, KatApp.get(h)).innerHTML)
+                    ? content.replace(/\{Label}/g, selectHelptipInfo("." + labelFix, KatApp.get(h))[0].innerHTML)
                     : content;
             };
             const getTipTitle = function (h) {
@@ -3996,33 +3918,18 @@ var KatApps;
                     return getTipContent(h);
                 const titleSelector = h.getAttribute('data-bs-content-selector');
                 if (titleSelector != undefined) {
-                    const title = selectHelptipContent(titleSelector + "Title", KatApp.get(h));
-                    if ((title?.innerHTML ?? "") != "") {
-                        return title.innerHTML;
+                    const title = selectHelptipInfo(titleSelector + "Title", KatApp.get(h));
+                    if (title.length > 0 && title[0].innerHTML != "") {
+                        return title[0].innerHTML;
                     }
                 }
                 return "";
             };
-            const selectHelptips = (search, application, context) => application?.selectElements(search, context) ?? Array.from(document.querySelectorAll(search));
-            const currentTips = tipsToProcess ??
-                selectHelptips(selector ?? "[data-bs-toggle='tooltip'], [data-bs-toggle='popover']", KatApp.get(container), container.tagName == "A" || container.tagName == "BUTTON"
+            const currentTips = (tipsToProcess != undefined ? $(tipsToProcess) : undefined) ??
+                selectHelptipInfo(selector ?? "[data-bs-toggle='tooltip'], [data-bs-toggle='popover']", KatApp.get(container), container.tagName == "A" || container.tagName == "BUTTON"
                     ? container.parentElement
                     : container);
-            const getTipContainer = function (tip) {
-                if (tip.hasAttribute('data-bs-container'))
-                    return tip.getAttribute('data-bs-container');
-                if (tip.parentElement != undefined) {
-                    let el = tip;
-                    while ((el = el.parentElement) && el !== document) {
-                        if (el.tagName == "LABEL") {
-                            return el.parentElement;
-                        }
-                    }
-                    return tip.parentElement;
-                }
-                return tip;
-            };
-            currentTips.forEach(tip => {
+            currentTips.each((i, tip) => {
                 if (tip.getAttribute("ka-init-tip") == "true")
                     return;
                 const isTooltip = tip.getAttribute("data-bs-toggle") == "tooltip";
@@ -4032,11 +3939,25 @@ var KatApps;
                         tip.click();
                     });
                 }
+                const getTipContainer = function () {
+                    if (tip.hasAttribute('data-bs-container'))
+                        return tip.getAttribute('data-bs-container');
+                    if (tip.parentElement != undefined) {
+                        let el = tip;
+                        while ((el = el.parentElement) && el !== document) {
+                            if (el.tagName == "LABEL") {
+                                return el.parentElement;
+                            }
+                        }
+                        return tip.parentElement;
+                    }
+                    return tip;
+                };
                 const options = {
                     html: true,
                     sanitize: false,
                     trigger: tip.getAttribute('data-bs-trigger') ?? "hover",
-                    container: getTipContainer(tip),
+                    container: getTipContainer(),
                     template: isTooltip
                         ? '<div class="tooltip katapp-css" role="tooltip"><div class="tooltip-arrow arrow"></div><div class="tooltip-inner"></div></div>'
                         : '<div v-scope class="popover katapp-css" role="tooltip"><div class="popover-arrow arrow"></div><h3 class="popover-header"></h3><div class="popover-body"></div></div>',
@@ -4506,23 +4427,23 @@ var KatApps;
                 if (!isView) {
                     var currentRequest = KamlRepository.resourceRequests[resourceKey];
                     if (currentRequest != undefined) {
-                        return new Promise((resolve, reject) => {
-                            currentRequest.push((errorMessage) => {
-                                if (errorMessage != undefined) {
-                                    reject({
-                                        resourceKey: resourceKey,
-                                        errorMessage: errorMessage,
-                                        processedByOtherApp: true
-                                    });
-                                }
-                                else {
-                                    resolve({
-                                        resourceKey: resourceKey,
-                                        processedByOtherApp: true
-                                    });
-                                }
-                            });
+                        var currentRequestPromise = $.Deferred();
+                        currentRequest.push((errorMessage) => {
+                            if (errorMessage != undefined) {
+                                currentRequestPromise.reject({
+                                    resourceKey: resourceKey,
+                                    errorMessage: errorMessage,
+                                    processedByOtherApp: true
+                                });
+                            }
+                            else {
+                                currentRequestPromise.resolve({
+                                    resourceKey: resourceKey,
+                                    processedByOtherApp: true
+                                });
+                            }
                         });
+                        return currentRequestPromise;
                     }
                     KamlRepository.resourceRequests[resourceKey] = [];
                 }
@@ -4753,75 +4674,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
     }
     KatApps.KamlResourceDownloadError = KamlResourceDownloadError;
 })(KatApps || (KatApps = {}));
-(function () {
-    Element.prototype._addEventListener = Element.prototype.addEventListener;
-    Element.prototype._removeEventListener = Element.prototype.removeEventListener;
-    const standardEventTypes = [
-        'click', 'dblclick', 'mousedown', 'mouseup', 'mouseover', 'mouseout', 'mousemove', 'mouseenter', 'mouseleave',
-        'keydown', 'keyup', 'keypress', 'focus', 'blur', 'change', 'input', 'submit', 'reset', 'load', 'unload',
-        'resize', 'scroll', 'contextmenu', 'wheel', 'drag', 'dragstart', 'dragend', 'dragenter', 'dragleave', 'dragover',
-        'drop', 'touchstart', 'touchmove', 'touchend', 'touchcancel'
-    ];
-    const getEventType = (type) => standardEventTypes.find(t => t === type.split(".")[0]) ?? type;
-    Element.prototype.addEventListener = function (type, listener, options) {
-        this._addEventListener(getEventType(type), listener, options);
-        if (this.kaEventListeners == undefined)
-            this.kaEventListeners = {};
-        if (this.kaEventListeners[type] == undefined)
-            this.kaEventListeners[type] = [];
-        const eListener = { type, listener, options };
-        this.kaEventListeners[type].push(eListener);
-        return eListener;
-    };
-    Element.prototype.removeEventListener = function (type, listenerOrEventListener, options) {
-        let l;
-        let o;
-        let t;
-        if (typeof type === 'object') {
-            l = type.listener;
-            o = type.options;
-            t = type.type;
-        }
-        else {
-            l = listenerOrEventListener;
-            o = options;
-            t = type;
-        }
-        this._removeEventListener(getEventType(t), l, o);
-        if (this.kaEventListeners == undefined || this.kaEventListeners[t] == undefined)
-            return;
-        const index = this.kaEventListeners[t].findIndex(event => event.listener === l && event.options === o);
-        if (index !== -1) {
-            this.kaEventListeners[t].splice(index, 1);
-            if (this.kaEventListeners[t].length == 0)
-                delete this.kaEventListeners[t];
-            if (Object.keys(this.kaEventListeners).length == 0)
-                delete this.kaEventListeners;
-        }
-    };
-    Element.prototype.cloneWithEvents = function () {
-        const clone = this.cloneNode(true);
-        clone.classList.remove(...clone.classList);
-        while (clone.attributes.length > 0) {
-            clone.removeAttribute(clone.attributes[0].name);
-        }
-        function walk(original, cloned) {
-            if (original.kaEventListeners !== undefined) {
-                Object.keys(original.kaEventListeners).forEach(type => {
-                    original.kaEventListeners[type].forEach(event => {
-                        cloned.addEventListener(getEventType(type), event.listener, event.options);
-                    });
-                });
-            }
-            const originalChildren = original.children;
-            const clonedChildren = cloned.children;
-            for (let i = 0; i < originalChildren.length; i++) {
-                walk(originalChildren[i], clonedChildren[i]);
-            }
-        }
-        walk(this, clone);
-        return clone;
-    };
+(function ($, window, document, undefined) {
     if (String.compare == undefined) {
         String.compare = function (strA, strB, ignoreCase) {
             if (strA === undefined && strB === undefined) {
@@ -4902,12 +4755,7 @@ var KatApps;
                 const value = replacer != undefined
                     ? replacer(key, source[key])
                     : source[key];
-                if (value != undefined &&
-                    key != "hostApplication" &&
-                    typeof value === "object" &&
-                    !(value instanceof HTMLElement) &&
-                    !(value instanceof Promise) &&
-                    !Array.isArray(value)) {
+                if (value != undefined && typeof value === "object" && !Array.isArray(value) && !(value instanceof jQuery) && !(value instanceof HTMLElement) && key != "hostApplication") {
                     if (target[key] === undefined || typeof target[key] !== "object") {
                         target[key] = {};
                     }

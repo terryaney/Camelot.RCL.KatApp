@@ -8,8 +8,7 @@
 					const scope: IKaTableModel = ctx.get();
 					const data = application.state.rbl.source(scope.name, scope.ce, scope.tab);
 
-					// empty the element
-					ctx.el.replaceChildren();
+					$(ctx.el).empty();
 
 					if (data.length > 0) {
 						let tableCss = scope.css != undefined

@@ -30,16 +30,14 @@ interface BootstrapTooltip {
 	show: () => void;
 }
 
-type BootstrapTrigger = "click" | "hover" | "focus" | "manual" | "click hover" | "click focus" | "hover focus" | "click hover focus";
-type BootstrapPlacement = "auto" | "top" | "bottom" | "left" | "right";
 interface BootstrapTooltipOptions {
 	html: boolean;
 	sanitize: boolean;
-	trigger: BootstrapTrigger;
+	trigger: "click" | "hover" | "focus" | "manual" | "click hover" | "click focus" | "hover focus" | "click hover focus";
 	container: string | HTMLElement | false;
 	template: string;
-	placement: (tooltip: HTMLElement, trigger: HTMLElement) => BootstrapPlacement;
+	placement: (tooltip: HTMLElement, trigger: HTMLElement) => "auto" | "top" | "bottom" | "left" | "right";
 	fallbackPlacements?: string[];
-	title: (this: HTMLElement) => string | HTMLElement | undefined;
-	content: (this: HTMLElement) => string | HTMLElement | undefined;
+	title: (this: HTMLElement) => string | JQuery<HTMLElement> | undefined;
+	content: (this: HTMLElement) => string | JQuery<HTMLElement> | undefined;
 }

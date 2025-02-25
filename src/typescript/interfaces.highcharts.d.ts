@@ -1,15 +1,17 @@
 ﻿declare const Highcharts: HighchartsStatic;
 
 interface HighchartsStatic {
-	chart: (container: string | HTMLElement, options: HighchartsOptions, callback?: (chart: HighchartsChartObject) => void) => HighchartsChartObject;
-	charts: Array<HighchartsChartObject | undefined>;
+	charts: Record<string | number, HighchartsChartObject>;
 	setOptions: (options: HighchartsGlobalOptions) => void;
 }
 
 interface HighchartsChartObject {
-	renderTo: HTMLElement;
 	destroy: () => void;
 	reflow: () => void;
+}
+
+interface JQuery {
+	highcharts: (options?: HighchartsOptions) => JQuery | HighchartsChartObject;
 }
 
 interface HighchartsGlobalOptions extends HighchartsOptions {

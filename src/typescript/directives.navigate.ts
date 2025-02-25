@@ -72,10 +72,11 @@
 				if (ctx.el.tagName == "A") {
 					ctx.el.setAttribute("href", "#");
 				}
+				$(ctx.el).on("click.ka-navigate", navigate);
 
-				ctx.el.addEventListener("click", navigate);
-
-				return () => ctx.el.removeEventListener("click", navigate);				
+				return () => {
+					$(ctx.el).off("click.ka-navigate");
+				}
 			};
 		}
 	}

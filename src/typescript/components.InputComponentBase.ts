@@ -459,31 +459,34 @@ namespace KatApps {
 		private bindRangeEvents(name: string, input: HTMLInputElement, refs: IStringIndexer<HTMLElement>, displayFormat: (name: string) => string | undefined, inputEventAsync: (calculate: boolean, calculateOnDelay?: boolean) => Promise<void>): void {
 			// https://css-tricks.com/value-bubbles-for-range-inputs/
 			let bubbleTimer: number | undefined;
-			const bubble = refs.bubble;
-			const bubbleValue = refs.bubbleValue ?? bubble;
-			const display = refs.display;
+			const bubble = refs.bubble != undefined ? $(refs.bubble) : undefined;
+			const bubbleValue = refs.bubbleValue != undefined ? $(refs.bubbleValue) : bubble;
+
+			const display = refs.display != undefined ? $(refs.display) : undefined;
 
 			const setRangeValues = (showBubble: boolean) => {
 				if (bubbleTimer) {
 					clearTimeout(bubbleTimer);
 				}
 
+				const range = $(input);
+
 				const
-					value = input.value,
+					value = range.val()!,
 					valueFormat = displayFormat(name),
 					displayValue = valueFormat != undefined
 						? String.localeFormat(valueFormat, valueFormat.match(InputComponent.percentFormat) ? +value / 100 : +value)
 						: value.toString(),
-					max = +(input.getAttribute("max"))!,
-					min = +(input.getAttribute("min"))!,
+					max = +(range.attr("max"))!,
+					min = +(range.attr("min"))!,
 					newValue = Number((+value - min) * 100 / (max - min)),
 					newPosition = 10 - (newValue * 0.2);
 
 				if (display != undefined) {
-					display.innerHTML = displayValue;
+					display.html(displayValue);
 				}
 				if (bubble != undefined) {
-					bubbleValue!.innerHTML = displayValue;
+					bubbleValue!.html(displayValue);
 
 					if (showBubble) {
 						let displayWidth = 30;
@@ -491,7 +494,7 @@ namespace KatApps {
 							// displayWidth = display[0].clientWidth;
 
 							// https://stackoverflow.com/questions/25197184/get-the-height-of-an-element-minus-padding-margin-border-widths
-							const element = display;
+							const element = display[0];
 							const cs = getComputedStyle(element);
 
 							const paddingX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
@@ -505,14 +508,15 @@ namespace KatApps {
 							// elementHeight = element.offsetHeight - paddingY - borderY;
 						}
 
-						bubbleValue!.style.width =`${displayWidth}px`;
+						bubbleValue!.css("width", `${displayWidth}px`);
 
-						bubble.style.left = `calc(${newValue}% + (${newPosition}px))`;
-						bubble.classList.add("active");
+						bubble
+							.css("left", `calc(${newValue}% + (${newPosition}px))`)
+							.addClass("active");
 					}
 				}
 
-				input.style.backgroundSize = `${((+value - min) * 100) / (max - min)}% 100%`;
+				range.css("backgroundSize", `${((+value - min) * 100) / (max - min)}% 100%`);
 			};
 
 			// Initial render
@@ -535,7 +539,7 @@ namespace KatApps {
 					if (bubbleTimer) {
 						clearTimeout(bubbleTimer);
 					}
-					bubble.classList.remove("active");
+					bubble.removeClass("active");
 				});
 			}
 		}

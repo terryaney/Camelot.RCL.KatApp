@@ -1,99 +1,4 @@
-﻿
-(function (): void {
-	// save the original methods before overwriting them
-	Element.prototype._addEventListener = Element.prototype.addEventListener;
-	Element.prototype._removeEventListener = Element.prototype.removeEventListener;
-
-	const standardEventTypes = [
-		'click', 'dblclick', 'mousedown', 'mouseup', 'mouseover', 'mouseout', 'mousemove', 'mouseenter', 'mouseleave',
-		'keydown', 'keyup', 'keypress', 'focus', 'blur', 'change', 'input', 'submit', 'reset', 'load', 'unload',
-		'resize', 'scroll', 'contextmenu', 'wheel', 'drag', 'dragstart', 'dragend', 'dragenter', 'dragleave', 'dragover',
-		'drop', 'touchstart', 'touchmove', 'touchend', 'touchcancel'
-	];
-	const getEventType = (type: string): string => standardEventTypes.find(t => t === type.split(".")[0]) ?? type;
-
-	Element.prototype.addEventListener = function (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): ElementEventListener {
-		this._addEventListener(getEventType(type), listener, options);
-
-		if (this.kaEventListeners == undefined) this.kaEventListeners = {};
-		if (this.kaEventListeners[type] == undefined) this.kaEventListeners[type] = [];
-        
-		const eListener: ElementEventListener = { type, listener, options };
-		this.kaEventListeners[type].push(eListener);
-
-		return eListener;
-	};
-
-	Element.prototype.removeEventListener = function (type: ElementEventListener | string, listenerOrEventListener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void {
-        let l: EventListenerOrEventListenerObject;
-        let o: boolean | EventListenerOptions | undefined;
-		let t: string;
-
-		if (typeof type === 'object') {
-			l = type.listener;
-			o = type.options;
-			t = type.type;
-		}
-        else {
-			l = listenerOrEventListener;
-			o = options;
-			t = type as string;
-        }
-
-		this._removeEventListener(getEventType(t), l, o);
-
-		if (this.kaEventListeners == undefined || this.kaEventListeners[t] == undefined) return;
-
-		// Find the index of the event listener to remove
-		const index = this.kaEventListeners[t].findIndex(event => event.listener === l && event.options === o);
-
-		if (index !== -1) {
-			this.kaEventListeners[t].splice(index, 1);
-        
-			if (this.kaEventListeners[t].length == 0) delete this.kaEventListeners[t];
-			if (Object.keys(this.kaEventListeners).length == 0) delete this.kaEventListeners;
-		}
-	};
-	
-	Element.prototype.cloneWithEvents = function <T extends HTMLElement>(): T {
-		// Need to use this when a DOM element with events registered is used for helptip or modal application.
-		// Originally, used JQuery `.contents().clone(true)` but Conduent had a code scanner that listed JQuery library 
-		// as a security vulnerability.
-		//
-		// Created custom .on/.off handlers on KatApp and replaced default implementation of addEventListener/removeEventListener
-		// to track event listeners similar to JQuery on/off so that when cloned, I could then re-apply the event listeners to
-		// the cloned elements.
-		// https://stackoverflow.com/questions/15408394/how-to-copy-a-dom-node-with-event-listeners
-		// https://github.com/colxi/getEventListeners/tree/master		
-		// https://github.com/HubSpot/youmightnotneedjquery/issues/354
-		const clone = this.cloneNode(true) as T;
-		clone.classList.remove(...clone.classList);
-		while (clone.attributes.length > 0) {
-			clone.removeAttribute(clone.attributes[0].name);
-		}
-		
-		function walk(original: Element, cloned: Element): void {
-			if (original.kaEventListeners !== undefined) {
-				Object.keys(original.kaEventListeners).forEach(type => {
-					original.kaEventListeners![type].forEach(event => {
-						cloned.addEventListener(getEventType(type), event.listener, event.options);
-					});
-				});
-			}
-
-			const originalChildren = original.children;
-			const clonedChildren = cloned.children;
-
-			for (let i = 0; i < originalChildren.length; i++) {
-				walk(originalChildren[i], clonedChildren[i]);
-			}
-		}
-
-		walk(this, clone as unknown as Element);
-
-		return clone;
-	}
-
+﻿(function ($, window, document, undefined?: undefined): void {
 	if (String.compare == undefined) {
 		String.compare = function (strA?: string, strB?: string, ignoreCase?: boolean): number {
 			if (strA === undefined && strB === undefined) {
@@ -172,3 +77,7 @@
 		};
 	}
 })();
+
+interface JQueryStatic {
+	_data(element: HTMLElement, property: string): Record<string, { handler: any, kaProxy: boolean | undefined, namespace: string | undefined, guid: number }[] | undefined>;
+}

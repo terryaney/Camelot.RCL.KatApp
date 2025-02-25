@@ -1,9 +1,9 @@
 window.rcl = window.rcl || {};
 window.rcl.katApp = {
 	hideLoader: function(hasUnhandledException) {
-		document.querySelector(".katapp-host .loader-container").hideElement();
+		$(document.querySelector(".katapp-host .loader-container")).hide();
 		if (!hasUnhandledException) {
-			document.querySelector(".katapp-host .app-container").fadeIn();
+			$(document.querySelector(".katapp-host .app-container")).fadeIn();
 		}
 	},
 
