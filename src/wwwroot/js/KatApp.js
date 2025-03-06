@@ -3850,11 +3850,11 @@ var KatApps;
                     const target = e.target;
                     const tipId = "#" + target.getAttribute("aria-describedby");
                     const tip = document.querySelector(tipId);
-                    if (target.classList.contains("error")) {
-                        tip?.classList.add("error");
+                    if (target.classList.contains("is-invalid")) {
+                        tip?.classList.add("is-invalid");
                     }
-                    else if (target.classList.contains("warning")) {
-                        tip?.classList.add("warning");
+                    else if (target.classList.contains("is-warning")) {
+                        tip?.classList.add("is-warning");
                     }
                 });
                 html.addEventListener("inserted.bs.popover", async (e) => {
