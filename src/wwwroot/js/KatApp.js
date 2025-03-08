@@ -916,11 +916,11 @@ Type 'help' to see available options displayed in the console.`;
     async navigateAsync(navigationId, options) {
         if (options?.inputs != undefined) {
             const cachingKey = navigationId == undefined
-                ? "katapp:navigationInputs:global"
+                ? "navigationInputs:global"
                 : options.persistInputs ?? false
-                    ? "katapp:navigationInputs:" + navigationId.split("?")[0] + ":" + (this.options.userIdHash ?? "Everyone")
-                    : "katapp:navigationInputs:" + navigationId.split("?")[0];
-            sessionStorage.setItem(cachingKey, JSON.stringify(options.inputs));
+                    ? "navigationInputs:" + navigationId.split("?")[0] + ":" + (this.options.userIdHash ?? "Everyone")
+                    : "navigationInputs:" + navigationId.split("?")[0];
+            KatApps.Utils.setSessionItem(this.options, cachingKey, options.inputs);
         }
         await this.options.katAppNavigate?.(navigationId);
     }
@@ -1376,11 +1376,8 @@ Type 'help' to see available options displayed in the console.`;
         while (app.options.hostApplication != undefined) {
             app = app.options.hostApplication;
         }
-        const cacheValue = sessionStorage.getItem("katapp:debugNext:" + app.selector);
-        const debugNext = JSON.parse(cacheValue ?? "{ \"saveLocations\": [], \"expireCache\": false, \"trace\": false }");
-        if (cacheValue == undefined) {
-            debugNext.originalVerbosity = this.options.debug.traceVerbosity;
-        }
+        const debugNext = KatApps.Utils.getSessionItem(app.options, "debugNext:" + app.selector) ??
+            { saveLocations: [], expireCache: false, trace: false, originalVerbosity: app.options.debug.traceVerbosity };
         return debugNext;
     }
     set nextCalculation(value) {
@@ -1388,12 +1385,12 @@ Type 'help' to see available options displayed in the console.`;
         while (app.options.hostApplication != undefined) {
             app = app.options.hostApplication;
         }
-        const cacheKey = "katapp:debugNext:" + app.selector;
+        const cacheKey = "debugNext:" + app.selector;
         if (value == undefined) {
-            sessionStorage.removeItem(cacheKey);
+            KatApps.Utils.removeSessionItem(app.options, cacheKey);
         }
         else {
-            sessionStorage.setItem(cacheKey, JSON.stringify(value));
+            KatApps.Utils.setSessionItem(app.options, cacheKey, value);
         }
     }
     debugNext(saveLocations, serverSideOnly, trace, expireCache) {
@@ -1512,10 +1509,10 @@ Type 'help' to see available options displayed in the console.`;
     }
     async cacheInputsAsync(inputs) {
         if (this.options.inputCaching) {
-            const inputCachingKey = "katapp:cachedInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "EveryOne");
+            const inputCachingKey = "cachedInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "EveryOne");
             const cachedInputs = KatApps.Utils.clone(inputs);
             await this.triggerEventAsync("inputsCached", cachedInputs);
-            sessionStorage.setItem(inputCachingKey, JSON.stringify(cachedInputs));
+            KatApps.Utils.setSessionItem(this.options, inputCachingKey, cachedInputs);
         }
     }
     async getSubmitApiConfigurationAsync(triggerEventAsync, customInputs, isCalculation = false) {
@@ -1887,16 +1884,12 @@ Type 'help' to see available options displayed in the console.`;
         });
     }
     getSessionStorageInputs() {
-        const inputCachingKey = "katapp:cachedInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "EveryOne");
-        const cachedInputsJson = this.options.inputCaching ? sessionStorage.getItem(inputCachingKey) : undefined;
-        const cachedInputs = cachedInputsJson != undefined && cachedInputsJson != null ? JSON.parse(cachedInputsJson) : undefined;
-        const oneTimeInputsKey = "katapp:navigationInputs:" + this.options.currentPage;
-        const oneTimeInputsJson = sessionStorage.getItem(oneTimeInputsKey);
-        const oneTimeInputs = oneTimeInputsJson != undefined ? JSON.parse(oneTimeInputsJson) : undefined;
-        sessionStorage.removeItem(oneTimeInputsKey);
-        const persistedInputsKey = "katapp:navigationInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "Everyone");
-        const persistedInputsJson = sessionStorage.getItem(persistedInputsKey);
-        const persistedInputs = persistedInputsJson != undefined ? JSON.parse(persistedInputsJson) : undefined;
+        const inputCachingKey = "cachedInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "EveryOne");
+        const cachedInputs = KatApps.Utils.getSessionItem(this.options, inputCachingKey);
+        const oneTimeInputsKey = "navigationInputs:" + this.options.currentPage;
+        const oneTimeInputs = KatApps.Utils.getSessionItem(this.options, oneTimeInputsKey, true);
+        const persistedInputsKey = "navigationInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "Everyone");
+        const persistedInputs = KatApps.Utils.getSessionItem(this.options, persistedInputsKey);
         const sessionStorageInputs = KatApps.Utils.extend({}, cachedInputs, persistedInputs, oneTimeInputs);
         return sessionStorageInputs;
     }
@@ -1953,7 +1946,7 @@ var KatApps;
                 const cachedResults = calculationResults.Results.filter(r => r.CacheKey != undefined && r.Result == undefined);
                 for (var i = 0; i < cachedResults.length; i++) {
                     const r = calculationResults.Results[i];
-                    const cacheResult = await this.getCacheAsync(`RBLCache:${r.CacheKey}`, application.options.decryptCache);
+                    const cacheResult = await this.getCacheAsync(application.options, `RBLCache:${r.CacheKey}`, application.options.decryptCache);
                     if (cacheResult == undefined) {
                         KatApps.Utils.trace(application, "Calculation", "calculateAsync", `Cache miss for ${r.CalcEngine} with key ${r.CacheKey}`, TraceVerbosity.Detailed);
                     }
@@ -1984,11 +1977,11 @@ var KatApps;
                     if (cacheKey != undefined) {
                         if (r.Result.Exception != undefined) {
                             KatApps.Utils.trace(application, "Calculation", "calculateAsync", `(RBL exception) Remove cache for ${r.CalcEngine}`, TraceVerbosity.Detailed);
-                            sessionStorage.removeItem(`RBLCache:${cacheKey}`);
+                            KatApps.Utils.removeSessionItem(application.options, `RBLCache:${cacheKey}`);
                         }
                         else {
                             KatApps.Utils.trace(application, "Calculation", "calculateAsync", `Set cache for ${r.CalcEngine}`, TraceVerbosity.Detailed);
-                            await this.setCacheAsync(`RBLCache:${cacheKey}`, r.Result, application.options.encryptCache);
+                            await this.setCacheAsync(application.options, `RBLCache:${cacheKey}`, r.Result, application.options.encryptCache);
                         }
                     }
                 }
@@ -2084,15 +2077,15 @@ var KatApps;
                 throw new CalculationError("Unable to complete calculation(s)", [response]);
             }
         }
-        static async setCacheAsync(key, data, encryptCache) {
+        static async setCacheAsync(options, key, data, encryptCache) {
             var cacheResult = encryptCache(data);
             if (cacheResult instanceof Promise) {
                 cacheResult = await cacheResult;
             }
-            sessionStorage.setItem(key, cacheResult);
+            KatApps.Utils.setSessionItem(options, key, cacheResult);
         }
-        static async getCacheAsync(key, decryptCache) {
-            const data = sessionStorage.getItem(key);
+        static async getCacheAsync(options, key, decryptCache) {
+            const data = KatApps.Utils.getSessionItem(options, key);
             if (data == undefined)
                 return undefined;
             let cacheResult = decryptCache(data);
@@ -4860,6 +4853,36 @@ var KatApps;
             return await response.text();
         }
         ;
+        static getSessionKey(options, key) {
+            const prefix = typeof options === "string" ? options : options?.sessionKeyPrefix;
+            return `KatApp:${new URL(document.baseURI).pathname}${prefix ?? ""}:${key}`;
+        }
+        static setSessionItem(options, key, value) {
+            const cachValue = typeof value === "string" ? value : "json:" + JSON.stringify(value);
+            sessionStorage.setItem(Utils.getSessionKey(options, key), cachValue);
+        }
+        static getSessionItem(options, key, oneTimeUse = false) {
+            const cacheKey = Utils.getSessionKey(options, key);
+            const cacheValue = sessionStorage.getItem(cacheKey);
+            if (cacheValue == undefined)
+                return undefined;
+            if (oneTimeUse) {
+                sessionStorage.removeItem(cacheKey);
+            }
+            return cacheValue.startsWith("json:") ? JSON.parse(cacheValue.substring(5)) : cacheValue;
+        }
+        static removeSessionItem(options, key) {
+            sessionStorage.removeItem(Utils.getSessionKey(options, key));
+        }
+        static clearSession(prefix) {
+            const keyPrefix = Utils.getSessionKey(prefix, "");
+            for (let i = sessionStorage.length; i >= 0; i--) {
+                const key = sessionStorage.key(i);
+                if (key != undefined && key.startsWith(keyPrefix)) {
+                    sessionStorage.removeItem(key);
+                }
+            }
+        }
     }
     KatApps.Utils = Utils;
 })(KatApps || (KatApps = {}));

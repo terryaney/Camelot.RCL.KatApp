@@ -42,6 +42,7 @@ interface IKatAppOptions extends IKatAppDefaultOptions {
 	dataGroup: string;
 	currentPage: string;
 	userIdHash?: string; // User ID hashed to be used in different caching scenarios
+	sessionKeyPrefix?: string; // If multi tenant system and need to distinguish cache items by more than just PathBase
 	environment?: string;
 	requestIP?: string;
 	currentCulture?: string;

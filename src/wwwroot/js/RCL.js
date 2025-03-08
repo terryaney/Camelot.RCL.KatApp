@@ -1,3 +1,5 @@
+/// <reference path="../../typescript/@types/KatApp.d.ts"/>
+
 (function () {
 	window.rcl = window.rcl || {};
 	window.rcl.katApp = {
@@ -30,11 +32,13 @@
 	
 		initializeDebugModal: function (modalSelector, appSelector) {
 			const modal = document.querySelector(modalSelector);
-			if (modal == undefined) return;
-	
+			const app = KatApp.get(appSelector ?? ".katapp");
+
+			if (modal == undefined || app == undefined) return;
+
 			const ceInput = modal.querySelector(".iRBLSaveCalcEngine");
 			modal.addEventListener("show.bs.modal", () => {
-				ceInput.value = sessionStorage.getItem("ka.debug.location") ?? "";
+				ceInput.value = KatApps.Utils.getSessionItem(app.options, "debug.location") ?? "";
 			});
 			modal.addEventListener("shown.bs.modal", () => {
 				ceInput.focus();
@@ -46,11 +50,12 @@
 				const trace = modal.querySelector(".iRBLTraceCalcEngine").checked;
 				const serverOnly = modal.querySelector(".iRBLSaveServerOnly").checked;
 				const expireCe = modal.querySelector(".iRBLExpireCache").checked;
+
 				if (saveLocation != "") {
-					sessionStorage.setItem("ka.debug.location", saveLocation);
+					KatApps.Utils.setSessionItem(app.options, "debug.location", saveLocation);
 				}
 	
-				KatApp.get(appSelector ?? ".katapp").debugNext(saveLocation, serverOnly, trace, expireCe);
+				app.debugNext(saveLocation, serverOnly, trace, expireCe);
 				bootstrap.Modal.getInstance(modal).hide();
 			};
 	

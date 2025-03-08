@@ -1277,20 +1277,18 @@ Type 'help' to see available options displayed in the console.`;
 		if (options?.inputs != undefined) {
 			const cachingKey =
 				navigationId == undefined // global
-					? "katapp:navigationInputs:global"
+					? "navigationInputs:global"
 					: options.persistInputs ?? false
-						? "katapp:navigationInputs:" + navigationId.split("?")[0] + ":" + (this.options.userIdHash ?? "Everyone")
-						: "katapp:navigationInputs:" + navigationId.split("?")[0];
+						? "navigationInputs:" + navigationId.split("?")[0] + ":" + (this.options.userIdHash ?? "Everyone")
+						: "navigationInputs:" + navigationId.split("?")[0];
 
 			// Shouldn't be previous inputs b/c didn't implement setNavigationInputs method
 			/*
-			const currentInputsJson = sessionStorage.getItem(cachingKey);
-			const currentInputs = currentInputsJson != undefined ? JSON.parse(currentInputsJson) : undefined;
+			const currentInputs = KatApps.Utils.getSessionItem<ICalculationInputs>(this.options, cachingKey);
 			KatApps.Utils.extend(currentInputs, inputs);
-			sessionStorage.setItem(cachingKey, JSON.stringify(currentInputs));
+			KatApps.Utils.setSessionItem(this.options, cachingKey, currentInputs);
 			*/
-
-			sessionStorage.setItem(cachingKey, JSON.stringify(options.inputs));
+			KatApps.Utils.setSessionItem(this.options, cachingKey, options.inputs);
 		}
 
 		await this.options.katAppNavigate?.(navigationId);
@@ -1936,12 +1934,9 @@ Type 'help' to see available options displayed in the console.`;
 			app = app.options.hostApplication;
 		}
 
-		const cacheValue = sessionStorage.getItem("katapp:debugNext:" + app.selector);
-		const debugNext: INextCalculation = JSON.parse(cacheValue ?? "{ \"saveLocations\": [], \"expireCache\": false, \"trace\": false }");
-
-		if (cacheValue == undefined) {
-			debugNext.originalVerbosity = this.options.debug.traceVerbosity;
-		}
+		const debugNext: INextCalculation =
+			KatApps.Utils.getSessionItem<INextCalculation>(app.options, "debugNext:" + app.selector) ??
+			{ saveLocations: [], expireCache: false, trace: false, originalVerbosity: app.options.debug.traceVerbosity } as INextCalculation;
 
 		return debugNext;
 	}
@@ -1953,13 +1948,13 @@ Type 'help' to see available options displayed in the console.`;
 			app = app.options.hostApplication;
 		}
 
-		const cacheKey = "katapp:debugNext:" + app.selector;
+		const cacheKey = "debugNext:" + app.selector;
 
 		if (value == undefined) {
-			sessionStorage.removeItem(cacheKey);
+			KatApps.Utils.removeSessionItem(app.options, cacheKey);
 		}
 		else {
-			sessionStorage.setItem(cacheKey, JSON.stringify(value));
+			KatApps.Utils.setSessionItem(app.options, cacheKey, value);
 		}
 	}
 
@@ -2128,10 +2123,10 @@ Type 'help' to see available options displayed in the console.`;
 
 	private async cacheInputsAsync(inputs: ICalculationInputs) {
 		if (this.options.inputCaching) {
-			const inputCachingKey = "katapp:cachedInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "EveryOne");
+			const inputCachingKey = "cachedInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "EveryOne");
 			const cachedInputs = KatApps.Utils.clone<ICalculationInputs>(inputs);
 			await this.triggerEventAsync("inputsCached", cachedInputs);
-			sessionStorage.setItem(inputCachingKey, JSON.stringify(cachedInputs));
+			KatApps.Utils.setSessionItem(this.options, inputCachingKey, cachedInputs);
 		}
     }
 
@@ -2686,18 +2681,14 @@ Type 'help' to see available options displayed in the console.`;
 	}
 
 	private getSessionStorageInputs(): ICalculationInputs {
-		const inputCachingKey = "katapp:cachedInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "EveryOne");
-		const cachedInputsJson = this.options.inputCaching ? sessionStorage.getItem(inputCachingKey) : undefined;
-		const cachedInputs = cachedInputsJson != undefined && cachedInputsJson != null ? JSON.parse(cachedInputsJson) : undefined;
+		const inputCachingKey = "cachedInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "EveryOne");
+		const cachedInputs = KatApps.Utils.getSessionItem<ICalculationInputs>(this.options, inputCachingKey);
 
-		const oneTimeInputsKey = "katapp:navigationInputs:" + this.options.currentPage;
-		const oneTimeInputsJson = sessionStorage.getItem(oneTimeInputsKey);
-		const oneTimeInputs = oneTimeInputsJson != undefined ? JSON.parse(oneTimeInputsJson) : undefined;
-		sessionStorage.removeItem(oneTimeInputsKey);
+		const oneTimeInputsKey = "navigationInputs:" + this.options.currentPage;
+		const oneTimeInputs = KatApps.Utils.getSessionItem<ICalculationInputs>(this.options, oneTimeInputsKey, true);
 
-		const persistedInputsKey = "katapp:navigationInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "Everyone");
-		const persistedInputsJson = sessionStorage.getItem(persistedInputsKey);
-		const persistedInputs = persistedInputsJson != undefined ? JSON.parse(persistedInputsJson) : undefined;
+		const persistedInputsKey = "navigationInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "Everyone");
+		const persistedInputs = KatApps.Utils.getSessionItem<ICalculationInputs>(this.options, persistedInputsKey);
 
 		const sessionStorageInputs = KatApps.Utils.extend<ICalculationInputs>({}, cachedInputs, persistedInputs, oneTimeInputs);
 		return sessionStorageInputs;

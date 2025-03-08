@@ -47,7 +47,7 @@
 				// If any items are returned as cache, verify they are there...
 				for (var i = 0; i < cachedResults.length; i++) {
 					const r = calculationResults.Results[i];
-					const cacheResult = await this.getCacheAsync(`RBLCache:${r.CacheKey}`, application.options.decryptCache);
+					const cacheResult = await this.getCacheAsync(application.options, `RBLCache:${r.CacheKey}`, application.options.decryptCache);
 					if (cacheResult == undefined) {
 						Utils.trace(application, "Calculation", "calculateAsync", `Cache miss for ${r.CalcEngine} with key ${r.CacheKey}`, TraceVerbosity.Detailed);
 					}
@@ -85,11 +85,11 @@
 					if (cacheKey != undefined) {
 						if (r.Result!.Exception != undefined) {
 							Utils.trace(application, "Calculation", "calculateAsync", `(RBL exception) Remove cache for ${r.CalcEngine}`, TraceVerbosity.Detailed);
-							sessionStorage.removeItem(`RBLCache:${cacheKey}`);
+							Utils.removeSessionItem(application.options, `RBLCache:${cacheKey}`);
 						}
 						else {
 							Utils.trace(application, "Calculation", "calculateAsync", `Set cache for ${r.CalcEngine}`, TraceVerbosity.Detailed);
-							await this.setCacheAsync(`RBLCache:${cacheKey}`, r.Result!, application.options.encryptCache);
+							await this.setCacheAsync(application.options, `RBLCache:${cacheKey}`, r.Result!, application.options.encryptCache);
 						}
 					}
 				}
@@ -212,15 +212,15 @@
 			}
 		}
 		
-		static async setCacheAsync(key: string, data: object, encryptCache: (data: object) => string | Promise<string>): Promise<void> {
+		static async setCacheAsync(options: IKatAppOptions, key: string, data: object, encryptCache: (data: object) => string | Promise<string>): Promise<void> {
 			var cacheResult = encryptCache(data);
 			if (cacheResult instanceof Promise) {
 				cacheResult = await cacheResult;
 			}
-			sessionStorage.setItem(key, cacheResult);
+			KatApps.Utils.setSessionItem(options, key, cacheResult);
 		}
-		static async getCacheAsync(key: string, decryptCache: (cipher: string) => object | Promise<object>): Promise<object | undefined> {
-			const data = sessionStorage.getItem(key);
+		static async getCacheAsync(options: IKatAppOptions, key: string, decryptCache: (cipher: string) => object | Promise<object>): Promise<object | undefined> {
+			const data = KatApps.Utils.getSessionItem(options, key);
 	
 			if (data == undefined) return undefined;
 	

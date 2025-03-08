@@ -163,5 +163,38 @@
 
 			return await response.text();
 		};
+
+		private static getSessionKey(options: string | IKatAppOptions | undefined, key: string): string {
+			const prefix = typeof options === "string" ? options : options?.sessionKeyPrefix;
+			return `KatApp:${new URL(document.baseURI).pathname}${prefix ?? ""}:${key}`;
+		}
+
+		public static setSessionItem(options: IKatAppOptions, key: string, value: any): void {
+			const cachValue = typeof value === "string" ? value : "json:" + JSON.stringify(value);
+			sessionStorage.setItem(Utils.getSessionKey(options, key), cachValue);
+		}
+		public static getSessionItem<T = string>(options: IKatAppOptions, key: string, oneTimeUse: boolean = false ): T | undefined {
+			const cacheKey = Utils.getSessionKey(options, key);
+			const cacheValue = sessionStorage.getItem(cacheKey);
+			if (cacheValue == undefined) return undefined;
+
+			if (oneTimeUse) {
+				sessionStorage.removeItem(cacheKey);
+			}
+
+			return cacheValue.startsWith("json:") ? JSON.parse(cacheValue.substring(5)) : cacheValue as unknown as T;
+		}
+		public static removeSessionItem(options: IKatAppOptions, key: string): void {
+			sessionStorage.removeItem(Utils.getSessionKey(options, key));
+		}
+		public static clearSession(prefix: string | undefined): void {
+			const keyPrefix = Utils.getSessionKey(prefix, "");
+			for (let i = sessionStorage.length; i >= 0; i--) {
+				const key = sessionStorage.key(i);
+				if (key != undefined && key.startsWith(keyPrefix)) {
+					sessionStorage.removeItem(key);
+				}
+			}
+		}
 	}
 }

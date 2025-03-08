@@ -98,8 +98,8 @@ declare namespace KatApps {
     class Calculation {
         static calculateAsync(application: KatApp, serviceUrl: string, calcEngines: ICalcEngine[], inputs: ICalculationInputs, configuration: ISubmitApiConfiguration | undefined): Promise<Array<IKatAppCalculationResponse>>;
         static submitCalculationAsync(application: KatApp, serviceUrl: string, inputs: ICalculationInputs, submitData: ISubmitApiData): Promise<IRblCalculationSuccessResponses>;
-        static setCacheAsync(key: string, data: object, encryptCache: (data: object) => string | Promise<string>): Promise<void>;
-        static getCacheAsync(key: string, decryptCache: (cipher: string) => object | Promise<object>): Promise<object | undefined>;
+        static setCacheAsync(options: IKatAppOptions, key: string, data: object, encryptCache: (data: object) => string | Promise<string>): Promise<void>;
+        static getCacheAsync(options: IKatAppOptions, key: string, decryptCache: (cipher: string) => object | Promise<object>): Promise<object | undefined>;
     }
 }
 declare namespace KatApps {
@@ -378,6 +378,7 @@ interface IKatAppOptions extends IKatAppDefaultOptions {
     dataGroup: string;
     currentPage: string;
     userIdHash?: string;
+    sessionKeyPrefix?: string;
     environment?: string;
     requestIP?: string;
     currentCulture?: string;
@@ -987,5 +988,10 @@ declare namespace KatApps {
         static trace(application: KatApp, callerType: string, methodName: string, message: string, verbosity: TraceVerbosity, ...groupItems: Array<any>): void;
         static checkLocalServerAsync(currentOptions: IKatAppRepositoryOptions): Promise<boolean>;
         static downloadLocalServerAsync(debugResourcesDomain: string, relativePath: string, secure?: boolean): Promise<any | undefined>;
+        private static getSessionKey;
+        static setSessionItem(options: IKatAppOptions, key: string, value: any): void;
+        static getSessionItem<T = string>(options: IKatAppOptions, key: string, oneTimeUse?: boolean): T | undefined;
+        static removeSessionItem(options: IKatAppOptions, key: string): void;
+        static clearSession(prefix: string | undefined): void;
     }
 }
