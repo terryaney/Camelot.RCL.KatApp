@@ -28,7 +28,7 @@
 		<ProjectReference Include="..\..\..\Core\Domain.Web\src\Camelot.Domain.Web.csproj" />
 		<ProjectReference Include="..\..\..\Core\Infrastructure.Web\src\Camelot.Infrastructure.Web.csproj" />
 	</ItemGroup>
-	<Target Name="CompileTypeScript" BeforeTargets="Build" Condition="'$(Configuration)' == 'Debug'">
+	<Target Name="CompileTypeScript" BeforeTargets="Build" Condition="'$(Configuration)' == 'Debug.TSC'">
 		<Message Importance="high" Text="Compiling TypeScript files" />
 		<Exec Command="tsc --project $(MSBuildProjectDirectory)\tsconfig.json" WorkingDirectory="$(MSBuildProjectDirectory)"/>
 		<Exec Command="tsc --project $(MSBuildProjectDirectory)\tsconfig.d.json" WorkingDirectory="$(MSBuildProjectDirectory)"/>
