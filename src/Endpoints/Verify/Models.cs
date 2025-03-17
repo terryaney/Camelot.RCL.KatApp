@@ -1,5 +1,3 @@
-using System.Text.Json.Serialization;
-
 namespace KAT.Camelot.RCL.KatApp.Endpoints.Verify;
 
 public class Request
@@ -10,9 +8,7 @@ public class Request
 
 public class Response
 {
-	[JsonPropertyName("path")]
     public required string Path { get; init; }
 	
-	[JsonPropertyName("manualInputs")]
     public Dictionary<string, string>? ManualInputs { get; init; }
 }
