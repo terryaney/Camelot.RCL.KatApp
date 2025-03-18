@@ -2127,8 +2127,8 @@ var KatApps;
                         : ["Calculation.calculateAsync (rest is missing)"],
                 };
                 if (!(e instanceof Error)) {
-                    console.log("Original calculation exception (should have been instanceof Error):");
-                    console.log({ e });
+                    console.error("Original calculation exception (should have been instanceof Error):");
+                    console.error({ e });
                 }
                 throw new CalculationError("Unable to complete calculation(s)", [{
                         calcEngine: submitConfiguration.calcEngines.map(c => c.name).join(", "),
@@ -2711,7 +2711,7 @@ var KatApps;
             if (template != undefined) {
                 const uniqueTemplateId = getTemplateId(template);
                 if (uniqueTemplateId == undefined) {
-                    console.log(`Unable to find template ${uniqueTemplateId}, ${JSON.stringify(props)}`);
+                    console.error(`Unable to find template ${uniqueTemplateId}, ${JSON.stringify(props)}`);
                     return undefined;
                 }
                 template = uniqueTemplateId;
@@ -4131,7 +4131,7 @@ var KatApps;
         checkVueSyntax(container) {
             let compileError = false;
             container.querySelectorAll("[v-for][v-if]").forEach(directive => {
-                console.log(directive);
+                console.error(directive);
                 compileError = true;
             });
             if (compileError) {
@@ -4139,7 +4139,7 @@ var KatApps;
             }
             container.querySelectorAll("[v-ka-inline]").forEach(directive => {
                 if (directive.tagName != "TEMPLATE" || !directive.hasAttribute("v-html")) {
-                    console.log(directive);
+                    console.error(directive);
                     compileError = true;
                 }
             });
@@ -4148,7 +4148,7 @@ var KatApps;
             }
             container.querySelectorAll("template:not([id])").forEach(template => {
                 Array.from(template.content.children).filter(c => c.hasAttribute("v-if")).forEach(invalid => {
-                    console.log(invalid);
+                    console.error(invalid);
                     compileError = true;
                 });
             });
@@ -4580,7 +4580,7 @@ var KatApps;
                 const statusText = response.status == 404 ? "Resource not found." :
                     response.status == 400 ? (await response.json()).detail :
                         `Status: ${response.status}, StatusText: ${response.statusText}`;
-                console.log({
+                console.error({
                     url: url,
                     cache: !tryLocalWebServer,
                     status: response.status,
@@ -4970,7 +4970,7 @@ var KatApps;
                 const log = `${String.localeFormat("{0:yyyy-MM-dd hh:mm:ss:ff}", currentTrace)}\t${String(startDelta).padStart(5, "0")}\t${String(lastDelta).padStart(5, "0")}\t${application.options.dataGroup}\t${katApp ?? "Unavailable"}\t${origin}\t${methodName}: ${message}`;
                 if (groupItems.length > 0) {
                     console.group(log);
-                    groupItems.forEach(i => i instanceof Error ? console.log({ i }) : console.log(i));
+                    groupItems.forEach(i => i instanceof Error ? console.error({ i }) : console.log(i));
                     console.groupEnd();
                 }
                 else {

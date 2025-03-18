@@ -136,7 +136,7 @@ namespace KatApps {
 						response.status == 400 ? (await response.json()).detail :
 							`Status: ${response.status}, StatusText: ${response.statusText}`;
 
-				console.log(
+				console.error(
 					{
 						url: url,
 						cache: !tryLocalWebServer,

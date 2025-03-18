@@ -87,6 +87,8 @@
 				"ts - comments",
 				"ts - uglify",
 				"ts - no comments",
+				"ts - rcl.ts",
+				"ts - postbuild",
 				"ts - copy to test"
 			],
 			"problemMatcher": "$tsc",
@@ -126,6 +128,51 @@
 					"SKIP_GITCONFIG": "true"
 				}
 			},
+			"presentation": {
+				"reveal": "silent",
+				"echo": false,
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": false
+			}
+		},
+		{
+			"label": "ts - rcl.ts",
+			"hide": true,
+			"type": "typescript",
+			"tsconfig": "src/tsconfig.rcl.json",
+			"problemMatcher": "$tsc",
+			"group": "build",
+			"options": {
+				"env": {
+					// Tell KAT powershell prompt to not pull latest gitconfig
+					"SKIP_GITCONFIG": "true"
+				}
+			},
+			"presentation": {
+				"reveal": "silent",
+				"echo": false,
+				"focus": false,
+				"panel": "shared",
+				"showReuseMessage": false
+			}
+		},
+		{
+			"label": "ts - postbuild",
+			"hide": true,
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"${workspaceFolder:RCL.KatApp}/../Core/src/typescript/ts.postbuild.js"
+			],
+			"options": {
+				"cwd": "${workspaceFolder:RCL.KatApp}/src",
+				"env": {
+					// Tell KAT powershell prompt to not pull latest gitconfig
+					"SKIP_GITCONFIG": "true"
+				}
+			},
+			"problemMatcher": [],
 			"presentation": {
 				"reveal": "silent",
 				"echo": false,

@@ -129,7 +129,7 @@
 
 				if (groupItems.length > 0) {
 					console.group(log);
-					groupItems.forEach(i => i instanceof Error ? console.log({ i }) : console.log(i));
+					groupItems.forEach(i => i instanceof Error ? console.error({ i }) : console.log(i));
 					console.groupEnd();
 				}
 				else {

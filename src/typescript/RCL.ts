@@ -189,7 +189,7 @@ declare const KatApps: KatAppsStatic;
 					if (key == "SubmitCalculation.ConfigureUI") {
 						// KatApp loaded, but error occurred during processing and don't even have results to show/hide things appropriately
 						unhandledException = true;
-						console.log({ exception });
+						console.error({ exception });
 						that.showUnexpectedError(application);
 					}
 				};
@@ -208,7 +208,7 @@ declare const KatApps: KatAppsStatic;
 					calculation: (lastCalculation, application) => {
 						// console.time("Nexgen.js.calculationLogHandler for " + application.options.view);
 						
-						if ((lastCalculation?.configuration as any).CurrentPage) {
+						if ((lastCalculation?.configuration as any)?.CurrentPage) {
 							console.error("CurrentPage is set in the ISubmitApiConfiguration value.  This is not allowed.  Determine what is using it and how to fix.");
 						}
 

@@ -66,7 +66,7 @@
 		private checkVueSyntax(container: Element | DocumentFragment) {
 			let compileError = false;
 			container.querySelectorAll("[v-for][v-if]").forEach(directive => {
-				console.log(directive);
+				console.error(directive);
 				compileError = true;
 			});
 			if (compileError) {
@@ -76,7 +76,7 @@
 			// Make sure v-ka-inline only present on template items
 			container.querySelectorAll("[v-ka-inline]").forEach(directive => {
 				if (directive.tagName != "TEMPLATE" || !directive.hasAttribute("v-html")) {
-					console.log(directive);
+					console.error(directive);
 					compileError = true;
 				}
 			});
@@ -86,7 +86,7 @@
 
 			container.querySelectorAll<HTMLTemplateElement>("template:not([id])").forEach(template => {
 				Array.from(template.content.children).filter(c => c.hasAttribute("v-if")).forEach(invalid => {
-					console.log(invalid);
+					console.error(invalid);
 					compileError = true;
 				})
 			});

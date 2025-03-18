@@ -147,7 +147,7 @@
                 events.calculationErrors = (key, exception, application) => {
                     if (key == "SubmitCalculation.ConfigureUI") {
                         unhandledException = true;
-                        console.log({ exception });
+                        console.error({ exception });
                         that.showUnexpectedError(application);
                     }
                 };
@@ -161,7 +161,7 @@
                             undefined;
                 return {
                     calculation: (lastCalculation, application) => {
-                        if ((lastCalculation?.configuration).CurrentPage) {
+                        if (lastCalculation?.configuration?.CurrentPage) {
                             console.error("CurrentPage is set in the ISubmitApiConfiguration value.  This is not allowed.  Determine what is using it and how to fix.");
                         }
                         const logTitle = title ?? application.options.currentPage;

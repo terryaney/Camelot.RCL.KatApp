@@ -19,7 +19,7 @@ namespace KatApps {
 				const uniqueTemplateId = getTemplateId(template);
 
 				if (uniqueTemplateId == undefined) {
-					console.log(`Unable to find template ${uniqueTemplateId}, ${JSON.stringify(props)}`);
+					console.error(`Unable to find template ${uniqueTemplateId}, ${JSON.stringify(props)}`);
 					return undefined;
 				}
 

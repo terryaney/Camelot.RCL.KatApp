@@ -150,8 +150,8 @@
 				};
 	
 				if (!(e instanceof Error)) {
-					console.log("Original calculation exception (should have been instanceof Error):");
-					console.log({ e });
+					console.error("Original calculation exception (should have been instanceof Error):");
+					console.error({ e });
 				}
 				throw new CalculationError("Unable to complete calculation(s)", [{
 					calcEngine: submitConfiguration.calcEngines.map(c => c.name).join(", "),
