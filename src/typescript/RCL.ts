@@ -177,7 +177,17 @@ declare const KatApps: KatAppsStatic;
 			const that = this;
 
 			KatApp.handleEvents(selector ?? ".katapp", events => {
+				// Currently assigning to configureUI and normal because if a Kaml
+				// file doesn't have any CalcEngines, it doesn't call configureUI, but
+				// when it calls calculation, lastCalculation will be undefined.  For
+				// normal calculations, lastCalculation is always defined so we won't 
+				// double process (since configureUI would have already triggered what we need).
 				events.configureUICalculation = () => that.hideLoader(unhandledException);
+				events.calculation = lastCalculation => {
+					if (lastCalculation == undefined) {
+						that.hideLoader(unhandledException);
+					}
+				};
 
 				events.rendered = initializationErrors => {
 					if (initializationErrors != undefined && initializationErrors.length > 0) {

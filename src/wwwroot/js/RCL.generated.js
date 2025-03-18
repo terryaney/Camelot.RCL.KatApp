@@ -139,6 +139,11 @@
             const that = this;
             KatApp.handleEvents(selector ?? ".katapp", events => {
                 events.configureUICalculation = () => that.hideLoader(unhandledException);
+                events.calculation = lastCalculation => {
+                    if (lastCalculation == undefined) {
+                        that.hideLoader(unhandledException);
+                    }
+                };
                 events.rendered = initializationErrors => {
                     if (initializationErrors != undefined && initializationErrors.length > 0) {
                         that.hideLoader(false);
