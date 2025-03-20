@@ -52,8 +52,8 @@
 				html.addEventListener("inserted.bs.tooltip", e => {
 					const target = e.target as HTMLElement;
 					const tipId = "#" + target.getAttribute("aria-describedby");
-					const tip = document.querySelector<HTMLElement>(tipId);
-					
+					const tip = document.querySelector(tipId);
+
 					if (target.classList.contains("is-invalid")) {
 						tip?.classList.add("is-invalid");
 					}
@@ -149,7 +149,7 @@
 			};
 	
 			const selectHelptips = (search: string, application: KatApp | undefined, context?: HTMLElement): Array<HTMLElement> =>
-				application?.selectElements(search, context) ?? Array.from(document.querySelectorAll(search));
+				application?.selectElements(search, context) ?? [...document.querySelectorAll<HTMLElement>(search)];
 
 			const currentTips = tipsToProcess ??
 				selectHelptips(

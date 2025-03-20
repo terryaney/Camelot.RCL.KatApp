@@ -1,7 +1,7 @@
 ﻿interface IKatAppCalculationResponse {
-	CalcEngine: string;
-	Diagnostics?: IRblCalculationDiagnostics;
-	TabDefs: Array<IRbleTabDef>;
+	calcEngine: string;
+	diagnostics?: IRblCalculationDiagnostics;
+	tabDefs: Array<IRbleTabDef>;
 }
 interface IKaTableColumnConfiguration {
 	name: string;
@@ -14,7 +14,6 @@ interface IKaTableColumnConfiguration {
 	width: number | undefined;
 	widthPct: string | undefined;
 }
-
 
 // RBLe Result Row Types
 interface IManualTabDef extends IStringIndexer<string | undefined | ITabDefTable> {
@@ -61,41 +60,39 @@ interface IRbleTabDef extends IStringIndexer<string | ITabDefRow | ITabDefTable>
 
 // Interfaces for responses from RBL Framework
 interface IRblCalculationSuccessResponses {
-	Results: Array<{
-		CalcEngine: string;
-		CacheKey?: string;
-		Result?: IRblCalculationSuccessResponse;
+	results: Array<{
+		calcEngine: string;
+		cacheKey?: string;
+		result?: IRblCalculationSuccessResponse;
 	}>;
 }
 // Didn't want !. checks on result every time after getting results successfully set up
 interface IMergedRblCalculationSuccessResponses {
-	Results: Array<{
-		CalcEngine: string;
-		Result: IRblCalculationSuccessResponse;
+	results: Array<{
+		calcEngine: string;
+		result: IRblCalculationSuccessResponse;
 	}>;
 }
 
 interface IRblCalculationDiagnostics {
-	CalcEngineVersion: string;
-	Timings: {
+	calcEngineVersion: string;
+	timings: {
 		Status: Array<{ "@Start": string; "#text": string; }>;
 	};
-	RBLeServer: string;
-	SessionID: string;
-	ServiceUrl: string;
-	Trace?: {
-		Item: Array<string>;
-	}
+	rbleServer: string;
+	sessionID: string;
+	serviceUrl: string;
+	trace?: Array<string>
 }
 interface IRblCalculationSuccessResponse {
-	Diagnostics: IRblCalculationDiagnostics;
+	diagnostics: IRblCalculationDiagnostics;
 
-	Exception: {
-		Message: string;
-		Type: string;
-		TraceId: string;
-		RequestId: string;
-		StackTrace: Array<string>;
+	exception: {
+		message: string;
+		type: string;
+		traceId: string;
+		requestId: string;
+		stackTrace: Array<string>;
 	};
 
 	RBL: {

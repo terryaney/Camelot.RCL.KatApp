@@ -14,10 +14,10 @@ namespace KatAppVUE.Endpoints.RBLe
 {
   "Results": [
     {
-      "CalcEngine": "Conduent_Nexgen_Home_SE",
-      "CacheKey": "f9Sp8SZdz2q6CfZXkwXD1IGPZOsK1UUxXxe9I0+dPsI=",
-      "StatusCode": 200,
-      "Result": {
+      "calcEngine": "Conduent_Nexgen_Home_SE",
+      "cacheKey": "f9Sp8SZdz2q6CfZXkwXD1IGPZOsK1UUxXxe9I0+dPsI=",
+      "statusCode": 200,
+      "result": {
         "RBL": {
           "Profile": {
             "@id-auth": "011391001",
@@ -1855,8 +1855,8 @@ namespace KatAppVUE.Endpoints.RBLe
             }
           }
         },
-        "Exception": null,
-        "Diagnostics": null
+        "exception": null,
+        "diagnostics": null
       }
     }
   ]

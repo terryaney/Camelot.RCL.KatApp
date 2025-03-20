@@ -12,7 +12,7 @@
 
 // TODO: Decide on modules vs iife? Modules seems better/recommended practices, but iife and static methods support console debugging better
 class KatAppEventFluentApi<T extends HTMLElement> implements IKatAppEventFluentApi<T> {
-	constructor(private app: KatApp, private elements: Array<T>) { }
+	constructor(private app: KatApp, public elements: Array<T>) { }
 	
 	public on(events: string, handler: (e: Event) => void): KatAppEventFluentApi<T> {
 		var eventTypes = events.split(" ");
@@ -416,7 +416,7 @@ class KatApp implements IKatApp {
 				},
 
 				boolean() {
-					const argList = Array.from(arguments);
+					const argList = [...arguments];
 					const stringParams = argList.filter(i => typeof i != "boolean");
 					const table = argList[0];
 
@@ -647,7 +647,7 @@ class KatApp implements IKatApp {
 		// Extract script elements
 		const scripts = viewElement.querySelectorAll('script');
 		const nonScripts =
-			Array.from(viewElement.children)
+			[...viewElement.children]
 				.filter(node => node.tagName !== 'SCRIPT');
 	
 		// Append non-script elements
@@ -704,7 +704,7 @@ class KatApp implements IKatApp {
 						name: processInputTokens(c.getAttribute("name")) ?? "UNAVAILABLE",
 						inputTab: c.getAttribute("input-tab") ?? "RBLInput",
 						resultTabs: processInputTokens(c.getAttribute("result-tabs"))?.split(",") ?? ["RBLResult"],
-						pipeline: Array.from(c.querySelectorAll("pipeline")).map((p, i) => calcEngineFactory(p, i + 1)),
+						pipeline: [...c.querySelectorAll("pipeline")].map((p, i) => calcEngineFactory(p, i + 1)),
 						allowConfigureUi: c.getAttribute("configure-ui") != "false",
 						manualResult: false,
 						enabled: ( ( enabled?.startsWith("!!") ?? false ) ? eval(enabled!.substring(2)) : enabled ) != "false"
@@ -718,7 +718,7 @@ class KatApp implements IKatApp {
 			};
 
 			this.calcEngines = cloneApplication == undefined && viewElement != undefined
-				? Array.from(viewElement.querySelectorAll("rbl-config > calc-engine")).map( c => calcEngineFactory( c ) as ICalcEngine)
+				? [...viewElement.querySelectorAll("rbl-config > calc-engine")].map( c => calcEngineFactory( c ) as ICalcEngine)
 				: cloneApplication ? [...cloneApplication.calcEngines.filter( c => !c.manualResult)] : [];
 
 			 KatApps.Utils.trace(this, "KatApp", "mountAsync", `CalcEngines configured`, TraceVerbosity.Detailed);
@@ -865,7 +865,7 @@ class KatApp implements IKatApp {
 				const hasCalcEngines = this.calcEngines.length > 0;
 				this.calcEngines.push(...this.toCalcEngines(this.options.manualResults));
 
-				const tabDefs = this.options.manualResults.map( r => ({ CalcEngine: r[ "@calcEngine" ], TabDef: r as unknown as IRbleTabDef }))
+				const tabDefs = this.options.manualResults.map( r => ({ calcEngine: r[ "@calcEngine" ], tabDef: r as unknown as IRbleTabDef }))
 				const manualResultTabDefs = this.toTabDefs(tabDefs);
 
 				// Some Kaml's without a CE have manual results only.  They will be processed one time during
@@ -977,7 +977,7 @@ class KatApp implements IKatApp {
 			const inspectorKeyDown = (e: KeyboardEvent) => {
 				if (e.ctrlKey && e.altKey && e.key == "i") {
 					if (document.body.classList.contains("ka-inspector")) {
-						Array.from(document.body.classList).forEach(className => {
+						[...document.body.classList].forEach(className => {
 							if (className.startsWith('ka-inspector')) {
 								document.body.classList.remove(className);
 							}
@@ -1345,7 +1345,7 @@ Type 'help' to see available options displayed in the console.`;
 				);
 
 				return this.toTabDefs(
-					calculationResults.flatMap(r => r.TabDefs.map(t => ({ CalcEngine: r.CalcEngine, TabDef: t })))
+					calculationResults.flatMap(r => r.tabDefs.map(t => ({ calcEngine: r.calcEngine, tabDef: t })))
 				) as Array<ITabDef>;
 			}
 			else {
@@ -1376,7 +1376,7 @@ Type 'help' to see available options displayed in the console.`;
 					);
 
 					const results = this.toTabDefs(
-						calculationResults.flatMap(r => r.TabDefs.map(t => ({ CalcEngine: r.CalcEngine, TabDef: t })))
+						calculationResults.flatMap(r => r.tabDefs.map(t => ({ calcEngine: r.calcEngine, tabDef: t })))
 					);
 
 					await this.cacheInputsAsync(inputs);
@@ -1388,8 +1388,8 @@ Type 'help' to see available options displayed in the console.`;
 					this.lastCalculation = {
 						inputs: inputs,
 						results: results as Array<ITabDef>,
-						diagnostics: calculationResults.find(r => r.Diagnostics != undefined)
-							? calculationResults.flatMap(r => r.Diagnostics)
+						diagnostics: calculationResults.find(r => r.diagnostics != undefined)
+							? calculationResults.flatMap(r => r.diagnostics)
 							: undefined,
 						configuration: submitApiConfiguration as ISubmitApiConfiguration
 					};
@@ -1538,7 +1538,7 @@ Type 'help' to see available options displayed in the console.`;
 			formData.append("configuration", JSON.stringify(submitData.configuration));
 			
 			if (apiOptions.files != undefined) {
-				Array.from(apiOptions.files)
+				[...apiOptions.files]
 					.forEach((f,i) => {
 						formData.append("postedFiles[" + i + "]", f);
 					});
@@ -1743,7 +1743,7 @@ Type 'help' to see available options displayed in the console.`;
 		}
 
 		if (inputs[0].classList.contains("checkbox-list")) {
-			const v = Array.from(inputs[0].querySelectorAll<HTMLInputElement>("input"))
+			const v = [...inputs[0].querySelectorAll("input")]
 				.filter(c => c.checked)
 				.map(c => c.value)
 				.join(",");
@@ -1785,7 +1785,7 @@ Type 'help' to see available options displayed in the console.`;
 			else if (isCheckboxList) {
 				const values = value?.split(",")
 
-				inputs = Array.from(inputs[0].querySelectorAll<HTMLInputElement>("input"));
+				inputs = [...inputs[0].querySelectorAll("input")];
 
 				inputs.forEach(i => {
 					i.checked = (values != undefined && values.indexOf(i.value) > -1);
@@ -1836,14 +1836,22 @@ Type 'help' to see available options displayed in the console.`;
 		return undefined;
 	}
 
-	public on<T extends HTMLElement>(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): KatAppEventFluentApi<T> {
-		const eventFluentApi = new KatAppEventFluentApi<T>(this, this.selectElements<T>(selector, context));
+	private getTargetItems<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement> | undefined, context?: HTMLElement) : Array<T> {
+		return target == undefined ? [] :
+			typeof target === 'string' ? this.selectElements<T>(target, context) :
+			target instanceof HTMLElement || target instanceof Document ? [target] as Array<T> :
+			target instanceof NodeList ? [...target] as Array<T> :
+			target as Array<T>;
+	}
+
+	public on<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, handler: (e: Event) => void, context?: HTMLElement): KatAppEventFluentApi<T> {
+		const eventFluentApi = new KatAppEventFluentApi<T>(this, this.getTargetItems<T>(target, context));
 		eventFluentApi.on(events, handler);
 		return eventFluentApi;
 	}
 
- 	public off<T extends HTMLElement>(selector: string, events: string, context?: HTMLElement): KatAppEventFluentApi<T> {
-		const eventFluentApi = new KatAppEventFluentApi<T>(this, this.selectElements<T>(selector, context));
+ 	public off<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, context?: HTMLElement): KatAppEventFluentApi<T> {
+		const eventFluentApi = new KatAppEventFluentApi<T>(this, this.getTargetItems<T>(target, context));
 		eventFluentApi.off(events);
 		return eventFluentApi;
 	}
@@ -1870,7 +1878,7 @@ Type 'help' to see available options displayed in the console.`;
 
 	public selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T> {
 		const container = context ?? this.el;	
-		const result = Array.from(container.querySelectorAll<T>(this.replaceInputSelector(selector)));
+		const result = [...container.querySelectorAll<T>(this.replaceInputSelector(selector))];
 
 		if (context != undefined) return result;
 
@@ -2289,13 +2297,13 @@ Type 'help' to see available options displayed in the console.`;
 		return [];
 	}
 
-	private toTabDefs(rbleResults: Array<{CalcEngine: string, TabDef: IRbleTabDef}>): IKaTabDef[] {
+	private toTabDefs(rbleResults: Array<{calcEngine: string, tabDef: IRbleTabDef}>): IKaTabDef[] {
 		const calcEngines = this.calcEngines;
 		const defaultCEKey = calcEngines[0].key;
 
 		return rbleResults.map(r => {
-			const t = r.TabDef;
-			const ceName = this.getCeName(r.CalcEngine);
+			const t = r.tabDef;
+			const ceName = this.getCeName(r.calcEngine);
 			const configCe = calcEngines.find(c => c.name.toLowerCase() == ceName.toLowerCase());
 
 			if (configCe == undefined) {
@@ -2305,7 +2313,7 @@ Type 'help' to see available options displayed in the console.`;
 				// undefined, just treat results as 'primary' CE
                 
 				updateApiOptions: (submitApiOptions, endpoint, application) => { 
-					submitApiOptions.Configuration.CalcEngine = "Conduent_Nexgen_Profile_SE";
+					submitApiOptions.configuration.calcEngine = "Conduent_Nexgen_Profile_SE";
 				}
 				*/
 				 KatApps.Utils.trace(this, "KatApp", "toTabDefs", `Unable to find calcEngine: ${ceName}.  Determine if this should be supported.`, TraceVerbosity.None);

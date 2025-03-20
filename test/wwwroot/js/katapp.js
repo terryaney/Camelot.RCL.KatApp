@@ -304,7 +304,7 @@ class KatApp {
                     that.pushToTables.push(`${key}.${table}`);
                 },
                 boolean() {
-                    const argList = Array.from(arguments);
+                    const argList = [...arguments];
                     const stringParams = argList.filter(i => typeof i != "boolean");
                     const table = argList[0];
                     const v = stringParams.length == 1
@@ -477,7 +477,7 @@ class KatApp {
     }
     appendAndExecuteScripts(target, viewElement) {
         const scripts = viewElement.querySelectorAll('script');
-        const nonScripts = Array.from(viewElement.children)
+        const nonScripts = [...viewElement.children]
             .filter(node => node.tagName !== 'SCRIPT');
         nonScripts.forEach(node => target.appendChild(node));
         scripts.forEach(script => {
@@ -520,7 +520,7 @@ class KatApp {
                         name: processInputTokens(c.getAttribute("name")) ?? "UNAVAILABLE",
                         inputTab: c.getAttribute("input-tab") ?? "RBLInput",
                         resultTabs: processInputTokens(c.getAttribute("result-tabs"))?.split(",") ?? ["RBLResult"],
-                        pipeline: Array.from(c.querySelectorAll("pipeline")).map((p, i) => calcEngineFactory(p, i + 1)),
+                        pipeline: [...c.querySelectorAll("pipeline")].map((p, i) => calcEngineFactory(p, i + 1)),
                         allowConfigureUi: c.getAttribute("configure-ui") != "false",
                         manualResult: false,
                         enabled: ((enabled?.startsWith("!!") ?? false) ? eval(enabled.substring(2)) : enabled) != "false"
@@ -534,7 +534,7 @@ class KatApp {
             }
             ;
             this.calcEngines = cloneApplication == undefined && viewElement != undefined
-                ? Array.from(viewElement.querySelectorAll("rbl-config > calc-engine")).map(c => calcEngineFactory(c))
+                ? [...viewElement.querySelectorAll("rbl-config > calc-engine")].map(c => calcEngineFactory(c))
                 : cloneApplication ? [...cloneApplication.calcEngines.filter(c => !c.manualResult)] : [];
             KatApps.Utils.trace(this, "KatApp", "mountAsync", `CalcEngines configured`, TraceVerbosity.Detailed);
             if (this.options.resourceStrings == undefined && this.options.resourceStringsEndpoint != undefined) {
@@ -642,7 +642,7 @@ class KatApp {
             if (this.options.manualResults != undefined) {
                 const hasCalcEngines = this.calcEngines.length > 0;
                 this.calcEngines.push(...this.toCalcEngines(this.options.manualResults));
-                const tabDefs = this.options.manualResults.map(r => ({ CalcEngine: r["@calcEngine"], TabDef: r }));
+                const tabDefs = this.options.manualResults.map(r => ({ calcEngine: r["@calcEngine"], tabDef: r }));
                 const manualResultTabDefs = this.toTabDefs(tabDefs);
                 if (!hasCalcEngines) {
                     const getSubmitApiConfigurationResults = await this.getSubmitApiConfigurationAsync(async (submitApiOptions) => {
@@ -722,7 +722,7 @@ class KatApp {
             const inspectorKeyDown = (e) => {
                 if (e.ctrlKey && e.altKey && e.key == "i") {
                     if (document.body.classList.contains("ka-inspector")) {
-                        Array.from(document.body.classList).forEach(className => {
+                        [...document.body.classList].forEach(className => {
                             if (className.startsWith('ka-inspector')) {
                                 document.body.classList.remove(className);
                             }
@@ -997,7 +997,7 @@ Type 'help' to see available options displayed in the console.`;
             getSubmitApiConfigurationResults.configuration.allowLogging = allowLogging;
             if (!processResults) {
                 const calculationResults = await KatApps.Calculation.calculateAsync(this, serviceUrl, calcEngines ?? this.calcEngines, getSubmitApiConfigurationResults.inputs, getSubmitApiConfigurationResults.configuration);
-                return this.toTabDefs(calculationResults.flatMap(r => r.TabDefs.map(t => ({ CalcEngine: r.CalcEngine, TabDef: t }))));
+                return this.toTabDefs(calculationResults.flatMap(r => r.tabDefs.map(t => ({ calcEngine: r.calcEngine, tabDef: t }))));
             }
             else {
                 this.isCalculating = true;
@@ -1016,15 +1016,15 @@ Type 'help' to see available options displayed in the console.`;
                     const calculationResults = await KatApps.Calculation.calculateAsync(this, serviceUrl, isConfigureUICalculation
                         ? this.calcEngines.filter(c => c.allowConfigureUi)
                         : this.calcEngines, inputs, submitApiConfiguration);
-                    const results = this.toTabDefs(calculationResults.flatMap(r => r.TabDefs.map(t => ({ CalcEngine: r.CalcEngine, TabDef: t }))));
+                    const results = this.toTabDefs(calculationResults.flatMap(r => r.tabDefs.map(t => ({ calcEngine: r.calcEngine, tabDef: t }))));
                     await this.cacheInputsAsync(inputs);
                     await this.triggerEventAsync("resultsProcessing", results, inputs, submitApiConfiguration);
                     await this.processResultsAsync(results, getSubmitApiConfigurationResults);
                     this.lastCalculation = {
                         inputs: inputs,
                         results: results,
-                        diagnostics: calculationResults.find(r => r.Diagnostics != undefined)
-                            ? calculationResults.flatMap(r => r.Diagnostics)
+                        diagnostics: calculationResults.find(r => r.diagnostics != undefined)
+                            ? calculationResults.flatMap(r => r.diagnostics)
                             : undefined,
                         configuration: submitApiConfiguration
                     };
@@ -1128,7 +1128,7 @@ Type 'help' to see available options displayed in the console.`;
             }
             formData.append("configuration", JSON.stringify(submitData.configuration));
             if (apiOptions.files != undefined) {
-                Array.from(apiOptions.files)
+                [...apiOptions.files]
                     .forEach((f, i) => {
                     formData.append("postedFiles[" + i + "]", f);
                 });
@@ -1278,7 +1278,7 @@ Type 'help' to see available options displayed in the console.`;
             return v != undefined ? v + '' : undefined;
         }
         if (inputs[0].classList.contains("checkbox-list")) {
-            const v = Array.from(inputs[0].querySelectorAll("input"))
+            const v = [...inputs[0].querySelectorAll("input")]
                 .filter(c => c.checked)
                 .map(c => c.value)
                 .join(",");
@@ -1311,7 +1311,7 @@ Type 'help' to see available options displayed in the console.`;
             }
             else if (isCheckboxList) {
                 const values = value?.split(",");
-                inputs = Array.from(inputs[0].querySelectorAll("input"));
+                inputs = [...inputs[0].querySelectorAll("input")];
                 inputs.forEach(i => {
                     i.checked = (values != undefined && values.indexOf(i.value) > -1);
                 });
@@ -1349,13 +1349,20 @@ Type 'help' to see available options displayed in the console.`;
         }
         return undefined;
     }
-    on(selector, events, handler, context) {
-        const eventFluentApi = new KatAppEventFluentApi(this, this.selectElements(selector, context));
+    getTargetItems(target, context) {
+        return target == undefined ? [] :
+            typeof target === 'string' ? this.selectElements(target, context) :
+                target instanceof HTMLElement || target instanceof Document ? [target] :
+                    target instanceof NodeList ? [...target] :
+                        target;
+    }
+    on(target, events, handler, context) {
+        const eventFluentApi = new KatAppEventFluentApi(this, this.getTargetItems(target, context));
         eventFluentApi.on(events, handler);
         return eventFluentApi;
     }
-    off(selector, events, context) {
-        const eventFluentApi = new KatAppEventFluentApi(this, this.selectElements(selector, context));
+    off(target, events, context) {
+        const eventFluentApi = new KatAppEventFluentApi(this, this.getTargetItems(target, context));
         eventFluentApi.off(events);
         return eventFluentApi;
     }
@@ -1376,7 +1383,7 @@ Type 'help' to see available options displayed in the console.`;
     }
     selectElements(selector, context) {
         const container = context ?? this.el;
-        const result = Array.from(container.querySelectorAll(this.replaceInputSelector(selector)));
+        const result = [...container.querySelectorAll(this.replaceInputSelector(selector))];
         if (context != undefined)
             return result;
         var appId = this.getKatAppId(container);
@@ -1691,8 +1698,8 @@ Type 'help' to see available options displayed in the console.`;
         const calcEngines = this.calcEngines;
         const defaultCEKey = calcEngines[0].key;
         return rbleResults.map(r => {
-            const t = r.TabDef;
-            const ceName = this.getCeName(r.CalcEngine);
+            const t = r.tabDef;
+            const ceName = this.getCeName(r.calcEngine);
             const configCe = calcEngines.find(c => c.name.toLowerCase() == ceName.toLowerCase());
             if (configCe == undefined) {
                 KatApps.Utils.trace(this, "KatApp", "toTabDefs", `Unable to find calcEngine: ${ceName}.  Determine if this should be supported.`, TraceVerbosity.None);
@@ -2041,73 +2048,73 @@ var KatApps;
             try {
                 KatApps.Utils.trace(application, "Calculation", "calculateAsync", "Posting Data", TraceVerbosity.Detailed);
                 const calculationResults = await this.submitCalculationAsync(application, serviceUrl, inputs, submitData);
-                const cachedResults = calculationResults.Results.filter(r => r.CacheKey != undefined && r.Result == undefined);
+                const cachedResults = calculationResults.results.filter(r => r.cacheKey != undefined && r.result == undefined);
                 for (var i = 0; i < cachedResults.length; i++) {
-                    const r = calculationResults.Results[i];
-                    const cacheResult = await this.getCacheAsync(application.options, `RBLCache:${r.CacheKey}`, application.options.decryptCache);
+                    const r = calculationResults.results[i];
+                    const cacheResult = await this.getCacheAsync(application.options, `RBLCache:${r.cacheKey}`, application.options.decryptCache);
                     if (cacheResult == undefined) {
-                        KatApps.Utils.trace(application, "Calculation", "calculateAsync", `Cache miss for ${r.CalcEngine} with key ${r.CacheKey}`, TraceVerbosity.Detailed);
+                        KatApps.Utils.trace(application, "Calculation", "calculateAsync", `Cache miss for ${r.calcEngine} with key ${r.cacheKey}`, TraceVerbosity.Detailed);
                     }
                     else {
-                        KatApps.Utils.trace(application, "Calculation", "calculateAsync", `Use cache for ${r.CalcEngine}`, TraceVerbosity.Detailed);
-                        r.CacheKey = undefined;
-                        r.Result = cacheResult;
+                        KatApps.Utils.trace(application, "Calculation", "calculateAsync", `Use cache for ${r.calcEngine}`, TraceVerbosity.Detailed);
+                        r.cacheKey = undefined;
+                        r.result = cacheResult;
                     }
                 }
-                const invalidCacheResults = calculationResults.Results.filter(r => r.CacheKey != undefined && r.Result == undefined);
+                const invalidCacheResults = calculationResults.results.filter(r => r.cacheKey != undefined && r.result == undefined);
                 if (invalidCacheResults.length > 0) {
-                    const retryCalcEngines = invalidCacheResults.map(r => r.CalcEngine);
+                    const retryCalcEngines = invalidCacheResults.map(r => r.calcEngine);
                     submitData.configuration.calcEngines = submitData.configuration.calcEngines.filter(c => retryCalcEngines.indexOf(c.name) > -1);
-                    submitData.configuration.invalidCacheKeys = invalidCacheResults.map(r => r.CacheKey);
+                    submitData.configuration.invalidCacheKeys = invalidCacheResults.map(r => r.cacheKey);
                     const retryResults = await this.submitCalculationAsync(application, serviceUrl, inputs, submitData);
-                    for (var i = 0; i < retryResults.Results.length; i++) {
-                        const rr = retryResults.Results[i];
-                        const position = calculationResults.Results.findIndex(r => r.CalcEngine == rr.CalcEngine);
-                        calculationResults.Results[position] = rr;
+                    for (var i = 0; i < retryResults.results.length; i++) {
+                        const rr = retryResults.results[i];
+                        const position = calculationResults.results.findIndex(r => r.calcEngine == rr.calcEngine);
+                        calculationResults.results[position] = rr;
                     }
                 }
-                if (calculationResults.Results.filter(r => r.CacheKey != undefined && r.Result == undefined).length > 0) {
+                if (calculationResults.results.filter(r => r.cacheKey != undefined && r.result == undefined).length > 0) {
                     KatApps.Utils.trace(application, "Calculation", "calculateAsync", `Client side cache is invalid.`, TraceVerbosity.Detailed);
                 }
-                for (var i = 0; i < calculationResults.Results.length; i++) {
-                    var r = calculationResults.Results[i];
-                    const cacheKey = r.CacheKey;
+                for (var i = 0; i < calculationResults.results.length; i++) {
+                    var r = calculationResults.results[i];
+                    const cacheKey = r.cacheKey;
                     if (cacheKey != undefined) {
-                        if (r.Result.Exception != undefined) {
-                            KatApps.Utils.trace(application, "Calculation", "calculateAsync", `(RBL exception) Remove cache for ${r.CalcEngine}`, TraceVerbosity.Detailed);
+                        if (r.result.exception != undefined) {
+                            KatApps.Utils.trace(application, "Calculation", "calculateAsync", `(RBL exception) Remove cache for ${r.calcEngine}`, TraceVerbosity.Detailed);
                             KatApps.Utils.removeSessionItem(application.options, `RBLCache:${cacheKey}`);
                         }
                         else {
-                            KatApps.Utils.trace(application, "Calculation", "calculateAsync", `Set cache for ${r.CalcEngine}`, TraceVerbosity.Detailed);
-                            await this.setCacheAsync(application.options, `RBLCache:${cacheKey}`, r.Result, application.options.encryptCache);
+                            KatApps.Utils.trace(application, "Calculation", "calculateAsync", `Set cache for ${r.calcEngine}`, TraceVerbosity.Detailed);
+                            await this.setCacheAsync(application.options, `RBLCache:${cacheKey}`, r.result, application.options.encryptCache);
                         }
                     }
                 }
                 const mergedResults = calculationResults;
-                mergedResults.Results.filter(r => r.Result.Exception != undefined).forEach(r => {
+                mergedResults.results.filter(r => r.result.exception != undefined).forEach(r => {
                     const response = {
-                        calcEngine: r.CalcEngine,
-                        diagnostics: r.Result.Diagnostics,
+                        calcEngine: r.calcEngine,
+                        diagnostics: r.result.diagnostics,
                         configuration: submitConfiguration,
                         inputs: inputs,
                         exceptions: [{
-                                message: r.Result.Exception.Message,
-                                type: r.Result.Exception.Type,
-                                traceId: r.Result.Exception.TraceId,
-                                requestId: r.Result.Exception.RequestId,
-                                stackTrace: r.Result.Exception.StackTrace
+                                message: r.result.exception.message,
+                                type: r.result.exception.type,
+                                traceId: r.result.exception.traceId,
+                                requestId: r.result.exception.requestId,
+                                stackTrace: r.result.exception.stackTrace
                             }]
                     };
                     failedResponses.push(response);
                 });
-                mergedResults.Results
-                    .filter(r => r.Result.Exception == undefined)
+                mergedResults.results
+                    .filter(r => r.result.exception == undefined)
                     .forEach(r => {
-                    const tabDefs = r.Result.RBL.Profile.Data.TabDef;
+                    const tabDefs = r.result.RBL.Profile.Data.TabDef;
                     successResponses.push({
-                        CalcEngine: r.CalcEngine,
-                        Diagnostics: r.Result.Diagnostics,
-                        TabDefs: tabDefs instanceof Array ? tabDefs : [tabDefs]
+                        calcEngine: r.calcEngine,
+                        diagnostics: r.result.diagnostics,
+                        tabDefs: tabDefs instanceof Array ? tabDefs : [tabDefs]
                     });
                 });
                 if (failedResponses.length > 0) {
@@ -3996,7 +4003,7 @@ var KatApps;
                 }
                 return "";
             };
-            const selectHelptips = (search, application, context) => application?.selectElements(search, context) ?? Array.from(document.querySelectorAll(search));
+            const selectHelptips = (search, application, context) => application?.selectElements(search, context) ?? [...document.querySelectorAll(search)];
             const currentTips = tipsToProcess ??
                 selectHelptips(selector ?? "[data-bs-toggle='tooltip'], [data-bs-toggle='popover']", KatApp.get(container), container.tagName == "A" || container.tagName == "BUTTON"
                     ? container.parentElement
@@ -4147,7 +4154,7 @@ var KatApps;
                 throw new Error("v-ka-inline can only be used on <template/> elements and must have a v-html attribute.");
             }
             container.querySelectorAll("template:not([id])").forEach(template => {
-                Array.from(template.content.children).filter(c => c.hasAttribute("v-if")).forEach(invalid => {
+                [...template.content.children].filter(c => c.hasAttribute("v-if")).forEach(invalid => {
                     console.error(invalid);
                     compileError = true;
                 });
@@ -4525,16 +4532,16 @@ var KatApps;
                 .filter(r => r.status == "rejected")
                 .map(r => r.reason)
                 .map(r => ({
-                Exception: r instanceof KamlResourceDownloadError ? r : undefined,
-                Response: !(r instanceof KamlResourceDownloadError) ? r : undefined
+                exception: r instanceof KamlResourceDownloadError ? r : undefined,
+                response: !(r instanceof KamlResourceDownloadError) ? r : undefined
             }))
-                .map(r => r.Exception != undefined
+                .map(r => r.exception != undefined
                 ? {
-                    resourceKey: r.Exception.resourceKey,
+                    resourceKey: r.exception.resourceKey,
                     processedByOtherApp: false,
-                    errorMessage: r.Exception.message
+                    errorMessage: r.exception.message
                 }
-                : r.Response);
+                : r.response);
             const resolved = resourceResults
                 .filter(r => r.status == "fulfilled")
                 .map(r => r.value);

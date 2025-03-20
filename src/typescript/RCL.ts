@@ -51,7 +51,7 @@ declare const KatApps: KatAppsStatic;
 			const summaryTemplate = application.getTemplateContent("validation-summary");
 		
 			let template = document.createElement('template');
-			template.innerHTML = Array.from(summaryTemplate.children).find(e => e.classList.contains("validation-summary"))!.outerHTML;
+			template.innerHTML = [...summaryTemplate.children].find(e => e.classList.contains("validation-summary"))!.outerHTML;
 			const validationSummary = template.content.firstElementChild!;
 			validationSummary.querySelectorAll("li, .visually-hidden p").forEach(e => e.remove());
 
@@ -59,12 +59,12 @@ declare const KatApps: KatAppsStatic;
 				e.innerHTML = application.getLocalizedString(e.getAttribute("v-ka-resource")!)!;
 			});
 
-			Array.from(validationSummary.attributes).forEach(a => {
+			[...validationSummary.attributes].forEach(a => {
 				if ((a.name.startsWith("v-") && a.name != "v-ka-resource") || a.name.startsWith(":") || a.name.startsWith("@")) {
 					validationSummary.removeAttribute(a.name);
 				}
 			});
-			Array.from(validationSummary.classList).forEach(c => {
+			[...validationSummary.classList].forEach(c => {
 				if (c.startsWith("ka-")) {
 					validationSummary.classList.remove(c);
 				}

@@ -62,17 +62,17 @@ namespace KatApps {
 					.filter(r => r.status == "rejected")
 					.map(r => (r as PromiseRejectedResult).reason)
 					.map(r => ({
-						Exception: r instanceof KamlResourceDownloadError ? r as KamlResourceDownloadError : undefined,
-						Response: !(r instanceof KamlResourceDownloadError) ? r as IKamlResourceResponse : undefined
+						exception: r instanceof KamlResourceDownloadError ? r as KamlResourceDownloadError : undefined,
+						response: !(r instanceof KamlResourceDownloadError) ? r as IKamlResourceResponse : undefined
 					}))
 					.map(r =>
-						r.Exception != undefined
+						r.exception != undefined
 							? {
-								resourceKey: r.Exception.resourceKey,
+								resourceKey: r.exception.resourceKey,
 								processedByOtherApp: false,
-								errorMessage: r.Exception.message
+								errorMessage: r.exception.message
 							} as IKamlResourceResponse
-							: r.Response!
+							: r.response!
 					);
 			const resolved =
 				resourceResults

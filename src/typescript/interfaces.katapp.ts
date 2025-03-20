@@ -113,6 +113,7 @@ interface IKatApp {
 interface IKatAppEventFluentApi<T extends HTMLElement> {
 	on(events: string, handler: (e: Event) => void): IKatAppEventFluentApi<T>;
 	off(events: string): IKatAppEventFluentApi<T>;
+	elements: Array<T>;
 }
 interface ICalcEngine {
 	key: string;

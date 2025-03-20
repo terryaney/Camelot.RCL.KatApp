@@ -1,6 +1,6 @@
 declare class KatAppEventFluentApi<T extends HTMLElement> implements IKatAppEventFluentApi<T> {
     private app;
-    private elements;
+    elements: Array<T>;
     constructor(app: KatApp, elements: Array<T>);
     on(events: string, handler: (e: Event) => void): KatAppEventFluentApi<T>;
     off(events: string): KatAppEventFluentApi<T>;
@@ -60,8 +60,9 @@ declare class KatApp implements IKatApp {
     setInputValue(name: string, value: string | undefined, calculate?: boolean): Array<HTMLInputElement> | undefined;
     getInputs(customInputs?: ICalculationInputs): ICalculationInputs;
     private getKatAppId;
-    on<T extends HTMLElement>(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): KatAppEventFluentApi<T>;
-    off<T extends HTMLElement>(selector: string, events: string, context?: HTMLElement): KatAppEventFluentApi<T>;
+    private getTargetItems;
+    on<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, handler: (e: Event) => void, context?: HTMLElement): KatAppEventFluentApi<T>;
+    off<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, context?: HTMLElement): KatAppEventFluentApi<T>;
     private inputSelectorRegex;
     private replaceInputSelector;
     selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
@@ -267,9 +268,9 @@ declare enum TraceVerbosity {
     Diagnostic = 5
 }
 interface IKatAppCalculationResponse {
-    CalcEngine: string;
-    Diagnostics?: IRblCalculationDiagnostics;
-    TabDefs: Array<IRbleTabDef>;
+    calcEngine: string;
+    diagnostics?: IRblCalculationDiagnostics;
+    tabDefs: Array<IRbleTabDef>;
 }
 interface IKaTableColumnConfiguration {
     name: string;
@@ -322,41 +323,39 @@ interface IRbleTabDef extends IStringIndexer<string | ITabDefRow | ITabDefTable>
     "@name": string;
 }
 interface IRblCalculationSuccessResponses {
-    Results: Array<{
-        CalcEngine: string;
-        CacheKey?: string;
-        Result?: IRblCalculationSuccessResponse;
+    results: Array<{
+        calcEngine: string;
+        cacheKey?: string;
+        result?: IRblCalculationSuccessResponse;
     }>;
 }
 interface IMergedRblCalculationSuccessResponses {
-    Results: Array<{
-        CalcEngine: string;
-        Result: IRblCalculationSuccessResponse;
+    results: Array<{
+        calcEngine: string;
+        result: IRblCalculationSuccessResponse;
     }>;
 }
 interface IRblCalculationDiagnostics {
-    CalcEngineVersion: string;
-    Timings: {
+    calcEngineVersion: string;
+    timings: {
         Status: Array<{
             "@Start": string;
             "#text": string;
         }>;
     };
-    RBLeServer: string;
-    SessionID: string;
-    ServiceUrl: string;
-    Trace?: {
-        Item: Array<string>;
-    };
+    rbleServer: string;
+    sessionID: string;
+    serviceUrl: string;
+    trace?: Array<string>;
 }
 interface IRblCalculationSuccessResponse {
-    Diagnostics: IRblCalculationDiagnostics;
-    Exception: {
-        Message: string;
-        Type: string;
-        TraceId: string;
-        RequestId: string;
-        StackTrace: Array<string>;
+    diagnostics: IRblCalculationDiagnostics;
+    exception: {
+        message: string;
+        type: string;
+        traceId: string;
+        requestId: string;
+        stackTrace: Array<string>;
     };
     RBL: {
         Profile: {
@@ -457,6 +456,7 @@ interface IKatApp {
 interface IKatAppEventFluentApi<T extends HTMLElement> {
     on(events: string, handler: (e: Event) => void): IKatAppEventFluentApi<T>;
     off(events: string): IKatAppEventFluentApi<T>;
+    elements: Array<T>;
 }
 interface ICalcEngine {
     key: string;

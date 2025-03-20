@@ -85,7 +85,7 @@
 			}
 
 			container.querySelectorAll<HTMLTemplateElement>("template:not([id])").forEach(template => {
-				Array.from(template.content.children).filter(c => c.hasAttribute("v-if")).forEach(invalid => {
+				[...template.content.children].filter(c => c.hasAttribute("v-if")).forEach(invalid => {
 					console.error(invalid);
 					compileError = true;
 				})

@@ -42,93 +42,93 @@
 				Utils.trace(application, "Calculation", "calculateAsync", "Posting Data", TraceVerbosity.Detailed);
 	
 				const calculationResults = await this.submitCalculationAsync(application, serviceUrl, inputs, submitData);
-				const cachedResults = calculationResults.Results.filter(r => r.CacheKey != undefined && r.Result == undefined);
+				const cachedResults = calculationResults.results.filter(r => r.cacheKey != undefined && r.result == undefined);
 	
 				// If any items are returned as cache, verify they are there...
 				for (var i = 0; i < cachedResults.length; i++) {
-					const r = calculationResults.Results[i];
-					const cacheResult = await this.getCacheAsync(application.options, `RBLCache:${r.CacheKey}`, application.options.decryptCache);
+					const r = calculationResults.results[i];
+					const cacheResult = await this.getCacheAsync(application.options, `RBLCache:${r.cacheKey}`, application.options.decryptCache);
 					if (cacheResult == undefined) {
-						Utils.trace(application, "Calculation", "calculateAsync", `Cache miss for ${r.CalcEngine} with key ${r.CacheKey}`, TraceVerbosity.Detailed);
+						Utils.trace(application, "Calculation", "calculateAsync", `Cache miss for ${r.calcEngine} with key ${r.cacheKey}`, TraceVerbosity.Detailed);
 					}
 					else {
-						Utils.trace(application, "Calculation", "calculateAsync", `Use cache for ${r.CalcEngine}`, TraceVerbosity.Detailed);
-						r.CacheKey = undefined; // So it isn't processed anymore
-						r.Result = cacheResult as IRblCalculationSuccessResponse;
+						Utils.trace(application, "Calculation", "calculateAsync", `Use cache for ${r.calcEngine}`, TraceVerbosity.Detailed);
+						r.cacheKey = undefined; // So it isn't processed anymore
+						r.result = cacheResult as IRblCalculationSuccessResponse;
 					}
 				}
 	
 				// Any cache misses, need to resubmit them and reassign original results.
-				const invalidCacheResults = calculationResults.Results.filter(r => r.CacheKey != undefined && r.Result == undefined);
+				const invalidCacheResults = calculationResults.results.filter(r => r.cacheKey != undefined && r.result == undefined);
 	
 				if (invalidCacheResults.length > 0) {
-					const retryCalcEngines = invalidCacheResults.map(r => r.CalcEngine);
+					const retryCalcEngines = invalidCacheResults.map(r => r.calcEngine);
 					(submitData.configuration as ISubmitCalculationConfiguration).calcEngines = (submitData.configuration as ISubmitCalculationConfiguration).calcEngines.filter(c => retryCalcEngines.indexOf(c.name) > -1);
-					(submitData.configuration as ISubmitCalculationConfiguration).invalidCacheKeys = invalidCacheResults.map(r => r.CacheKey!);
+					(submitData.configuration as ISubmitCalculationConfiguration).invalidCacheKeys = invalidCacheResults.map(r => r.cacheKey!);
 					const retryResults = await this.submitCalculationAsync(application, serviceUrl, inputs, submitData);
 	
-					for (var i = 0; i < retryResults.Results.length; i++) {
-						const rr = retryResults.Results[i];
-						const position = calculationResults.Results.findIndex(r => r.CalcEngine == rr.CalcEngine);
-						calculationResults.Results[position] = rr;
+					for (var i = 0; i < retryResults.results.length; i++) {
+						const rr = retryResults.results[i];
+						const position = calculationResults.results.findIndex(r => r.calcEngine == rr.calcEngine);
+						calculationResults.results[position] = rr;
 					}
 				}
 	
-				if (calculationResults.Results.filter(r => r.CacheKey != undefined && r.Result == undefined).length > 0) {
+				if (calculationResults.results.filter(r => r.cacheKey != undefined && r.result == undefined).length > 0) {
 					Utils.trace(application, "Calculation", "calculateAsync", `Client side cache is invalid.`, TraceVerbosity.Detailed);
 				}
 	
-				for (var i = 0; i < calculationResults.Results.length; i++) {
-					var r = calculationResults.Results[i];
-					const cacheKey = r.CacheKey;
+				for (var i = 0; i < calculationResults.results.length; i++) {
+					var r = calculationResults.results[i];
+					const cacheKey = r.cacheKey;
 	
 					if (cacheKey != undefined) {
-						if (r.Result!.Exception != undefined) {
-							Utils.trace(application, "Calculation", "calculateAsync", `(RBL exception) Remove cache for ${r.CalcEngine}`, TraceVerbosity.Detailed);
+						if (r.result!.exception != undefined) {
+							Utils.trace(application, "Calculation", "calculateAsync", `(RBL exception) Remove cache for ${r.calcEngine}`, TraceVerbosity.Detailed);
 							Utils.removeSessionItem(application.options, `RBLCache:${cacheKey}`);
 						}
 						else {
-							Utils.trace(application, "Calculation", "calculateAsync", `Set cache for ${r.CalcEngine}`, TraceVerbosity.Detailed);
-							await this.setCacheAsync(application.options, `RBLCache:${cacheKey}`, r.Result!, application.options.encryptCache);
+							Utils.trace(application, "Calculation", "calculateAsync", `Set cache for ${r.calcEngine}`, TraceVerbosity.Detailed);
+							await this.setCacheAsync(application.options, `RBLCache:${cacheKey}`, r.result!, application.options.encryptCache);
 						}
 					}
 				}
 	
 				// Didn't want !. checks on result every time after getting results successfully set up
 				const mergedResults = calculationResults as {
-					Results: Array<{
-						CalcEngine: string;
-						Result: IRblCalculationSuccessResponse;
+					results: Array<{
+						calcEngine: string;
+						result: IRblCalculationSuccessResponse;
 					}>;
 				};
 	
-				mergedResults.Results.filter(r => r.Result.Exception != undefined).forEach(r => {
+				mergedResults.results.filter(r => r.result.exception != undefined).forEach(r => {
 					const response: ICalculationFailedResponse = {
-						calcEngine: r.CalcEngine,
-						diagnostics: r.Result.Diagnostics,
+						calcEngine: r.calcEngine,
+						diagnostics: r.result.diagnostics,
 						configuration: submitConfiguration,
 						inputs: inputs,
 						exceptions: [{
-							message: r.Result.Exception.Message,
-							type: r.Result.Exception.Type,
-							traceId: r.Result.Exception.TraceId,
-							requestId: r.Result.Exception.RequestId,
-							stackTrace: r.Result.Exception.StackTrace
+							message: r.result.exception.message,
+							type: r.result.exception.type,
+							traceId: r.result.exception.traceId,
+							requestId: r.result.exception.requestId,
+							stackTrace: r.result.exception.stackTrace
 						} as ICalculationResponseException ]
 					};
 	
 					failedResponses.push(response);
 				});
 	
-				mergedResults.Results
-					.filter(r => r.Result.Exception == undefined)
+				mergedResults.results
+					.filter(r => r.result.exception == undefined)
 					.forEach(r => {
-						const tabDefs = r.Result.RBL.Profile.Data.TabDef;
+						const tabDefs = r.result.RBL.Profile.Data.TabDef;
 						successResponses.push(
 							{
-								CalcEngine: r.CalcEngine,
-								Diagnostics: r.Result.Diagnostics,
-								TabDefs: tabDefs instanceof Array ? tabDefs : [tabDefs]
+								calcEngine: r.calcEngine,
+								diagnostics: r.result.diagnostics,
+								tabDefs: tabDefs instanceof Array ? tabDefs : [tabDefs]
 							});
 					});
 	
