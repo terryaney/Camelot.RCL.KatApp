@@ -63,7 +63,9 @@ declare class KatApp implements IKatApp {
     private getTargetItems;
     on<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, handler: (e: Event) => void, context?: HTMLElement): KatAppEventFluentApi<T>;
     off<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, context?: HTMLElement): KatAppEventFluentApi<T>;
+    private selectorSplitter;
     private inputSelectorRegex;
+    private psuedoInputTypes;
     private replaceInputSelector;
     selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
     selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;

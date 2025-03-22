@@ -1844,26 +1844,40 @@ Type 'help' to see available options displayed in the console.`;
 			target as Array<T>;
 	}
 
-	public on<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, handler: (e: Event) => void, context?: HTMLElement): KatAppEventFluentApi<T> {
+	public on<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatAppEventFluentApi<T> {
 		const eventFluentApi = new KatAppEventFluentApi<T>(this, this.getTargetItems<T>(target, context));
 		eventFluentApi.on(events, handler);
 		return eventFluentApi;
 	}
 
- 	public off<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, context?: HTMLElement): KatAppEventFluentApi<T> {
+ 	public off<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, context?: HTMLElement): IKatAppEventFluentApi<T> {
 		const eventFluentApi = new KatAppEventFluentApi<T>(this, this.getTargetItems<T>(target, context));
 		eventFluentApi.off(events);
 		return eventFluentApi;
 	}
 
-	private inputSelectorRegex = /:input([\w\s.:#=\[\]'^$*|~]*)(?=(,|$))/g;
+	private selectorSplitter = /("[^"]*"|'[^']*'|[^,])+/g;
+	private inputSelectorRegex = /(.*?)(:input)((?:\[[^\]]*\]|[^\[\],])*)(?=(,|$))/g;
+	private psuedoInputTypes = ['input', 'textarea', 'select', 'button'];
+	
 	private replaceInputSelector(selector: string): string {
-		return selector.replace(this.inputSelectorRegex, (match, capturedSelectors) => {
-			// Split the captured selectors into individual parts (if any)
-			const inputTypes = ['input', 'textarea', 'select', 'button'];
-			// Apply the captured selectors to each input type
-			return inputTypes.map(type => `${type}${capturedSelectors}`).join(', ');
-		});
+		if ( selector.indexOf(":input") == -1 ) return selector;
+		
+		const selectors = selector.match(this.selectorSplitter)!.map(s => s.trim());
+
+		for (let s of selectors) {
+			const newSelector = s.replace(this.inputSelectorRegex, (match, prefix, input, suffix) => {
+				const p = prefix.replace(/^,?\s*/, ''); // Remove leading comma and whitespace
+				
+				return this.psuedoInputTypes
+					.map(t => `${p}${t}${suffix}`)
+					.join(', ');
+			} );
+	
+			selector = selector.replace(s, newSelector);
+		}
+
+		return selector;
 	}
 
 	public selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined {

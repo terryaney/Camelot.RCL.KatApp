@@ -1366,12 +1366,23 @@ Type 'help' to see available options displayed in the console.`;
         eventFluentApi.off(events);
         return eventFluentApi;
     }
-    inputSelectorRegex = /:input([\w\s.:#=\[\]'^$*|~]*)(?=(,|$))/g;
+    selectorSplitter = /("[^"]*"|'[^']*'|[^,])+/g;
+    inputSelectorRegex = /(.*?)(:input)((?:\[[^\]]*\]|[^\[\],])*)(?=(,|$))/g;
+    psuedoInputTypes = ['input', 'textarea', 'select', 'button'];
     replaceInputSelector(selector) {
-        return selector.replace(this.inputSelectorRegex, (match, capturedSelectors) => {
-            const inputTypes = ['input', 'textarea', 'select', 'button'];
-            return inputTypes.map(type => `${type}${capturedSelectors}`).join(', ');
-        });
+        if (selector.indexOf(":input") == -1)
+            return selector;
+        const selectors = selector.match(this.selectorSplitter).map(s => s.trim());
+        for (let s of selectors) {
+            const newSelector = s.replace(this.inputSelectorRegex, (match, prefix, input, suffix) => {
+                const p = prefix.replace(/^,?\s*/, '');
+                return this.psuedoInputTypes
+                    .map(t => `${p}${t}${suffix}`)
+                    .join(', ');
+            });
+            selector = selector.replace(s, newSelector);
+        }
+        return selector;
     }
     selectElement(selector, context) {
         const container = context ?? this.el;
