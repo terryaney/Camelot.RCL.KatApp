@@ -140,8 +140,8 @@ Count: {{model.count}}
 
 <p>POC: v-for to display results from specified CalcEngine (BRD in this case)</p>
 <h3>BRD keyValue</h3>
-<div class="kv" v-for="r in rbl.source('keyValue', 'BRD')" :key="r['@id']">
-	<div v-html="r['@id'] + ':' + r.value"></div>
+<div class="kv" v-for="r in rbl.source('keyValue', 'BRD')" :key="r.id">
+	<div v-html="r.id + ':' + r.value"></div>
 </div>
 
 <p>POC: v-for *inside* template markup instead of parent where v-scope is defined, couldn't figure out a better way'</p>
@@ -150,7 +150,7 @@ Count: {{model.count}}
 
 <p>POC: Using v-for to display calcuation results and filter them before processing</p>
 <h3>Template in v-for (filter @id.startsWith('site'))</h3>
-<div v-scope="components.template({name: 'myTemplate', source: rbl.source('keyValue', 'BRD').filter( row => row[ '@id' ].startsWith( 'site' ) )})"></div>
+<div v-scope="components.template({name: 'myTemplate', source: rbl.source('keyValue', 'BRD').filter( row => row.id.startsWith( 'site' ) )})"></div>
 
 <template id="myTemplate">
 	<template v-for="r in rows">
@@ -158,8 +158,8 @@ Count: {{model.count}}
 					but put a nested template inside the template so that it renders 'two' elements for every r in rows without the need
 					for a 'container' element if I don't want one
 		-->
-		<div v-html="r['@id'] + ':' + r.value + ':' + rbl.value('rbl-value', 'liFirstName') + '<br/>'"></div>
-		<input type="text" :name="'iTemplateWithChange' + r['@id']" value="" @change="handlers.change" />
+		<div v-html="r.id + ':' + r.value + ':' + rbl.value('rbl-value', 'liFirstName') + '<br/>'"></div>
+		<input type="text" :name="'iTemplateWithChange' + r.id" value="" @change="handlers.change" />
 	</template>
 </template>
 
