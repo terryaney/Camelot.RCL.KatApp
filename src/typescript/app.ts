@@ -12,7 +12,7 @@
 
 // TODO: Decide on modules vs iife? Modules seems better/recommended practices, but iife and static methods support console debugging better
 class KatAppEventFluentApi<T extends HTMLElement> implements IKatAppEventFluentApi<T> {
-	constructor(private app: KatApp, public elements: Array<T>) { }
+	constructor(public elements: Array<T>) { }
 	
 	public on(events: string, handler: (e: Event) => void): KatAppEventFluentApi<T> {
 		var eventTypes = events.split(" ");
@@ -1845,13 +1845,13 @@ Type 'help' to see available options displayed in the console.`;
 	}
 
 	public on<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatAppEventFluentApi<T> {
-		const eventFluentApi = new KatAppEventFluentApi<T>(this, this.getTargetItems<T>(target, context));
+		const eventFluentApi = new KatAppEventFluentApi<T>(this.getTargetItems<T>(target, context));
 		eventFluentApi.on(events, handler);
 		return eventFluentApi;
 	}
 
  	public off<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, context?: HTMLElement): IKatAppEventFluentApi<T> {
-		const eventFluentApi = new KatAppEventFluentApi<T>(this, this.getTargetItems<T>(target, context));
+		const eventFluentApi = new KatAppEventFluentApi<T>(this.getTargetItems<T>(target, context));
 		eventFluentApi.off(events);
 		return eventFluentApi;
 	}
