@@ -51,7 +51,7 @@ public partial class Endpoint : BaseCachedResponseEndpoint<Request>
 				// Can't return 401 - Conduent intercepts and returns dummy html.  Throwing exception
 				// will get caught and returned as a ValidationDetail object.
 				var currentView =
-					optionsProvider.GetKatAppByFile( relativePath, kaml.Name ) ??
+					optionsProvider.GetViewByFile( relativePath, kaml.Name ) ??
 					throw new UnauthorizedAccessException( $"Unauthorized access to {request.ViewName}" );
 
 				/*

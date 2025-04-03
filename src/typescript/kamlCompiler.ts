@@ -207,17 +207,18 @@
 			// Fix v-ka-table 'short hand' of name string into a valid {} scope
 			// Fix v-ka-api 'short hand' of api into a valid {} scope
 			// Fix v-ka-navigate 'short hand' of view string into a valid {} scope
-			container.querySelectorAll("[v-ka-highchart], [v-ka-table], [v-ka-api], [v-ka-navigate]").forEach(directive => {
-
-				if (directive.hasAttribute("v-ka-highchart")) {
-					const scope = directive.getAttribute("v-ka-highchart")!;
+			container.querySelectorAll("[v-ka-highchart], [v-ka-svgchart], [v-ka-table], [v-ka-api], [v-ka-navigate]").forEach(directive => {
+				let isHighchart = false;
+				if ((isHighchart = directive.hasAttribute("v-ka-highchart")) || directive.hasAttribute("v-ka-svgchart")) {
+					const attrName = isHighchart ? "v-ka-highchart" : "v-ka-svgchart";
+					const scope = directive.getAttribute(attrName)!;
 
 					if (!scope.startsWith("{")) {
 						// Using short hand of just the 'table names': 'data.options' (.options name is optional)
 						const chartParts = scope.split('.');
 						const data = chartParts[0];
 						const options = chartParts.length >= 2 ? chartParts[1] : chartParts[0];
-						directive.setAttribute("v-ka-highchart", `{ data: '${data}', options: '${options}' }`);
+						directive.setAttribute(attrName, `{ data: '${data}', options: '${options}' }`);
 					}
 				}
 				else if (directive.hasAttribute("v-ka-table")) {

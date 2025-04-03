@@ -1,9 +1,7 @@
 "use strict";
 class KatAppEventFluentApi {
-    app;
     elements;
-    constructor(app, elements) {
-        this.app = app;
+    constructor(elements) {
         this.elements = elements;
     }
     on(events, handler) {
@@ -1357,12 +1355,12 @@ Type 'help' to see available options displayed in the console.`;
                         target;
     }
     on(target, events, handler, context) {
-        const eventFluentApi = new KatAppEventFluentApi(this, this.getTargetItems(target, context));
+        const eventFluentApi = new KatAppEventFluentApi(this.getTargetItems(target, context));
         eventFluentApi.on(events, handler);
         return eventFluentApi;
     }
     off(target, events, context) {
-        const eventFluentApi = new KatAppEventFluentApi(this, this.getTargetItems(target, context));
+        const eventFluentApi = new KatAppEventFluentApi(this.getTargetItems(target, context));
         eventFluentApi.off(events);
         return eventFluentApi;
     }
@@ -3632,6 +3630,34 @@ var KatApps;
 })(KatApps || (KatApps = {}));
 var KatApps;
 (function (KatApps) {
+    class DirectiveKaSvgChart {
+        name = "ka-svgchart";
+        application;
+        getDefinition(application) {
+            return ctx => {
+                this.application = application;
+                const el = ctx.el;
+                ctx.effect(() => {
+                    const scope = ctx.get();
+                    const data = application.state.rbl.source(`HighCharts-${scope.data}-Data`, scope.ce, scope.tab);
+                    const optionRows = application.state.rbl.source(`HighCharts-${scope.options ?? scope.data}-Options`, scope.ce, scope.tab);
+                    const overrideRows = application.state.rbl.source("HighCharts-Overrides", scope.ce, scope.tab, r => String.compare(r.id, scope.data, true) == 0);
+                    const dataRows = data.filter(r => !r.category.startsWith("config-"));
+                    const seriesConfigurationRows = data.filter(r => r.category.startsWith("config-"));
+                    if (dataRows.length > 0) {
+                    }
+                    el.replaceChildren();
+                    const container = document.createElement("div");
+                    container.innerHTML = `<b>SVG chart with ${dataRows.length} rows of data.</b>`;
+                    el.appendChild(container);
+                });
+            };
+        }
+    }
+    KatApps.DirectiveKaSvgChart = DirectiveKaSvgChart;
+})(KatApps || (KatApps = {}));
+var KatApps;
+(function (KatApps) {
     class DirectiveKaTable {
         name = "ka-table";
         getDefinition(application) {
@@ -4230,14 +4256,16 @@ var KatApps;
             container.querySelectorAll("[v-ka-inline]").forEach(directive => {
                 directive.setAttribute("v-ka-inline", directive.getAttribute("v-html"));
             });
-            container.querySelectorAll("[v-ka-highchart], [v-ka-table], [v-ka-api], [v-ka-navigate]").forEach(directive => {
-                if (directive.hasAttribute("v-ka-highchart")) {
-                    const scope = directive.getAttribute("v-ka-highchart");
+            container.querySelectorAll("[v-ka-highchart], [v-ka-svgchart], [v-ka-table], [v-ka-api], [v-ka-navigate]").forEach(directive => {
+                let isHighchart = false;
+                if ((isHighchart = directive.hasAttribute("v-ka-highchart")) || directive.hasAttribute("v-ka-svgchart")) {
+                    const attrName = isHighchart ? "v-ka-highchart" : "v-ka-svgchart";
+                    const scope = directive.getAttribute(attrName);
                     if (!scope.startsWith("{")) {
                         const chartParts = scope.split('.');
                         const data = chartParts[0];
                         const options = chartParts.length >= 2 ? chartParts[1] : chartParts[0];
-                        directive.setAttribute("v-ka-highchart", `{ data: '${data}', options: '${options}' }`);
+                        directive.setAttribute(attrName, `{ data: '${data}', options: '${options}' }`);
                     }
                 }
                 else if (directive.hasAttribute("v-ka-table")) {

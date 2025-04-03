@@ -28,7 +28,7 @@ public class Endpoint : Endpoint<Request, Response>
 	public override async Task HandleAsync( Request request, CancellationToken c )
 	{
 		var currentView = 
-			optionsProvider.GetKatAppByView( request.ApplicationId ) ??
+			optionsProvider.GetViewById( request.ApplicationId ) ??
 			throw new NotSupportedException( $"You are not authorized to use the {request.ApplicationId} application." );
 
 		var view = (string)currentView[ "view" ]!;
@@ -42,7 +42,7 @@ public class Endpoint : Endpoint<Request, Response>
 			throw new ArgumentNullException( $"The {view} View does not exist." );
 		}
 
-		var inputs = optionsProvider.GetKatAppManualInputs( currentView );
+		var inputs = optionsProvider.GetManualInputs( currentView );
 
 		await SendAsync(
 			new() { Path = localView, ManualInputs = inputs },

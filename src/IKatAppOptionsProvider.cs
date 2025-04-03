@@ -4,21 +4,26 @@ namespace KAT.Camelot.RCL.KatApp;
 
 public interface IKatAppOptionsProvider
 {
+	bool UseCamelotOnReady { get; }
 	string KatDataStoreEndpoint { get; }
 
 	string SiteName { get; }
-	string? ProfileGroup { get; }
+	string? DataGroup { get; }
 	string? AuthId { get; }
 
 	bool UseTestCalcEngine { get; }
-	bool TraceKatApp { get; }
+	bool Trace { get; }
 	string? SaveDebugCalcEngineLocation { get; }
-	string? SaveKatAppDebugCalcEngineLocation( string? katAppKey );
+	string? SaveDebugCalcEngineLocationByKey( string key );
+
+	string? NavigateAction { get; }
+	string? EncryptAction { get; }
+	string? DecryptAction { get; }
 
 	JsonObject AppResourceStrings { get; }
-	Dictionary<string, string> GetKatAppManualInputs( JsonObject viewDefinition );
+	Dictionary<string, string> GetManualInputs( JsonObject viewDefinition );
 	JsonArray? GetManualResults( string key );
 
-	JsonObject? GetKatAppByView( string viewId );
-	JsonObject? GetKatAppByFile( string relativePath, string fileName );
+	JsonObject? GetViewById( string id );
+	JsonObject? GetViewByFile( string relativePath, string fileName );
 }

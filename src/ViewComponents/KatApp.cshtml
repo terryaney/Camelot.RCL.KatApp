@@ -7,7 +7,10 @@
 
 <script>
 	function ready(fn) {
-		if (document.readyState !== 'loading') {
+		if (@(Model.UseCamelotOnReady ? "true" : "false")) {
+			document.addEventListener('camelot.on.ready', fn);
+		}
+		else if (document.readyState !== 'loading') {
 			(async () => {
 				await fn();
 			})();
@@ -17,6 +20,8 @@
 	}
 	ready(async () => {
 		try {
+			// console.log("Creating KatApp: @Model.Name");
+			
 			await KatApp.createAppAsync(".@Model.Name",
 				{
 					"view": "@Model.View",
@@ -45,9 +50,9 @@
 					"requestIP": "@Model.RequestIP",
 					"currentCulture": "@Model.CurrentCulture",
 					"currentUICulture": "@Model.CurrentUICulture",
-					"katAppNavigate": NexgenNav,
-					"encryptCache": nexgenEncryptCacheAsync,
-					"decryptCache": nexgenDecryptCacheAsync
+					"katAppNavigate": typeof @Model.NavigateAction != "undefined" ? @Model.NavigateAction  : undefined,
+					"encryptCache": typeof @Model.EncryptAction != "undefined" ? @Model.EncryptAction : undefined,
+					"decryptCache": typeof @Model.DecryptAction != "undefined" ? @Model.DecryptAction : undefined
 				}
 			);
 		} catch (ex) {

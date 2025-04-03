@@ -30,7 +30,7 @@ public class KatApp : ViewComponent
 	// public async Task<IViewComponentResult> InvokeAsync( string name, string viewId, string? css = null )
     {
         var katAppId = name.ToLower().Replace( ".", "-" );
-        var view = optionsProvider.GetKatAppByView( viewId )!;
+        var view = optionsProvider.GetViewById( viewId )!;
         viewId = (string)view[ "id" ]!;
         
         // TODO: Put these into MyKeep schema and properties
@@ -44,7 +44,7 @@ public class KatApp : ViewComponent
 				.SelectMany( x => x.Value, ( col, value ) => $"{col.Key}={WebUtility.UrlDecode( value )}" )
 				.Aggregate( ( x, y ) => $"{x}&{y}" )
 			: "";
-		var inputs = optionsProvider.GetKatAppManualInputs( view );
+		var inputs = optionsProvider.GetManualInputs( view );
         var manualResultsEndpoint = optionsProvider.GetManualResults( katAppId ) != null 
 			? $"\"api/katapp/manual-results/{katAppId}\"" 
 			: "undefined";
@@ -53,7 +53,7 @@ public class KatApp : ViewComponent
             string.Join( "|",
                 new[] {
                     optionsProvider.SaveDebugCalcEngineLocation,
-                    optionsProvider.SaveKatAppDebugCalcEngineLocation( name ),
+                    optionsProvider.SaveDebugCalcEngineLocationByKey( name ),
                     (string?)globalSiteSettings.PageParameters[ "saveConfigureUI" ],
                     (string?)globalSiteSettings.PageParameters[ $"saveConfigureUI.{name}" ]
                 }.Where( l => !string.IsNullOrEmpty( l ) )
@@ -108,8 +108,9 @@ public class KatApp : ViewComponent
             "/ViewComponents/KatApp.cshtml",
              new Model
              {
+				UseCamelotOnReady = optionsProvider.UseCamelotOnReady,
                 BaseUrl = Url.Content( "~/" ),
-                DataGroup = optionsProvider.ProfileGroup!,                
+                DataGroup = optionsProvider.DataGroup!,
                 Name = katAppId,
                 View = latestViewName,
                 Css = $"{katAppId} {css}".Trim(),
@@ -128,9 +129,13 @@ public class KatApp : ViewComponent
                 CurrentCulture = Thread.CurrentThread.CurrentCulture.Name,
                 CurrentUICulture = Thread.CurrentThread.CurrentUICulture.Name,
 
+				NavigateAction = optionsProvider.NavigateAction,
+				EncryptAction = optionsProvider.EncryptAction,
+				DecryptAction = optionsProvider.DecryptAction,
+
                 NextCalculation = nextCalculation,
                 UseTestCalcEngine = optionsProvider.UseTestCalcEngine ? "true" : "false",
-                TraceVerbosity = optionsProvider.TraceKatApp ? "TraceVerbosity.Detailed" : "TraceVerbosity.None",
+                TraceVerbosity = optionsProvider.Trace ? "TraceVerbosity.Detailed" : "TraceVerbosity.None",
                 UseTestView = globalSiteSettings.PageParameters[ "testview" ] == "1" ? "true" : "false",
                 DebugResourcesDomain = !string.IsNullOrEmpty( globalSiteSettings.PageParameters[ "localserver" ] ) ? $"\"{globalSiteSettings.PageParameters[ "localserver" ]}\"" : "undefined",
                 ShowInspector = (string?)globalSiteSettings.PageParameters[ "showInspector" ] ?? ( !string.IsNullOrEmpty( globalSiteSettings.PageParameters[ "localserver" ] ) ? "1" : "0" )
@@ -140,7 +145,8 @@ public class KatApp : ViewComponent
 
 	public record Model
     {
-        public required string BaseUrl { get; init; }
+		public required bool UseCamelotOnReady { get; init; }
+		public required string BaseUrl { get; init; }
         public required string DataGroup { get; init; }
         public required string Name { get; init; }
         public required string View { get; init; }
@@ -167,5 +173,9 @@ public class KatApp : ViewComponent
         public required string UseTestView { get; init; }
         public required string DebugResourcesDomain { get; init; }
 		public required string ShowInspector { get; init; }
+
+		public required string? NavigateAction { get; init; }
+		public required string? EncryptAction { get; init; }
+		public required string? DecryptAction { get; init; }
     }    
 }

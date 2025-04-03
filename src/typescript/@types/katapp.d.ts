@@ -1,7 +1,6 @@
 declare class KatAppEventFluentApi<T extends HTMLElement> implements IKatAppEventFluentApi<T> {
-    private app;
     elements: Array<T>;
-    constructor(app: KatApp, elements: Array<T>);
+    constructor(elements: Array<T>);
     on(events: string, handler: (e: Event) => void): KatAppEventFluentApi<T>;
     off(events: string): KatAppEventFluentApi<T>;
 }
@@ -61,8 +60,8 @@ declare class KatApp implements IKatApp {
     getInputs(customInputs?: ICalculationInputs): ICalculationInputs;
     private getKatAppId;
     private getTargetItems;
-    on<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, handler: (e: Event) => void, context?: HTMLElement): KatAppEventFluentApi<T>;
-    off<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, context?: HTMLElement): KatAppEventFluentApi<T>;
+    on<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatAppEventFluentApi<T>;
+    off<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, context?: HTMLElement): IKatAppEventFluentApi<T>;
     private selectorSplitter;
     private inputSelectorRegex;
     private psuedoInputTypes;
@@ -227,6 +226,13 @@ declare namespace KatApps {
 declare namespace KatApps {
     class DirectiveKaResource implements IKaDirective {
         name: string;
+        getDefinition(application: KatApp): Directive<Element>;
+    }
+}
+declare namespace KatApps {
+    class DirectiveKaSvgChart implements IKaDirective {
+        name: string;
+        private application;
         getDefinition(application: KatApp): Directive<Element>;
     }
 }
