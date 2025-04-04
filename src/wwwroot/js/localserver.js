@@ -5,6 +5,8 @@ if (qsLocalServer) {
 	// console.log("Processing ?localserver= support...");
 	window.localServerProcessing = true;
 
+	var basePath = document.querySelector("base")?.getAttribute("href") ?? "/";
+
 	const getCacheBusterQueryString = () => {
 		var now = new Date();
 		return "c=" +
@@ -31,7 +33,8 @@ if (qsLocalServer) {
 		};
 		const getLocalResourceUrl = async (protocol, src) => {
 			if (protocol) {
-				const localServerScript = `${protocol}://${qsLocalServer}${src.split("?")[0]}`;
+				const localSrc = src.split("?")[0].substring(basePath.length - 1);
+				const localServerScript = `${protocol}://${qsLocalServer}${localSrc}`;
 				const response = await fetch(localServerScript, { method: "HEAD" });
 				if (response.ok) {
 					src = `${localServerScript}?${getCacheBusterQueryString()}`;
