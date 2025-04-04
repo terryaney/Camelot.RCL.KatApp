@@ -60,7 +60,7 @@ if (qsLocalServer) {
 		}
 		
 		scripts.forEach(async script => {
-			const src = await getLocalResourceUrl(localServerProtocol, script.getAttribute("localserver-src"));
+			const src = script.getAttribute("localserver-src");  // await getLocalResourceUrl(localServerProtocol, script.getAttribute("localserver-src"));
 
 			// console.log("Loading script: " + src);
 		
