@@ -135,14 +135,14 @@ public partial class Endpoint : BaseCachedResponseEndpoint<Request>
 								}
 								else
 								{
-									await outputWriter.WriteLineAsync( $"//# sourceURL={supportingFile.Name}" );
+									await outputWriter.WriteLineAsync( $"//# sourceURL={Path.GetFileNameWithoutExtension( supportingFile.Name )}.browser{Path.GetExtension( supportingFile.Name )}" );
 									await outputWriter.WriteLineAsync( "</script>" );
 								}
 							}
 							else if ( string.Compare( supportingFile.Extension, ".js", true ) == 0 )
 							{
 								await outputWriter.WriteLineAsync( "\t})();" );
-								await outputWriter.WriteLineAsync( $"//# sourceURL={kaml.Name}" );
+								await outputWriter.WriteLineAsync( $"//# sourceURL={Path.GetFileNameWithoutExtension( kaml.Name )}.browser{Path.GetExtension( kaml.Name )}" );
 								await outputWriter.WriteLineAsync( "</script>" );
 							}
 							else if ( string.Compare( supportingFile.Extension, ".css", true ) == 0 )
