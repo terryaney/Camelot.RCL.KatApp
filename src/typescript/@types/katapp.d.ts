@@ -189,6 +189,20 @@ declare namespace KatApps {
     }
 }
 declare namespace KatApps {
+    class DirectiveKaSvgChart implements IKaDirective {
+        name: string;
+        private application;
+        getDefinition(application: KatApp): Directive<Element>;
+        private generateColumnStacked;
+        private generateDonutChart;
+        private getSeriesShape;
+        private calculateYAxisInterval;
+        private getOptionValue;
+        private formatNumber;
+        private encodeHtmlAttributeValue;
+    }
+}
+declare namespace KatApps {
     class DirectiveKaHighchart implements IKaDirective {
         name: string;
         private cultureEnsured;
@@ -226,13 +240,6 @@ declare namespace KatApps {
 declare namespace KatApps {
     class DirectiveKaResource implements IKaDirective {
         name: string;
-        getDefinition(application: KatApp): Directive<Element>;
-    }
-}
-declare namespace KatApps {
-    class DirectiveKaSvgChart implements IKaDirective {
-        name: string;
-        private application;
         getDefinition(application: KatApp): Directive<Element>;
     }
 }
@@ -305,6 +312,12 @@ interface ITabDefRow extends IStringIndexer<string | undefined> {
 }
 interface ITabDefMetaRow extends IStringIndexer<string | undefined | IStringIndexer<string>> {
 }
+interface IRblChartDataRow {
+    id: string;
+    value: string;
+    [key: `data${number}`]: string | undefined;
+}
+type IRblChartColumnName = "value" | `data${number}`;
 interface IRblHighChartsOptionRow extends ITabDefRow {
     key: string;
     value: string;
@@ -782,6 +795,11 @@ interface IKaApiModel extends IApiOptions {
     thenAsync?: (response: IStringAnyIndexer | undefined, application: IKatApp) => Promise<void>;
     catchAsync?: (e: unknown | undefined, application: IKatApp) => Promise<void>;
     confirm?: IModalOptions;
+}
+interface IKaChartModel {
+    data: string;
+    ce?: string;
+    tab?: string;
 }
 interface IKaHighchartModel {
     data: string;

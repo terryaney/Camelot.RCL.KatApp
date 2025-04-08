@@ -165,7 +165,7 @@ class KatApp {
 	body.ka-inspector-app .ka-inspector-app { border: 2px dotted #785900; }
 	body.ka-inspector-modal .ka-inspector-modal { border: 2px dotted #785900; }
 	body.ka-inspector-navigate .ka-inspector-navigate { border: 2px dotted #785900; }
-	body.ka-inspector-highcharts .ka-inspector-highcharts { border: 2px dotted #087849; }
+	body.ka-inspector-chart .ka-inspector-chart { border: 2px dotted #087849; }
 	body.ka-inspector-attributes .ka-inspector-attributes { border: 2px dashed #34495E; }
 	body.ka-inspector-inline .ka-inspector-inline { border: 2px dashed #fcce00; }
 	body.ka-inspector-table .ka-inspector-table { border: 2px dotted #444; }
@@ -750,7 +750,7 @@ class KatApp {
                             { name: "unmount", description: "v-ka-unmount-clears-inputs", class: "unmount-clears-inputs" },
                             { name: "needs-calc", description: "v-ka-needs-calc" },
                             { name: "pre", description: "v-pre" },
-                            { name: "highcharts", description: "v-ka-highcharts" },
+                            { name: "chart", description: "v-ka-highchart, v-ka-chart" },
                             { name: "attributes", description: "v-ka-attributes" },
                             { name: "inline", description: "v-ka-inline" },
                             { name: "table", description: "v-ka-table" },
@@ -3158,6 +3158,262 @@ var KatApps;
 })(KatApps || (KatApps = {}));
 var KatApps;
 (function (KatApps) {
+    class DirectiveKaSvgChart {
+        name = "ka-chart";
+        application;
+        getDefinition(application) {
+            return ctx => {
+                this.application = application;
+                const el = ctx.el;
+                ctx.effect(() => {
+                    const scope = ctx.get();
+                    const data = application.state.rbl.source(scope.data, scope.ce, scope.tab);
+                    const dataRows = data.filter(r => r.id == "category");
+                    const configRows = data.filter(r => r.id != "category");
+                    const dataColumns = dataRows.length > 0 ? Object.keys(dataRows[0]).filter(c => c.startsWith("data")) : [];
+                    el.replaceChildren();
+                    const chartType = this.getOptionValue(configRows, "type");
+                    if (dataRows.length > 0 && chartType) {
+                        switch (chartType) {
+                            case "donut":
+                                this.generateDonutChart(scope.data, el, dataRows, dataColumns, configRows);
+                                break;
+                            case "columnStacked":
+                                this.generateColumnStacked(scope.data, el, dataRows, dataColumns, configRows);
+                                break;
+                            default:
+                                el.innerHTML = `<b>${scope.data} ${chartType} chart not supported</b>`;
+                                break;
+                        }
+                    }
+                });
+            };
+        }
+        generateColumnStacked(chartName, el, dataRows, dataColumns, configRows) {
+            const chartClass = `ka-chart-${chartName.toLowerCase()}`;
+            const colors = configRows.find(r => r.id == "color");
+            const text = configRows.find(r => r.id == "text");
+            const showLegend = String.compare(this.getOptionValue(configRows, "legend.show"), "true", true) === 0;
+            const seriesShapes = configRows.find(r => r.id == "series.shape");
+            const yAxisSeriesTip = String.compare(this.getOptionValue(configRows, "yAxis.tip.series"), "true", true) === 0;
+            const yAxisStackTip = String.compare(this.getOptionValue(configRows, "yAxis.tip.stack"), "true", true) === 0;
+            const yAxisTipIncludeShape = String.compare(this.getOptionValue(configRows, "yAxis.tip.includeShape") ?? "true", "true", true) === 0;
+            const config = {
+                width: 400,
+                height: 400,
+                padding: { top: 40, right: 40, bottom: 60, left: 100 },
+                colors: dataColumns.map(c => colors[c]),
+                series: dataColumns.map(c => ({ name: text[c], shape: seriesShapes?.[c] ?? "square" })),
+                legend: {
+                    show: showLegend
+                },
+                yAxis: {
+                    tip: {
+                        stack: yAxisStackTip || !yAxisSeriesTip,
+                        series: yAxisSeriesTip && !yAxisStackTip,
+                        includeShape: yAxisTipIncludeShape
+                    },
+                    tickCount: +(this.getOptionValue(configRows, "yAxis.tickCount") ?? "5")
+                },
+                data: dataRows.map(r => {
+                    return {
+                        name: r.value,
+                        data: dataColumns.map(c => +r[c])
+                    };
+                })
+            };
+            const chartWidth = config.width - config.padding.left - config.padding.right;
+            const chartHeight = config.height - config.padding.top - config.padding.bottom;
+            const yAxisBase = config.height - config.padding.bottom;
+            const xAxis = `<line x1="${config.padding.left}" y1="${yAxisBase}" x2="${config.width - config.padding.right}" y2="${yAxisBase}" stroke="black" stroke-width="1"></line>`;
+            const yAxis = `<line x1="${config.padding.left}" y1="${config.padding.top}" x2="${config.padding.left}" y2="${yAxisBase}" stroke="black" stroke-width="1"></line>`;
+            const yAxisLabelX = config.padding.left / 3;
+            const yAxisLabelY = config.height / 2;
+            const yAxisLabel = `<text x="${yAxisLabelX}" y="${yAxisLabelY}" text-anchor="middle" font-size="14" transform="rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})">Values ($)</text>`;
+            const maxStackValue = Math.max(...config.data.map(item => item.data.reduce((sum, val) => sum + val, 0)));
+            const yAxisMax = Math.ceil(maxStackValue * 1.1);
+            const yAxisInterval = this.calculateYAxisInterval(yAxisMax, config.yAxis.tickCount);
+            const yAxisTicks = Array.from({ length: Math.ceil(yAxisMax / yAxisInterval) + 1 }, (_, i) => i * yAxisInterval)
+                .map((value, i) => {
+                const y = config.padding.top + chartHeight - (value / yAxisMax) * chartHeight;
+                const tickLine = i == 0 ? "" : `<line x1="${config.padding.left}" y1="${y}" x2="${config.width - config.padding.right}" y2="${y}" stroke="#e6e6e6" stroke-width="1"></line>`;
+                const tickLabel = `<text x="${config.padding.left - 10}" y="${y}" text-anchor="end" font-size="14" dominant-baseline="middle">${this.formatNumber(value, "currency")}</text>`;
+                return `${tickLine}${tickLabel}`;
+            })
+                .join("");
+            const columnCount = config.data.length;
+            const columnWidth = chartWidth / columnCount * 0.6;
+            const columnSpacing = chartWidth / columnCount - columnWidth;
+            const getSeriesY = (value) => chartHeight - (value / yAxisMax) * chartHeight;
+            const columns = config.data.map((item, i) => {
+                const columnX = config.padding.left + (i * (columnWidth + columnSpacing)) + columnSpacing / 2;
+                const columnLabel = `<text x="${columnX + columnWidth / 2}" y="${config.height - config.padding.bottom + 20}" text-anchor="middle" font-size="0.9em" dominant-baseline="middle">${item.name}</text>`;
+                let stackBase = 0;
+                const paddingX = 10;
+                const paddingY = 20;
+                const seriesTextX = config.yAxis.tip.includeShape ? 15 : 0;
+                const columnStacks = item.data.map((value, j) => {
+                    const columnHeight = (value / yAxisMax) * chartHeight;
+                    const columnY = config.padding.top + getSeriesY(stackBase + value);
+                    const valueFormatted = this.formatNumber(value, "currency");
+                    const maxTextWidth = `${config.series[j].name}: ${valueFormatted}`.length * 7;
+                    const svgWidth = maxTextWidth + paddingX * 2;
+                    const seriesTipContent = `<svg viewBox="0 0 ${svgWidth} ${40 + paddingY}" width="${svgWidth}">
+							<text x="0" y="${paddingY}" font-size="12" font-weight="bold">${item.name}</text>
+							${this.getSeriesShape(config.yAxis.tip.includeShape, config, j, paddingY + 20)}<text x="${seriesTextX}" y="${paddingY + 20}" font-size="12">${config.series[j].name}: <tspan font-weight="bold">${valueFormatted}</tspan></text>
+						</svg>`;
+                    const seriesTip = config.yAxis.tip.series
+                        ? ` data-bs-toggle="tooltip" data-bs-placement="auto" data-bs-container=".${chartClass}" data-bs-class="ka-chart-tip" data-bs-width="auto" data-bs-content="${this.encodeHtmlAttributeValue(seriesTipContent)}"`
+                        : "";
+                    const rect = `<rect x="${columnX}" y="${columnY}" width="${columnWidth}" height="${columnHeight}" fill="${config.colors[j]}" stroke="#ffffff" stroke-width="1" aria-label="${item.name}, ${valueFormatted}. ${this.encodeHtmlAttributeValue(config.series[j].name)}."${seriesTip}></rect>`;
+                    stackBase += value;
+                    return rect;
+                }).join("");
+                let stackTipContent = "";
+                let stackTooltip = "";
+                if (config.yAxis.tip.stack) {
+                    const seriesTexts = item.data.filter(v => v > 0).map((value, j) => {
+                        return `${config.series[j].name}: ${this.formatNumber(value, "currency")}`;
+                    });
+                    const maxTextWidth = Math.max(...seriesTexts.map(text => text.length)) * 7;
+                    const svgWidth = maxTextWidth + paddingX * 2;
+                    stackTipContent =
+                        `<svg viewBox="0 0 ${svgWidth} ${(seriesTexts.length + 1) * 20 + paddingY}" width="${svgWidth}">
+							<text x="0" y="${paddingY}" font-size="14" font-weight="bold">${item.name}</text>
+							${seriesTexts.map((value, j) => {
+                            const y = paddingY + (j + 1) * 20;
+                            return `${this.getSeriesShape(config.yAxis.tip.includeShape, config, j, y)}<text x="${seriesTextX}" y="${y}" font-size="12">${value}</text>`;
+                        }).join("")}
+						</svg>`;
+                    stackTooltip = ` data-bs-toggle="tooltip" data-bs-placement="auto" data-bs-container=".${chartClass}" data-bs-class="ka-chart-tip" data-bs-width="auto" data-bs-content="${this.encodeHtmlAttributeValue(stackTipContent)}"`;
+                }
+                return `<g${stackTooltip}>
+					${columnLabel}
+					${columnStacks}
+				</g>`;
+            }).join("");
+            el.classList.add(chartClass);
+            el.innerHTML =
+                `<svg viewBox="0 0 ${config.width} ${config.height}" preserveAspectRatio="xMidYMid meet">
+					${yAxisTicks}
+					${columns}
+					${xAxis}
+				</svg>`;
+            el.querySelectorAll("rect").forEach((rect, index) => {
+                rect.addEventListener("mouseover", () => rect.setAttribute("opacity", "0.7"));
+                rect.addEventListener("mouseout", () => rect.setAttribute("opacity", "1"));
+            });
+        }
+        generateDonutChart(chartName, el, dataRows, dataColumns, configRows) {
+            const chartClass = `ka-chart-${chartName.toLowerCase()}`;
+            const colors = configRows.find(r => r.id == "color");
+            const text = configRows.find(r => r.id == "text");
+            const seriesShapes = configRows.find(r => r.id == "series.shape");
+            const tipIncludeShape = String.compare(this.getOptionValue(configRows, "tip.includeShape") ?? "true", "true", true) === 0;
+            const config = {
+                colors: dataColumns.map(c => colors[c]),
+                series: dataColumns.map(c => ({ name: text[c], shape: seriesShapes?.[c] ?? "square" })),
+                tip: {
+                    show: true,
+                    includeShape: tipIncludeShape
+                },
+                data: dataColumns.map(c => +dataRows[0][c])
+            };
+            const total = config.data.reduce((sum, value) => sum + value, 0);
+            const radius = 80;
+            const strokeWidth = 35;
+            const normalizedRadius = radius - strokeWidth / 2;
+            let currentAngle = 0;
+            const segments = config.data.map((value, index) => {
+                const angle = (value / total) * 360;
+                const startAngle = currentAngle;
+                currentAngle += angle;
+                const x1 = normalizedRadius * Math.cos((startAngle - 90) * Math.PI / 180) + radius;
+                const y1 = normalizedRadius * Math.sin((startAngle - 90) * Math.PI / 180) + radius;
+                const x2 = normalizedRadius * Math.cos((currentAngle - 90) * Math.PI / 180) + radius;
+                const y2 = normalizedRadius * Math.sin((currentAngle - 90) * Math.PI / 180) + radius;
+                const largeArcFlag = angle > 180 ? 1 : 0;
+                const path = `M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+                const valueFormatted = this.formatNumber(value, "currency");
+                const paddingX = 10;
+                const paddingY = 10;
+                const seriesTextX = config.tip.includeShape ? 15 : 0;
+                const maxTextWidth = `${config.series[index].name}: ${valueFormatted}`.length * 7;
+                const svgWidth = maxTextWidth + paddingX * 2;
+                const tooltipContent = `<svg viewBox="0 0 ${svgWidth} ${paddingY + 4}" width="${svgWidth}">
+						${this.getSeriesShape(config.tip.includeShape, config, index, paddingY + 2)}<text x="${seriesTextX}" y="${paddingY + 2}" font-size="12">${config.series[index].name}: <tspan font-weight="bold">${valueFormatted}</tspan></text>
+					</svg>`;
+                const pathTip = config.tip.show
+                    ? ` data-bs-toggle="tooltip" data-bs-placement="auto" data-bs-container=".${chartClass}" data-bs-class="ka-chart-tip" data-bs-width="auto" data-bs-content="${this.encodeHtmlAttributeValue(tooltipContent)}"`
+                    : "";
+                return `<path key="${index}" d="${path}" fill="${config.colors[index]}" aria-label="${config.series[index].name}, ${valueFormatted}."${pathTip}></path>`;
+            });
+            el.classList.add(chartClass);
+            el.innerHTML =
+                `<svg viewBox="0 0 ${radius * 2} ${radius * 2}" preserveAspectRatio="xMidYMid meet">
+					${segments.join("")}
+					<circle cx="${radius}" cy="${radius}" r="${radius - strokeWidth}" fill="white"></circle>
+					<text
+						x="${radius}"
+						y="${radius}"
+						text-anchor="middle"
+						dominant-baseline="middle"
+						font-family="Arial"
+						font-size="14"
+						font-weight="bold"
+					>${this.formatNumber(total, "currency")}</text>
+				</svg>`;
+            el.querySelectorAll("path").forEach((path, index) => {
+                path.addEventListener("mouseover", () => path.setAttribute("opacity", "0.7"));
+                path.addEventListener("mouseout", () => path.setAttribute("opacity", "1"));
+            });
+        }
+        getSeriesShape(includeShape, config, index, y) {
+            if (!includeShape)
+                return "";
+            switch (config.series[index].shape) {
+                case "circle":
+                    return `<circle cx="10" cy="${y - 5}" r="5" fill="${config.colors[index]}"></circle>`;
+                case "square":
+                default:
+                    return `<rect x="0" y="${y - 10}" width="10" height="10" fill="${config.colors[index]}"></rect>`;
+            }
+        }
+        calculateYAxisInterval(maxValue, tickCount) {
+            const rawInterval = maxValue / tickCount;
+            const magnitude = Math.pow(10, Math.floor(Math.log10(rawInterval)));
+            const residual = rawInterval / magnitude;
+            const residualBreaks = [1, 2, 2.5, 3, 4, 5, 7.5, 10, 15, 20];
+            const residualIndex = residualBreaks.findIndex((breakValue) => residual <= breakValue);
+            const residualValue = residualIndex === -1 ? residualBreaks[residualBreaks.length - 1] : residualBreaks[residualIndex];
+            return residualValue * magnitude;
+        }
+        getOptionValue(configRows, configurationName, configColumn = "value") {
+            return configRows.find(r => String.compare(r.id, configurationName, true) === 0)?.[configColumn];
+        }
+        formatNumber(amount, style) {
+            const locales = window.camelot?.internationalization?.locales ?? "en-US";
+            const currencyCode = window.camelot?.internationalization?.currencyCode ?? "USD";
+            return Intl.NumberFormat(locales, {
+                style: style,
+                currency: currencyCode,
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(amount);
+        }
+        encodeHtmlAttributeValue(value) {
+            return value
+                .replace(/&/g, "&amp;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+        }
+    }
+    KatApps.DirectiveKaSvgChart = DirectiveKaSvgChart;
+})(KatApps || (KatApps = {}));
+var KatApps;
+(function (KatApps) {
     class DirectiveKaHighchart {
         name = "ka-highchart";
         cultureEnsured = false;
@@ -3630,34 +3886,6 @@ var KatApps;
 })(KatApps || (KatApps = {}));
 var KatApps;
 (function (KatApps) {
-    class DirectiveKaSvgChart {
-        name = "ka-svgchart";
-        application;
-        getDefinition(application) {
-            return ctx => {
-                this.application = application;
-                const el = ctx.el;
-                ctx.effect(() => {
-                    const scope = ctx.get();
-                    const data = application.state.rbl.source(`HighCharts-${scope.data}-Data`, scope.ce, scope.tab);
-                    const optionRows = application.state.rbl.source(`HighCharts-${scope.options ?? scope.data}-Options`, scope.ce, scope.tab);
-                    const overrideRows = application.state.rbl.source("HighCharts-Overrides", scope.ce, scope.tab, r => String.compare(r.id, scope.data, true) == 0);
-                    const dataRows = data.filter(r => !r.category.startsWith("config-"));
-                    const seriesConfigurationRows = data.filter(r => r.category.startsWith("config-"));
-                    if (dataRows.length > 0) {
-                    }
-                    el.replaceChildren();
-                    const container = document.createElement("div");
-                    container.innerHTML = `<b>SVG chart with ${dataRows.length} rows of data.</b>`;
-                    el.appendChild(container);
-                });
-            };
-        }
-    }
-    KatApps.DirectiveKaSvgChart = DirectiveKaSvgChart;
-})(KatApps || (KatApps = {}));
-var KatApps;
-(function (KatApps) {
     class DirectiveKaTable {
         name = "ka-table";
         getDefinition(application) {
@@ -3884,6 +4112,7 @@ var KatApps;
                 new KatApps.DirectiveKaAttributes(),
                 new KatApps.DirectiveKaInline(),
                 new KatApps.DirectiveKaResource(),
+                new KatApps.DirectiveKaSvgChart(),
                 new KatApps.DirectiveKaHighchart(),
                 new KatApps.DirectiveKaTable(),
                 new KatApps.DirectiveKaValue(),
@@ -4082,13 +4311,15 @@ var KatApps;
                         if (dataClass != undefined) {
                             tooltip.classList.add(dataClass);
                         }
-                        const dataWidth = `${trigger.getAttribute('data-bs-width') ?? "350"}px`;
-                        tooltip.style.width = dataWidth;
-                        tooltip.style.maxWidth = dataWidth;
-                        const inner = tooltip.querySelector('.tooltip-inner');
-                        if (inner != undefined) {
-                            inner.style.width = dataWidth;
-                            inner.style.maxWidth = dataWidth;
+                        if (trigger.getAttribute('data-bs-width') != "auto") {
+                            const dataWidth = `${trigger.getAttribute('data-bs-width') ?? "350"}px`;
+                            tooltip.style.width = dataWidth;
+                            tooltip.style.maxWidth = dataWidth;
+                            const inner = tooltip.querySelector('.tooltip-inner');
+                            if (inner != undefined) {
+                                inner.style.width = dataWidth;
+                                inner.style.maxWidth = dataWidth;
+                            }
                         }
                         return tip.getAttribute('data-bs-placement') ?? "auto";
                     },
@@ -4256,10 +4487,10 @@ var KatApps;
             container.querySelectorAll("[v-ka-inline]").forEach(directive => {
                 directive.setAttribute("v-ka-inline", directive.getAttribute("v-html"));
             });
-            container.querySelectorAll("[v-ka-highchart], [v-ka-svgchart], [v-ka-table], [v-ka-api], [v-ka-navigate]").forEach(directive => {
+            container.querySelectorAll("[v-ka-highchart], [v-ka-chart], [v-ka-table], [v-ka-api], [v-ka-navigate]").forEach(directive => {
                 let isHighchart = false;
-                if ((isHighchart = directive.hasAttribute("v-ka-highchart")) || directive.hasAttribute("v-ka-svgchart")) {
-                    const attrName = isHighchart ? "v-ka-highchart" : "v-ka-svgchart";
+                if ((isHighchart = directive.hasAttribute("v-ka-highchart")) || directive.hasAttribute("v-ka-chart")) {
+                    const attrName = isHighchart ? "v-ka-highchart" : "v-ka-chart";
                     const scope = directive.getAttribute(attrName);
                     if (!scope.startsWith("{")) {
                         const chartParts = scope.split('.');
@@ -4412,6 +4643,9 @@ ${conditions.map(c => `\t${c}`).join("\r\n")}
                             if (!(name == ":key" && el.hasAttribute("v-for"))) {
                                 addClass("ka-inspector-bind", name, value);
                             }
+                        }
+                        else if (["ka-highchart", "ka-chart"].some(i => name.indexOf(i) > -1)) {
+                            addClass("ka-inspector-chart", name, value);
                         }
                         else if (name.startsWith("v-ka-")) {
                             addClass(`ka-inspector-${name.substring(5)}`, name, value);

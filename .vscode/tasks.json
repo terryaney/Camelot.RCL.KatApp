@@ -108,7 +108,8 @@
 				}
 			},
 			"presentation": {
-				"reveal": "silent",
+				"clear": true,
+				"reveal": "always",
 				"echo": false,
 				"focus": false,
 				"panel": "shared",

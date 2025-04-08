@@ -488,6 +488,11 @@ interface IKaApiModel extends IApiOptions {
 	catchAsync?: (e: unknown | undefined, application: IKatApp) => Promise<void>;
 	confirm?: IModalOptions;
 }
+interface IKaChartModel {
+	data: string;
+	ce?: string;
+	tab?: string;
+}
 interface IKaHighchartModel {
 	data: string;
 	options?: string;

@@ -207,10 +207,10 @@
 			// Fix v-ka-table 'short hand' of name string into a valid {} scope
 			// Fix v-ka-api 'short hand' of api into a valid {} scope
 			// Fix v-ka-navigate 'short hand' of view string into a valid {} scope
-			container.querySelectorAll("[v-ka-highchart], [v-ka-svgchart], [v-ka-table], [v-ka-api], [v-ka-navigate]").forEach(directive => {
+			container.querySelectorAll("[v-ka-highchart], [v-ka-chart], [v-ka-table], [v-ka-api], [v-ka-navigate]").forEach(directive => {
 				let isHighchart = false;
-				if ((isHighchart = directive.hasAttribute("v-ka-highchart")) || directive.hasAttribute("v-ka-svgchart")) {
-					const attrName = isHighchart ? "v-ka-highchart" : "v-ka-svgchart";
+				if ((isHighchart = directive.hasAttribute("v-ka-highchart")) || directive.hasAttribute("v-ka-chart")) {
+					const attrName = isHighchart ? "v-ka-highchart" : "v-ka-chart";
 					const scope = directive.getAttribute(attrName)!;
 
 					if (!scope.startsWith("{")) {
@@ -429,6 +429,9 @@ ${conditions.map(c => `\t${c}`).join("\r\n")}
 							if (!(name == ":key" && el.hasAttribute("v-for"))) {
 								addClass("ka-inspector-bind", name, value);
 							}
+						}
+						else if (["ka-highchart", "ka-chart"].some(i => name.indexOf(i) > -1)) {
+							addClass("ka-inspector-chart", name, value);
 						}
 						else if (name.startsWith("v-ka-")) {
 							addClass(`ka-inspector-${name.substring(5)}`, name, value);

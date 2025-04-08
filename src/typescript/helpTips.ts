@@ -219,17 +219,19 @@
 						}
 
 						// Did they specify a data-width?
-						const dataWidth = `${trigger.getAttribute('data-bs-width') ?? "350"}px`;
+						if (trigger.getAttribute('data-bs-width') != "auto") {
+							const dataWidth = `${trigger.getAttribute('data-bs-width') ?? "350"}px`;
 
-						// context is for popups, tooltip-inner is for tooltips 
-						// (bootstrap css has max-width in css)
-						tooltip.style.width = dataWidth;
-						tooltip.style.maxWidth = dataWidth;
+							// context is for popups, tooltip-inner is for tooltips 
+							// (bootstrap css has max-width in css)
+							tooltip.style.width = dataWidth;
+							tooltip.style.maxWidth = dataWidth;
 
-						const inner = tooltip.querySelector('.tooltip-inner') as HTMLElement;
-						if (inner != undefined) {
-							inner.style.width = dataWidth;
-							inner.style.maxWidth = dataWidth;
+							const inner = tooltip.querySelector('.tooltip-inner') as HTMLElement;
+							if (inner != undefined) {
+								inner.style.width = dataWidth;
+								inner.style.maxWidth = dataWidth;
+							}
 						}
 
 						return tip.getAttribute('data-bs-placement') as BootstrapPlacement ?? "auto";

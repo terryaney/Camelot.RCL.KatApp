@@ -28,6 +28,14 @@ interface ITabDefRow extends IStringIndexer<string | undefined> {
 }
 interface ITabDefMetaRow extends IStringIndexer<string | undefined | IStringIndexer<string>> { }
 
+interface IRblChartDataRow {
+    id: string;
+    value: string;
+    [key: `data${number}`]: string | undefined; // Allows properties like data1, data2, etc.
+}
+
+type IRblChartColumnName = "value" | `data${number}`;
+
 interface IRblHighChartsOptionRow extends ITabDefRow {
 	key: string;
 	value: string;

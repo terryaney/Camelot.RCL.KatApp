@@ -233,7 +233,7 @@ class KatApp implements IKatApp {
 	body.ka-inspector-app .ka-inspector-app { border: 2px dotted #785900; }
 	body.ka-inspector-modal .ka-inspector-modal { border: 2px dotted #785900; }
 	body.ka-inspector-navigate .ka-inspector-navigate { border: 2px dotted #785900; }
-	body.ka-inspector-highcharts .ka-inspector-highcharts { border: 2px dotted #087849; }
+	body.ka-inspector-chart .ka-inspector-chart { border: 2px dotted #087849; }
 	body.ka-inspector-attributes .ka-inspector-attributes { border: 2px dashed #34495E; }
 	body.ka-inspector-inline .ka-inspector-inline { border: 2px dashed #fcce00; }
 	body.ka-inspector-table .ka-inspector-table { border: 2px dotted #444; }
@@ -1012,7 +1012,7 @@ class KatApp implements IKatApp {
 							{ name: "needs-calc", description: "v-ka-needs-calc" },
 
 							{ name: "pre", description: "v-pre" },
-							{ name: "highcharts", description: "v-ka-highcharts" },
+							{ name: "chart", description: "v-ka-highchart, v-ka-chart" },
 							{ name: "attributes", description: "v-ka-attributes" },
 							{ name: "inline", description: "v-ka-inline" },
 							{ name: "table", description: "v-ka-table" },
