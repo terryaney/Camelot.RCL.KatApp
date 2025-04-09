@@ -14,7 +14,7 @@ namespace KatApps {
 				new DirectiveKaResource(),
 				// new DirectiveKaTrigger(),
 
-				new DirectiveKaSvgChart(),
+				new DirectiveKaChart(),
 				new DirectiveKaHighchart(),
 				new DirectiveKaTable(),
 

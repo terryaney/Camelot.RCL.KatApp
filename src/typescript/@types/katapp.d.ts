@@ -189,11 +189,11 @@ declare namespace KatApps {
     }
 }
 declare namespace KatApps {
-    class DirectiveKaSvgChart implements IKaDirective {
+    class DirectiveKaChart implements IKaDirective {
         name: string;
         private application;
         getDefinition(application: KatApp): Directive<Element>;
-        private generateColumnStacked;
+        private generateColumnChart;
         private generateDonutChart;
         private getSeriesShape;
         private calculateYAxisInterval;
