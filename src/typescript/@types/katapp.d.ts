@@ -191,10 +191,17 @@ declare namespace KatApps {
 declare namespace KatApps {
     class DirectiveKaChart implements IKaDirective {
         name: string;
+        private ns;
         private application;
+        private chartConfiguration;
         getDefinition(application: KatApp): Directive<Element>;
+        buildChartConfiguration(chartType: IRblChartConfigurationType, configRows: IRblChartDataRow[], dataRows: IRblChartDataRow[]): void;
         private generateColumnChart;
         private generateDonutChart;
+        private createText;
+        private createLine;
+        private createRect;
+        private createTooltip;
         private getSeriesShape;
         private calculateYAxisInterval;
         private getOptionValue;
@@ -312,6 +319,53 @@ interface ITabDefRow extends IStringIndexer<string | undefined> {
 }
 interface ITabDefMetaRow extends IStringIndexer<string | undefined | IStringIndexer<string>> {
 }
+type IRblChartConfigurationDataType = number | Array<{
+    name: string;
+    value: number;
+}>;
+interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
+    chart: IRblChartConfigurationChart;
+    data: Array<{
+        name: string;
+        data: T;
+    }>;
+    columns: Array<IRblChartColumnName>;
+    categories: Array<IRblChartConfigurationCategory>;
+    legend: {
+        show: boolean;
+    };
+    tip: {
+        show: IRblChartConfigurationTipShowOption;
+        includeShape: boolean;
+        padding: {
+            top: number;
+            left: number;
+        };
+    };
+    yAxis: {
+        label: string | undefined;
+        tickCount: number;
+    };
+}
+interface IRblChartConfigurationChart {
+    type: IRblChartConfigurationType;
+    height: number;
+    width: number;
+    padding: {
+        top: number;
+        right: number;
+        bottom: number;
+        left: number;
+    };
+}
+interface IRblChartConfigurationCategory {
+    text: string;
+    color: string;
+    shape: IRblChartConfigurationShape;
+}
+type IRblChartConfigurationTipShowOption = "off" | "category" | "series";
+type IRblChartConfigurationType = "column" | "columnStacked" | "donut";
+type IRblChartConfigurationShape = "square" | "circle" | "line";
 interface IRblChartDataRow {
     id: string;
     value: string;

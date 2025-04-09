@@ -28,6 +28,50 @@ interface ITabDefRow extends IStringIndexer<string | undefined> {
 }
 interface ITabDefMetaRow extends IStringIndexer<string | undefined | IStringIndexer<string>> { }
 
+type IRblChartConfigurationDataType = number | Array<{ name: string, value: number }>;
+interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
+	chart: IRblChartConfigurationChart;
+	
+	data: Array<{ name: string, data: T}>;
+
+	columns: Array<IRblChartColumnName>;
+	
+	categories: Array<IRblChartConfigurationCategory>;
+	
+	legend: {
+		show: boolean; // Default: false
+	}
+
+	tip: {
+		show: IRblChartConfigurationTipShowOption; // Default: true, Show tips on each xAxis entry or data point (when no xAxis).
+		includeShape: boolean; // Default: true, Include shape in the tip.
+		padding: { top: number; left: number; }
+	}
+
+	yAxis: {
+		label: string | undefined; // If present, render label
+		tickCount: number; // Default: 5, Number of major axis ticks to show on yAxis.
+	}
+}
+
+interface IRblChartConfigurationChart {
+	type: IRblChartConfigurationType;
+	height: number;
+	width: number;
+	padding: { top: number; right: number; bottom: number; left: number; }
+}
+
+interface IRblChartConfigurationCategory { // Settings for each category (xAxis entry) or data point (when no xAxis).
+	text: string;
+	color: string;
+	shape: IRblChartConfigurationShape; // Default: "square"
+}
+
+type IRblChartConfigurationTipShowOption = "off" | "category" | "series";
+
+type IRblChartConfigurationType = "column" | "columnStacked" | "donut";
+type IRblChartConfigurationShape = "square" | "circle" | "line";
+
 interface IRblChartDataRow {
     id: string;
     value: string;

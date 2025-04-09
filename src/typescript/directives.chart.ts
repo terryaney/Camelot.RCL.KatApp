@@ -2,7 +2,9 @@
 	export class DirectiveKaChart implements IKaDirective {
 		public name = "ka-chart";
 
+		private ns = "http://www.w3.org/2000/svg"
 		private application: KatApp | undefined;
+		private chartConfiguration!: IRblChartConfiguration<IRblChartConfigurationDataType>;
 
 		public getDefinition(application: KatApp): Directive<Element> {
 			return ctx => {
@@ -16,39 +18,25 @@
 
 					const dataRows = data.filter(r => r.id == "category");
 					const configRows = data.filter(r => r.id != "category");
-					const dataColumns = dataRows.length > 0 ? (Object.keys(dataRows[0]) as Array<IRblChartColumnName>).filter(c => c.startsWith("data")) : [];
 
 					// empty the element
 					el.replaceChildren();
 
-					const chartType = this.getOptionValue(configRows, "type");
+					const chartType = this.getOptionValue(configRows, "type") as IRblChartConfigurationType;
 
 					if (dataRows.length > 0 && chartType) {
-						const text = configRows.find(r => r.id == "text")!;
 
-						// Ideas for 'config' settings when needed: https://api.highcharts.com/highcharts
+						this.buildChartConfiguration(chartType, configRows, dataRows);
+			
 						switch (chartType) {
 							case "donut":
-								this.generateDonutChart(scope.data, el, dataRows, dataColumns, configRows);
+								this.generateDonutChart(scope.data, el);
 								break;
 							
-							case "column": {
-								const data = dataColumns.map(c => ({ name: text[c]! + " " + text[c]!, data: +dataRows[0][c]! }));
-								this.generateColumnChart(scope.data, el, data, dataColumns, configRows);
+							case "column":
+							case "columnStacked":
+								this.generateColumnChart(scope.data, el);
 								break;
-							}
-								
-							case "columnStacked": {
-								const data = dataRows.map(r => {
-									return {
-										name: r.value!,
-										data: dataColumns.map(c => ({name: text[c]!, value: +r[c]!}))
-									};
-								});
-								
-								this.generateColumnChart(scope.data, el, data, dataColumns, configRows);
-								break;
-							}
 								
 							default:
 								el.innerHTML = `<b>${scope.data} ${chartType} chart not supported</b>`;
@@ -58,56 +46,95 @@
 				});
 			};
 		}
-
-		private generateColumnChart(chartName: string, el: HTMLElement, data: Array<{name: string, data: number | Array<{name: string, value: number}>}>, dataColumns: IRblChartColumnName[], configRows: IRblChartDataRow[]) {
-			if ( data.length == 0) return;
+		
+		buildChartConfiguration(chartType: IRblChartConfigurationType, configRows: IRblChartDataRow[], dataRows: IRblChartDataRow[]) {
 			
-			const chartClass = `ka-chart-${chartName.toLowerCase()}`;
+			// Ideas for 'config' settings when needed: https://api.highcharts.com/highcharts
 
+			const dataColumns = (Object.keys(dataRows[0]) as Array<IRblChartColumnName>).filter(c => c.startsWith("data"));
+
+			const text = configRows.find(r => r.id == "text")!;
 			const colors = configRows.find(r => r.id == "color")!;
-			const showLegend = String.compare(this.getOptionValue(configRows, "legend.show"), "true", true) === 0;
-			const seriesShapes = configRows.find(r => r.id == "series.shape")!;
-			const plotTipShow = String.compare(this.getOptionValue(configRows, "yAxis.tip.series"), "true", true) === 0;
-			const tipShowValue = this.getOptionValue(configRows, "tip.show")
-			const tipShow = String.compare(tipShowValue, "true", true) === 0 || (!tipShowValue && !plotTipShow);
-			const tipIncludeShape = String.compare(this.getOptionValue(configRows, "tip.includeShape") ?? "true", "true", true) === 0;
-			const plotTipIncludeShape = String.compare(this.getOptionValue(configRows, "plot.tip.includeShape") ?? "true", "true", true) === 0;
-			const yAxisLabelConfig = this.getOptionValue(configRows, "yAxis.label");
-			const yAxisLabelPadding = yAxisLabelConfig ? 40 : 0; // Add extra padding if yAxisLabel is set
-			
-			const config = {
-				width: 400, // Param?
-				height: 400, // Param?
-				padding: { top: 40, right: 40, bottom: 60, left: 100 + yAxisLabelPadding }, // Param?
+			const shapes = configRows.find(r => r.id == "shape")!;
 
-				colors: dataColumns.map(c => colors[c]!),
-				shapes: dataColumns.map(c => seriesShapes?.[c] ?? "square"),
+			const showLegend = String.compare(this.getOptionValue(configRows, "legend.show"), "true", true) === 0;
+
+			const tipShow: IRblChartConfigurationTipShowOption = this.getOptionValue(configRows, "tip.show") as IRblChartConfigurationTipShowOption ?? "category";
+			const tipIncludeShape = String.compare(this.getOptionValue(configRows, "tip.includeShape") ?? "true", "true", true) === 0;
+
+			const yAxisLabelConfig = this.getOptionValue(configRows, "yAxis.label");
+			const yAxisTickCount = +(this.getOptionValue(configRows, "yAxis.tickCount") ?? "5");
+
+			const config: IRblChartConfiguration<IRblChartConfigurationDataType> = {
+				columns: dataColumns,
+				data: [],
+
+				chart: { type: chartType } as unknown as IRblChartConfigurationChart,
+
+				categories: dataColumns.map<IRblChartConfigurationCategory>(c => ({
+					text: text[c]!,
+					color: colors[c]!,
+					shape: (shapes?.[c] ?? "square") as IRblChartConfigurationShape
+				})),
+
 				legend: {
 					show: showLegend
 				},
+
 				tip: {
 					show: tipShow,
-					includeShape: tipIncludeShape
+					includeShape: tipIncludeShape,
+					padding: { top: 5, left: 5 } // Param?
 				},
-				plot: {
-					tip: {
-						show: plotTipShow,
-						includeShape: plotTipIncludeShape
-					}
-				},
+				
 				yAxis: {
 					label: yAxisLabelConfig,
-					tickCount: +(this.getOptionValue(configRows, "yAxis.tickCount") ?? "5")
+					tickCount: yAxisTickCount
 				}
 			};
 
-			const chartWidth = config.width - config.padding.left - config.padding.right;
-			const columnCount = data.length;
+			switch (chartType) {
+				case "column":
+				case "columnStacked":
+					const yAxisLabelPadding = yAxisLabelConfig ? 40 : 0; // Add extra padding if yAxisLabel is set
+					config.chart.width = 400; // Param?
+					config.chart.height = 400 // Param?
+					config.chart.padding = { top: 40, right: 40, bottom: 60, left: 100 + yAxisLabelPadding }; // Param?
+
+					config.data = chartType == "column"
+						? dataColumns.map(c => ({ name: text[c]!, data: +dataRows[0][c]! }))
+						: dataRows.map(r => {
+							return {
+								name: r.value!,
+								data: dataColumns.map(c => ({name: text[c]!, value: +r[c]!}))
+							};
+						});
+
+					break;
+				
+				case "donut":
+					config.chart.padding = { top: 10, right: 10, bottom: 10, left: 10 }; // Param?
+					config.data = dataColumns.map(c => ({ name: text[c]!, data: +dataRows[0][c]! }))
+					break;
+			}
+
+			console.log(config);
+
+			this.chartConfiguration = config
+		}
+
+		private generateColumnChart(chartName: string, el: HTMLElement) {
+			const config = this.chartConfiguration as IRblChartConfiguration<IRblChartConfigurationDataType>;
+			const chartClass = `ka-chart-${chartName.toLowerCase()}`;
+			el.classList.add(chartClass);
+			
+			const chartWidth = config.chart.width - config.chart.padding.left - config.chart.padding.right;
+			const columnCount = config.data.length;
 			const columnWidth = chartWidth / columnCount * 0.6;
 			const columnSpacing = chartWidth / columnCount - columnWidth;
 
 			const maxLabelLines = Math.max(
-				...data.map(item => {
+				...config.data.map(item => {
 					const words = item.name.split(" ");
 					const lines = [];
 					let currentLine = "";
@@ -127,184 +154,145 @@
 					return Math.min(lines.length, 5) - 1; // Limit to 5 lines max, then deduct one b/c original padding handles single line
 				})
 			);
-			config.padding.bottom += maxLabelLines * 15; // Add 15px per line
+			config.chart.padding.bottom += maxLabelLines * 15; // Add 15px per line
 
-			const chartHeight = config.height - config.padding.top - config.padding.bottom;
+			const chartHeight = config.chart.height - config.chart.padding.top - config.chart.padding.bottom;
 
-			const yAxisBase = config.height - config.padding.bottom;
-			const xAxisLine = `<line x1="${config.padding.left}" y1="${yAxisBase}" x2="${config.width - config.padding.right}" y2="${yAxisBase}" stroke="black" stroke-width="1"></line>`;
-			const yAxisLine = `<line x1="${config.padding.left}" y1="${config.padding.top}" x2="${config.padding.left}" y2="${yAxisBase}" stroke="black" stroke-width="1"></line>`;
+			const yAxisBase = config.chart.height - config.chart.padding.bottom;
 
-			const yAxisLabelX = config.padding.left / 3;
-			const yAxisLabelY = config.height / 2;
+			const xAxisLine = this.createLine(config.chart.padding.left, yAxisBase, config.chart.width - config.chart.padding.right, yAxisBase);
+			const yAxisLine = this.createLine(config.chart.padding.left, config.chart.padding.top, config.chart.padding.left, yAxisBase);
+
+			const yAxisLabelX = config.chart.padding.left / 3;
+			const yAxisLabelY = config.chart.height / 2;
+			// TEST: Does desconstruction work?
 			const yAxisLabel = config.yAxis.label
-				? `<text x="${yAxisLabelX}" y="${yAxisLabelY}" text-anchor="middle" font-size="14" transform="rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})">${config.yAxis.label}</text>`
-				: "";
+				? this.createText(yAxisLabelX, yAxisLabelY, config.yAxis.label, { "font-size": 14, fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
+				: undefined;
 
-			const maxColumnValue = Math.max(...data.map(item => typeof item.data == "number" ? item.data : item.data.reduce((sum, v) => sum + v.value, 0)));
+			const maxColumnValue = Math.max(...config.data.map(item => typeof item.data == "number" ? item.data : item.data.reduce((sum, v) => sum + v.value, 0)));
 			const yAxisMax = Math.ceil(maxColumnValue * 1.1); // Add 10% buffer
 			const yAxisInterval = this.calculateYAxisInterval(yAxisMax, config.yAxis.tickCount);
 			
 			const yAxisTicks =
 				Array.from({ length: Math.ceil(yAxisMax / yAxisInterval) + 1 }, (_, i) => i * yAxisInterval)
-					.map((value, i) => {
-						const y = config.padding.top + chartHeight - (value / yAxisMax) * chartHeight;
+					.flatMap((value, i) => {
+						const y = config.chart.padding.top + chartHeight - (value / yAxisMax) * chartHeight;
 						
-						// const tickLine = `<line x1="${config.padding.left - 5}" y1="${y}" x2="${config.padding.left}" y2="${y}" stroke="black" stroke-width="1"></line>`;
-						const tickLine = i == 0 ? "" : `<line x1="${config.padding.left}" y1="${y}" x2="${config.width - config.padding.right}" y2="${y}" stroke="#e6e6e6" stroke-width="1"></line>`;
-						const tickLabel = `<text x="${config.padding.left - 10}" y="${y}" text-anchor="end" font-size="14" dominant-baseline="middle">${this.formatNumber(value, "currency")}</text>`;
-						return `${tickLine}${tickLabel}`;
-					})
-					.join("");
+						const tickLine = i != 0
+							? this.createLine(config.chart.padding.left, y, config.chart.width - config.chart.padding.right, y, "#e6e6e6")
+							: undefined;
+
+						const tickLabel = this.createText(config.chart.padding.left - 10, y, this.formatNumber(value, "currency"), { "text-anchor": "end", "font-size": 14, "dominant-baseline": "middle" })
+						return tickLabel ? [tickLine!, tickLabel!] : [tickLine!];
+					});
 			
 			const getSeriesY = (value: number) => chartHeight - (value / yAxisMax) * chartHeight;
 
-			const paddingX = 10; // Padding on left and right
-			const paddingY = 20; // Padding on top and bottom
-			const shapeXPadding = 15;
-
-			const getColumnElement = (columnX: number, columnY: number, name: string, value: number, elementIndex: number = -1, includeTip: boolean = false, includeShape: boolean = false, elementName: string | undefined = undefined) => {
+			const getColumnElement = (columnX: number, columnY: number, name: string, value: number, elementIndex: number, includeTip: boolean = false, includeShape: boolean = false, elementName: string | undefined = undefined) => {
 				const columnHeight = (value / yAxisMax) * chartHeight;
 				const valueFormatted = this.formatNumber(value, "currency");
 
-				let elementTip = "";
+				const rect = this.createRect(columnX, columnY, columnWidth, columnHeight, config.categories[elementIndex].color, "#ffffff", 1);
+				rect.setAttribute("aria-label", `${name}, ${valueFormatted}.${elementName ? ` ${this.encodeHtmlAttributeValue(elementName)}.` : ""}`);
 
-				if (includeTip) {
-					const maxTextWidth = `${elementName}: ${valueFormatted}`.length * 7; // Approximate width of each character
-					const svgWidth = maxTextWidth + paddingX * 2; // Add padding to the width
+				const tooltipContent = includeTip
+					? this.createTooltip(chartClass, String(elementIndex), rect, [{ name: name, value: valueFormatted, color: config.categories[elementIndex].color, shape: config.categories[elementIndex].shape }], elementName)
+					: undefined;
 
-					const seriesTipContent =
-						`<svg viewBox="0 0 ${svgWidth} ${40 + paddingY}" width="${svgWidth}">
-							<text x="0" y="${paddingY}" font-size="12" font-weight="bold">${name}</text>
-							${includeShape ? this.getSeriesShape(paddingY + 20, config.shapes[elementIndex], config.colors[elementIndex]) : ""}<text x="${includeShape ? shapeXPadding : 0}" y="${paddingY + 20}" font-size="12">${elementName}: <tspan font-weight="bold">${valueFormatted}</tspan></text>
-						</svg>`;
-
-					elementTip = ` data-bs-toggle="tooltip" data-bs-placement="auto" data-bs-container=".${chartClass}" data-bs-class="ka-chart-tip" data-bs-width="auto" data-bs-content="${this.encodeHtmlAttributeValue(seriesTipContent)}"`;
-				}
-				const elementAria = `${name}, ${valueFormatted}.${elementName ? ` ${this.encodeHtmlAttributeValue(elementName)}.` : ""}`
-				return `<rect x="${columnX}" y="${columnY}" width="${columnWidth}" height="${columnHeight}" fill="${config.colors[elementIndex]}" stroke="#ffffff" stroke-width="1" aria-label="${elementAria}"${elementTip}></rect>`;
+				return tooltipContent ? [ rect, tooltipContent! ] : [ rect ];
 			};
 
-			const columns = data.map((item, i) => {
-				const columnX = config.padding.left + (i * (columnWidth + columnSpacing)) + columnSpacing / 2;
+			const columns = config.data.map((item, i) => {
+				const columnX = config.chart.padding.left + (i * (columnWidth + columnSpacing)) + columnSpacing / 2;
 
-				const columnLabel = (() => {
-					const columnCenterX = columnX + columnWidth / 2;
-					const maxTextWidth = columnWidth; // Maximum width for the text
-					const words = item.name.split(" ");
-					const lines = [];
-					let currentLine = "";
+				const columnLabel = this.createText(
+					columnX + columnWidth / 2, // center...
+					config.chart.height - config.chart.padding.bottom + 20,
+					item.name,
+					{ "text-anchor": "middle", "font-size": "0.9em", "dominant-baseline": "middle" },
+					columnWidth
+				);
 				
-					words.forEach(word => {
-						const testLine = currentLine ? `${currentLine} ${word}` : word;
-						const testLineWidth = testLine.length * 6; // Approximate width per character (adjust as needed)
-						if (testLineWidth <= maxTextWidth) {
-							currentLine = testLine;
-						} else {
-							lines.push(currentLine);
-							currentLine = word;
-						}
-					});
-					if (currentLine) lines.push(currentLine);
-				
-					return `<text x="${columnCenterX}" y="${config.height - config.padding.bottom + 20}" text-anchor="middle" font-size="0.9em" dominant-baseline="middle">
-						${lines.slice( 0, 5 ).map((line, index) => `<tspan x="${columnCenterX}" dy="${index === 0 ? 0 : 15}">${line}</tspan>`).join("")}
-					</text>`;
-				})();
-
 				let stackBase = 0;
-				let columnTipContent = "";
-				let columnTooltip = "";
-
-				let columnElements: string | undefined = undefined;
-
-				if (item.data instanceof Array) {
+				const columnElements = item.data instanceof Array
 					// Stacked ...
-					columnElements = item.data.map((stackValue, j) => getColumnElement(
-						columnX, config.padding.top + getSeriesY(stackBase + stackValue.value),
+					? item.data.flatMap((stackValue, j) => getColumnElement(
+						columnX, config.chart.padding.top + getSeriesY(stackBase + stackValue.value),
 						item.name, stackValue.value, j,
-						config.plot.tip.show, config.plot.tip.includeShape, stackValue.name
-					)).join("");
-				}
-				else {
-					// Single column
-					columnElements = getColumnElement(columnX, config.padding.top + getSeriesY(item.data), item.name, item.data, i)
-				}
+						config.tip.show == "series", config.tip.includeShape, stackValue.name
+					))
+					: getColumnElement(columnX, config.chart.padding.top + getSeriesY(item.data), item.name, item.data, i);
 
-				if (config.tip.show) {
-					const seriesTexts = item.data instanceof Array
+				const g = document.createElementNS(this.ns, "g");
+				let tooltipContent: Element | undefined = undefined;
+				
+				if (config.tip.show == "category") {
+					const seriesTexts = (item.data instanceof Array
 						? item.data.map((stackValue, j) => {
 							return stackValue.value > 0
 								? {
-									text: `${stackValue.name}: ${this.formatNumber(stackValue.value, "currency")}`,
-									shape: config.shapes[j],
-									color: config.colors[j]
+									name: stackValue.name,
+									value: this.formatNumber(stackValue.value, "currency"),
+									category: config.categories[j]
 								}
 								: undefined;
 						}).filter(v => v != undefined)
 						: [{
-							text: `${item.name}: ${this.formatNumber(item.data, "currency")}`,
-							shape: config.shapes[i],
-							color: config.colors[i]
-						}];
-					
-					const maxTextWidth = Math.max(...seriesTexts.map(item => item!.text.length)) * 7; // Approximate width of each character
-					const svgWidth = maxTextWidth + paddingX * 2; // Add padding to the width
-					const columnTipXPadding = config.tip.includeShape ? shapeXPadding : 0;
+							name: item.name,
+							value: this.formatNumber(item.data, "currency"),
+							category: config.categories[i]
+						}]
+					).map(item => {
+						return {
+							name: item!.name,
+							value: item!.value,
+							color: item!.category.color,
+							shape: item!.category.shape
+						};
+					});
 
-					columnTipContent =
-						`<svg viewBox="0 0 ${svgWidth} ${(seriesTexts.length + 1) * 20 + paddingY}" width="${svgWidth}">
-							<text x="0" y="${paddingY}" font-size="14" font-weight="bold">${item.name}</text>
-							${seriesTexts.map((value, j) => {
-								const y = paddingY + (j + 1) * 20;
-								return `${config.tip.includeShape ? this.getSeriesShape(y, value!.shape, value!.color) : ""}<text x="${columnTipXPadding}" y="${y}" font-size="12">${value!.text}</text>`;
-							}).join("")}
-						</svg>`;
-					
-					columnTooltip = ` data-bs-toggle="tooltip" data-bs-placement="auto" data-bs-container=".${chartClass}" data-bs-class="ka-chart-tip" data-bs-width="auto" data-bs-content="${this.encodeHtmlAttributeValue(columnTipContent)}"`
+					tooltipContent = this.createTooltip(chartClass, String(i), g, seriesTexts, item.name);
 				}
-
-				return `<g${columnTooltip}>
-					${columnLabel}
-					${columnElements}
-				</g>`;
-			}).join("");
 			
-			el.classList.add(chartClass);
-			el.innerHTML =
-				`<svg viewBox="0 0 ${config.width} ${config.height}" preserveAspectRatio="xMidYMid meet">
-					${yAxisLabel}
-					${yAxisTicks}
-					${columns}
-					${xAxisLine}
-				</svg>`;
+				g.appendChild(columnLabel);
+				g.append(...columnElements);
 
-			el.querySelectorAll("rect").forEach(rect => {
+				return { g, tooltipContent };
+			});
+			
+			const svg = document.createElementNS(this.ns, "svg");
+			svg.setAttribute("viewBox", `0 0 ${config.chart.width} ${config.chart.height}`);
+			svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+			if (yAxisLabel != undefined) svg.appendChild(yAxisLabel);
+
+			svg.append(...yAxisTicks);
+			svg.append(...columns.map(c => c.g))
+			svg.appendChild(xAxisLine);			
+			
+			el.appendChild(svg);
+
+			if (columns.some(c => c.tooltipContent)) {
+				const tips = document.createElement("div");
+				tips.style.display = "none";
+				tips.append(...columns.filter(c => c.tooltipContent != undefined).map(c => c.tooltipContent!));
+				el.appendChild(tips);
+			}
+
+			svg.querySelectorAll("rect").forEach(rect => {
 				rect.addEventListener("mouseover", () => rect.setAttribute("opacity", "0.7"));
 				rect.addEventListener("mouseout", () => rect.setAttribute("opacity", "1"));
 			});				
 		}
 
-		private generateDonutChart(chartName: string, el: HTMLElement, dataRows: Array<IRblChartDataRow>, dataColumns: IRblChartColumnName[], configRows: Array<IRblChartDataRow>): void {
+		private generateDonutChart(chartName: string, el: HTMLElement): void {
+			const config = this.chartConfiguration as IRblChartConfiguration<number>;
+			
 			const chartClass = `ka-chart-${chartName.toLowerCase()}`;
+			el.classList.add(`ka-chart-${config.chart.type}`, chartClass);
 
-			// Currently only support single data row (single donut)
-			const colors = configRows.find(r => r.id == "color")!;
-			const text = configRows.find(r => r.id == "text")!;
-			const seriesShapes = configRows.find(r => r.id == "series.shape")!;
-			const tipIncludeShape = String.compare(this.getOptionValue(configRows, "tip.includeShape") ?? "true", "true", true) === 0;
-
-			const config = {
-				colors: dataColumns.map(c => colors[c]!),
-				shapes: dataColumns.map(c => seriesShapes?.[c] ?? "square"),
-				tip: {
-					show: true,
-					includeShape: tipIncludeShape
-				},
-				data: dataColumns.map(c => ({ name: text[c]!, value: +dataRows[0][c]! }))
-			};
-
-			const total = config.data.reduce((sum, item) => sum + item.value, 0);
+			const total = config.data.reduce((sum, item) => sum + item.data, 0);
 
 			const radius = 80;
 			const strokeWidth = 35;
@@ -314,7 +302,7 @@
 			let currentAngle = 0;
 			const segments = config.data.map((item, index) => {
 				// Calculate the angles
-				const angle = (item.value / total) * 360;
+				const angle = (item.data / total) * 360;
 				const startAngle = currentAngle;
 				currentAngle += angle;
 
@@ -327,58 +315,191 @@
 				// Determine if the arc should take the long path or short path
 				const largeArcFlag = angle > 180 ? 1 : 0;
 
-				// Create the path
-				const path = `M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+				const valueFormatted = this.formatNumber(item.data, "currency");
 
-				const valueFormatted = this.formatNumber(item.value, "currency");
+				const path = document.createElementNS(this.ns, "path");
+				path.setAttribute("key", String(index));
+				path.setAttribute("d", `M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`);
+				path.setAttribute("fill", config.categories[index].color);
+				path.setAttribute("aria-label", `${item.name}, ${valueFormatted}.`);
 
-				const paddingX = 10; // Padding on left and right
-				const paddingY = 10; // Padding on top and bottom
-				const seriesTextX = config.tip.includeShape ? 15 : 0;
-				const maxTextWidth = `${item.name}: ${valueFormatted}`.length * 7; // Approximate width of each character
-				const svgWidth = maxTextWidth + paddingX * 2; // Add padding to the width
+				const tooltipContent = config.tip.show != "off"
+					? this.createTooltip(chartClass, String(index), path, [{ name: item.name, value: valueFormatted, color: config.categories[index].color, shape: config.categories[index].shape }])
+					: undefined;
 
-				const tooltipContent = 
-					`<svg viewBox="0 0 ${svgWidth} ${paddingY + 4}" width="${svgWidth}">
-						${config.tip.includeShape ? this.getSeriesShape(paddingY + 2, config.shapes[index], config.colors[index]) : ""}<text x="${seriesTextX}" y="${paddingY + 2}" font-size="12">${item.name}: <tspan font-weight="bold">${valueFormatted}</tspan></text>
-					</svg>`;
-
-				const pathTip = config.tip.show
-					? ` data-bs-toggle="tooltip" data-bs-placement="auto" data-bs-container=".${chartClass}" data-bs-class="ka-chart-tip" data-bs-width="auto" data-bs-content="${this.encodeHtmlAttributeValue(tooltipContent)}"`
-					: "";
-
-				return `<path key="${index}" d="${path}" fill="${config.colors[index]}" aria-label="${item.name}, ${valueFormatted}."${pathTip}></path>`;
+				return { path, tooltipContent };
 			});
 
-			el.classList.add(chartClass);
-			el.innerHTML =
-				`<svg viewBox="0 0 ${radius * 2} ${radius * 2}" preserveAspectRatio="xMidYMid meet">
-					${segments.join("")}
-					<circle cx="${radius}" cy="${radius}" r="${radius - strokeWidth}" fill="white"></circle>
-					<text
-						x="${radius}"
-						y="${radius}"
-						text-anchor="middle"
-						dominant-baseline="middle"
-						font-family="Arial"
-						font-size="14"
-						font-weight="bold"
-					>${this.formatNumber(total, "currency")}</text>
-				</svg>`;
-			
-			el.querySelectorAll("path").forEach(path => {
+			const svg = document.createElementNS(this.ns, "svg");
+			svg.setAttribute("viewBox", `0 0 ${radius * 2} ${radius * 2}`);
+			svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+			segments.forEach(segment => svg.appendChild(segment.path));
+
+			const circle = document.createElementNS(this.ns, "circle");
+			circle.setAttribute("cx", String(radius));
+			circle.setAttribute("cy", String(radius));
+			circle.setAttribute("r", String(radius - strokeWidth));
+			circle.setAttribute("fill", "white");
+			svg.appendChild(circle);
+
+			const text = document.createElementNS(this.ns, "text");
+			text.setAttribute("x", String(radius));
+			text.setAttribute("y", String(radius));
+			text.setAttribute("text-anchor", "middle");
+			text.setAttribute("dominant-baseline", "middle");
+			text.setAttribute("font-family", "Arial");
+			text.setAttribute("font-size", "14");
+			text.setAttribute("font-weight", "bold");
+			text.textContent = this.formatNumber(total, "currency");
+			svg.appendChild(text);
+
+			el.appendChild(svg);
+
+			if (segments.some(s => s.tooltipContent)) {
+				const tips = document.createElement("div");
+				tips.style.display = "none";
+				tips.append(...segments.filter(s => s.tooltipContent != undefined).map(s => s.tooltipContent!));
+				el.appendChild(tips);
+			}
+
+			svg.querySelectorAll("path").forEach(path => {
 				path.addEventListener("mouseover", () => path.setAttribute("opacity", "0.7"));
 				path.addEventListener("mouseout", () => path.setAttribute("opacity", "1"));
 			});
 		}
 
-		private getSeriesShape(y: number, shape: string, color: string): string {
+		private createText(x: number, y: number, text: string, properties: {} | undefined = { "font-size": "14", "fill": "black" }, maxTextWidth?: number): Element {
+			const textSvg = document.createElementNS(this.ns, "text");
+			textSvg.setAttribute("x", String(x));
+			textSvg.setAttribute("y", String(y));
+
+			if (properties) {
+				for (const [key, value] of Object.entries(properties)) {
+					textSvg.setAttribute(key, String(value));
+				}
+			}
+
+			if (maxTextWidth) {
+				const words = text.split(" ");
+				const lines = [];
+				let currentLine = "";
+			
+				words.forEach(word => {
+					const testLine = currentLine ? `${currentLine} ${word}` : word;
+					const testLineWidth = testLine.length * 6; // Approximate width per character (adjust as needed)
+					if (testLineWidth <= maxTextWidth) {
+						currentLine = testLine;
+					} else {
+						lines.push(currentLine);
+						currentLine = word;
+					}
+				});
+
+				if (currentLine) lines.push(currentLine);
+
+				lines.slice(0, 5).forEach((line, index) => {
+					const tspan = document.createElementNS(this.ns, "tspan");
+					tspan.setAttribute("x", String(x));
+					tspan.setAttribute("dy", index === 0 ? "0" : "15");
+					tspan.textContent = line;
+					textSvg.appendChild(tspan);
+				});
+			}
+			else {
+				textSvg.textContent = text;
+			}
+
+			return textSvg;
+		}
+
+		private createLine(x1: number, y1: number, x2: number, y2: number, stroke: string | undefined = "black", strokeWidth: number = 1): Element {
+			const line = document.createElementNS(this.ns, "line");
+			line.setAttribute("x1", String(x1));
+			line.setAttribute("y1", String(y1));
+			line.setAttribute("x2", String(x2));
+			line.setAttribute("y2", String(y2));
+			
+			if (stroke) {
+				line.setAttribute("stroke", stroke);
+				line.setAttribute("stroke-width", String(strokeWidth));
+			}
+
+			return line;
+		}
+
+		private createRect(x: number, y: number, width: number, height: number, fill: string, stroke?: string, strokeWidth?: number): Element {
+			const rect = document.createElementNS(this.ns, "rect");
+			rect.setAttribute("x", String(x));
+			rect.setAttribute("y", String(y));
+			rect.setAttribute("width", String(width));
+			rect.setAttribute("height", String(height));
+			rect.setAttribute("fill", fill);
+
+			if (stroke) {
+				rect.setAttribute("stroke", stroke);
+				rect.setAttribute("stroke-width", String(strokeWidth));
+			}
+
+			return rect;
+		}
+
+		private createTooltip(chartClass: string, targetKey: string, target: Element, tipLines: Array<{name: string, value: string, color: string, shape: IRblChartConfigurationShape}>, header?: string): Element {
+			target.setAttribute("data-bs-toggle", "tooltip");
+			target.setAttribute("data-bs-placement", "auto");
+			target.setAttribute("data-bs-container", `.${chartClass}`);
+			target.setAttribute("data-bs-class", "ka-chart-tip");
+			target.setAttribute("data-bs-width", "auto");
+			target.setAttribute("data-bs-content-selector", `.${chartClass} .tooltip-${targetKey}`);
+
+			const tooltipContent = document.createElement("div");
+			tooltipContent.className = `tooltip-${targetKey}`;
+
+			const maxTextWidth = Math.max(...tipLines.map(item => `${item.name}: ${item.value}`.length)) * 7; // Approximate width of each character			
+			const svgWidth = maxTextWidth + this.chartConfiguration.tip.padding.left * 2; // Add padding to the width
+
+			const tooltipSvg = document.createElementNS(this.ns, "svg");
+			tooltipSvg.setAttribute("viewBox", `0 0 ${svgWidth} ${(tipLines.length + (header ? 1 : 0)) * 20 + this.chartConfiguration.tip.padding.top * 2}`);
+			tooltipSvg.setAttribute("width", String(svgWidth));
+
+			const tipLineBaseY = header ? 20 : 0;
+			if (header) {
+				const categoryText = this.createText(0, tipLineBaseY, header, { "font-size": 14, "font-weight": "bold" });
+				categoryText.textContent = header;
+				tooltipSvg.appendChild(categoryText);
+			}
+
+			const shapeXPadding = this.chartConfiguration.tip.includeShape ? 15 : 0;
+
+			tipLines.forEach((item, i) => {
+				const y = tipLineBaseY + (i + 1) * 20;
+				if (this.chartConfiguration.tip.includeShape) {
+					tooltipSvg.appendChild(this.getSeriesShape(y, item.shape, item.color));
+				}
+				const text = this.createText(shapeXPadding, y, `${item.name}: `, { "font-size": "12" });
+				const tspan = document.createElementNS(this.ns, "tspan");
+				tspan.setAttribute("font-weight", "bold");
+				tspan.textContent = item.value;
+				text.appendChild(tspan);
+				tooltipSvg.appendChild(text);
+			});
+
+			tooltipContent.appendChild(tooltipSvg);
+			return tooltipContent;
+		}
+
+		private getSeriesShape(y: number, shape: IRblChartConfigurationShape, color: string): Element {
 			switch (shape) {
 				case "circle":
-					return `<circle cx="10" cy="${y - 5}" r="5" fill="${color}"></circle>`;
+					const circle = document.createElementNS(this.ns, "circle");
+					circle.setAttribute("cx", "10");
+					circle.setAttribute("cy", String(y - 5));
+					circle.setAttribute("r", "5");
+					circle.setAttribute("fill", color);
+					return circle;
 				case "square":
 				default:
-					return `<rect x="0" y="${y - 10}" width="10" height="10" fill="${color}"></rect>`;
+					return this.createRect(0, y - 10, 10, 10, color);
 			}
 		}
 
