@@ -3196,19 +3196,20 @@ var KatApps;
             const dataColumns = Object.keys(dataRows[0]).filter(c => c.startsWith("data"));
             const text = configRows.find(r => r.id == "text");
             const colors = configRows.find(r => r.id == "color");
-            const shapes = configRows.find(r => r.id == "shape");
+            const shapes = configRows.find(r => r.id == "shape") ?? {};
             const showLegend = String.compare(this.getOptionValue(configRows, "legend.show"), "true", true) === 0;
             const tipShow = this.getOptionValue(configRows, "tip.show") ?? "category";
             const tipIncludeShape = String.compare(this.getOptionValue(configRows, "tip.includeShape") ?? "true", "true", true) === 0;
-            const yAxisLabelConfig = this.getOptionValue(configRows, "yAxis.label");
-            const yAxisTickCount = +(this.getOptionValue(configRows, "yAxis.tickCount") ?? "5");
             const config = {
                 data: [],
                 chart: { type: chartType },
                 categories: dataColumns.map(c => ({
                     text: text[c],
                     color: colors[c],
-                    shape: (shapes?.[c] ?? "square")
+                    shape: (shapes[c] ?? "square"),
+                    dataLabel: {
+                        show: String.compare(this.getOptionValue(configRows, "dataLabels.show"), "true", true) === 0
+                    }
                 })),
                 legend: {
                     show: showLegend
@@ -3219,14 +3220,14 @@ var KatApps;
                     padding: { top: 5, left: 5 }
                 },
                 yAxis: {
-                    label: yAxisLabelConfig,
-                    tickCount: yAxisTickCount
+                    label: this.getOptionValue(configRows, "yAxis.label"),
+                    tickCount: +(this.getOptionValue(configRows, "yAxis.tickCount") ?? "5")
                 }
             };
             switch (chartType) {
                 case "column":
                 case "columnStacked":
-                    const yAxisLabelPadding = yAxisLabelConfig ? 40 : 0;
+                    const yAxisLabelPadding = config.yAxis.label ? 40 : 0;
                     config.chart.width = 400;
                     config.chart.height = 400;
                     config.chart.padding = { top: 40, right: 40, bottom: 60, left: 100 + yAxisLabelPadding };
@@ -3284,9 +3285,11 @@ var KatApps;
             const yAxisLabel = config.yAxis.label
                 ? this.createText(yAxisLabelX, yAxisLabelY, config.yAxis.label, { "font-size": 14, fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
                 : undefined;
-            const maxColumnValue = Math.max(...config.data.map(item => typeof item.data == "number" ? item.data : item.data.reduce((sum, v) => sum + v, 0)));
-            const yAxisMax = Math.ceil(maxColumnValue * 1.1);
-            const yAxisInterval = this.calculateYAxisInterval(yAxisMax, config.yAxis.tickCount);
+            const maxColumnValue = Math.max(...config.data.map(item => Array.isArray(item.data)
+                ? item.data.reduce((sum, v) => sum + v, 0)
+                : item.data)) * 1.1;
+            const yAxisInterval = this.calculateYAxisInterval(maxColumnValue, config.yAxis.tickCount);
+            const yAxisMax = Math.ceil(maxColumnValue / yAxisInterval) * yAxisInterval;
             const yAxisTicks = Array.from({ length: Math.ceil(yAxisMax / yAxisInterval) + 1 }, (_, i) => i * yAxisInterval)
                 .flatMap((value, i) => {
                 const y = config.chart.padding.top + chartHeight - (value / yAxisMax) * chartHeight;
@@ -3312,7 +3315,11 @@ var KatApps;
                 const columnLabel = this.createText(columnX + columnWidth / 2, config.chart.height - config.chart.padding.bottom + 20, item.name, { "text-anchor": "middle", "font-size": "0.9em", "dominant-baseline": "middle" }, columnWidth);
                 let stackBase = 0;
                 const columnElements = item.data instanceof Array
-                    ? item.data.map((v, j) => getColumnElement(columnX, config.chart.padding.top + getSeriesY(stackBase + v), this.chartConfiguration.categories[j].text, v, j, config.tip.show == "series" ? `${i}-${j}` : undefined, item.name))
+                    ? item.data.map((v, j) => {
+                        const element = getColumnElement(columnX, config.chart.padding.top + getSeriesY(stackBase + v), this.chartConfiguration.categories[j].text, v, j, config.tip.show == "series" ? `${i}-${j}` : undefined, item.name);
+                        stackBase += v;
+                        return element;
+                    })
                     : [getColumnElement(columnX, config.chart.padding.top + getSeriesY(item.data), item.name, item.data, i)];
                 const g = document.createElementNS(this.ns, "g");
                 let tooltip = undefined;

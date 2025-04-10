@@ -164,14 +164,21 @@
 
 			const yAxisLabelX = config.chart.padding.left / 3;
 			const yAxisLabelY = config.chart.height / 2;
-			// TEST: Does desconstruction work?
+
 			const yAxisLabel = config.yAxis.label
 				? this.createText(yAxisLabelX, yAxisLabelY, config.yAxis.label, { "font-size": 14, fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
 				: undefined;
 
-			const maxColumnValue = Math.max(...config.data.map(item => typeof item.data == "number" ? item.data : item.data.reduce((sum, v) => sum + v, 0)));
-			const yAxisMax = Math.ceil(maxColumnValue * 1.1); // Add 10% buffer
-			const yAxisInterval = this.calculateYAxisInterval(yAxisMax, config.yAxis.tickCount);
+			const maxColumnValue = Math.max(
+				...config.data.map(item =>
+					Array.isArray(item.data)
+						? item.data.reduce((sum, v) => sum + v, 0)
+						: item.data
+				)
+			) * 1.1; // Add 10% buffer...
+
+			const yAxisInterval = this.calculateYAxisInterval(maxColumnValue, config.yAxis.tickCount);
+			const yAxisMax = Math.ceil(maxColumnValue / yAxisInterval) * yAxisInterval;
 			
 			const yAxisTicks =
 				Array.from({ length: Math.ceil(yAxisMax / yAxisInterval) + 1 }, (_, i) => i * yAxisInterval)
@@ -216,11 +223,15 @@
 				let stackBase = 0;
 				const columnElements = item.data instanceof Array
 					// Stacked ...
-					? item.data.map((v, j) => getColumnElement(
-						columnX, config.chart.padding.top + getSeriesY(stackBase + v),
-						this.chartConfiguration.categories[j].text, v, j,
-						config.tip.show == "series" ? `${i}-${j}` : undefined, item.name
-					))
+					? item.data.map((v, j) => {
+						const element = getColumnElement(
+							columnX, config.chart.padding.top + getSeriesY(stackBase + v),
+							this.chartConfiguration.categories[j].text, v, j,
+							config.tip.show == "series" ? `${i}-${j}` : undefined, item.name
+						);
+						stackBase += v;
+						return element;
+					})
 					: [getColumnElement(columnX, config.chart.padding.top + getSeriesY(item.data), item.name, item.data, i)];
 
 				const g = document.createElementNS(this.ns, "g");

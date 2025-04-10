@@ -359,6 +359,9 @@ interface IRblChartConfigurationCategory {
     text: string;
     color: string;
     shape: IRblChartConfigurationShape;
+    dataLabel: {
+        show: boolean;
+    };
 }
 type IRblChartConfigurationTipShowOption = "off" | "category" | "series";
 type IRblChartConfigurationType = "column" | "columnStacked" | "donut";
