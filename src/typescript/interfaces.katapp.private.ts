@@ -28,14 +28,12 @@ interface ITabDefRow extends IStringIndexer<string | undefined> {
 }
 interface ITabDefMetaRow extends IStringIndexer<string | undefined | IStringIndexer<string>> { }
 
-type IRblChartConfigurationDataType = number | Array<{ name: string, value: number }>;
+type IRblChartConfigurationDataType = number | Array<number>;
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 	chart: IRblChartConfigurationChart;
 	
 	data: Array<{ name: string, data: T}>;
 
-	columns: Array<IRblChartColumnName>;
-	
 	categories: Array<IRblChartConfigurationCategory>;
 	
 	legend: {
@@ -65,6 +63,9 @@ interface IRblChartConfigurationCategory { // Settings for each category (xAxis 
 	text: string;
 	color: string;
 	shape: IRblChartConfigurationShape; // Default: "square"
+	dataLabel: {
+		show: boolean; // Default: false, Show data label on each category or data point.
+	}
 }
 
 type IRblChartConfigurationTipShowOption = "off" | "category" | "series";

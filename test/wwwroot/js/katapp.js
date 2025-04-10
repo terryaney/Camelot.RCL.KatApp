@@ -3203,7 +3203,6 @@ var KatApps;
             const yAxisLabelConfig = this.getOptionValue(configRows, "yAxis.label");
             const yAxisTickCount = +(this.getOptionValue(configRows, "yAxis.tickCount") ?? "5");
             const config = {
-                columns: dataColumns,
                 data: [],
                 chart: { type: chartType },
                 categories: dataColumns.map(c => ({
@@ -3236,7 +3235,7 @@ var KatApps;
                         : dataRows.map(r => {
                             return {
                                 name: r.value,
-                                data: dataColumns.map(c => ({ name: text[c], value: +r[c] }))
+                                data: dataColumns.map(c => +r[c])
                             };
                         });
                     break;
@@ -3285,7 +3284,7 @@ var KatApps;
             const yAxisLabel = config.yAxis.label
                 ? this.createText(yAxisLabelX, yAxisLabelY, config.yAxis.label, { "font-size": 14, fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
                 : undefined;
-            const maxColumnValue = Math.max(...config.data.map(item => typeof item.data == "number" ? item.data : item.data.reduce((sum, v) => sum + v.value, 0)));
+            const maxColumnValue = Math.max(...config.data.map(item => typeof item.data == "number" ? item.data : item.data.reduce((sum, v) => sum + v, 0)));
             const yAxisMax = Math.ceil(maxColumnValue * 1.1);
             const yAxisInterval = this.calculateYAxisInterval(yAxisMax, config.yAxis.tickCount);
             const yAxisTicks = Array.from({ length: Math.ceil(yAxisMax / yAxisInterval) + 1 }, (_, i) => i * yAxisInterval)
@@ -3298,32 +3297,32 @@ var KatApps;
                 return tickLabel ? [tickLine, tickLabel] : [tickLine];
             });
             const getSeriesY = (value) => chartHeight - (value / yAxisMax) * chartHeight;
-            const getColumnElement = (columnX, columnY, name, value, elementIndex, includeTip = false, includeShape = false, elementName = undefined) => {
+            const getColumnElement = (elementX, elementY, elementName, value, elementIndex, tipKey, columnName) => {
                 const columnHeight = (value / yAxisMax) * chartHeight;
                 const valueFormatted = this.formatNumber(value, "currency");
-                const rect = this.createRect(columnX, columnY, columnWidth, columnHeight, config.categories[elementIndex].color, "#ffffff", 1);
-                rect.setAttribute("aria-label", `${name}, ${valueFormatted}.${elementName ? ` ${this.encodeHtmlAttributeValue(elementName)}.` : ""}`);
-                const tooltipContent = includeTip
-                    ? this.createTooltip(chartClass, String(elementIndex), rect, [{ name: name, value: valueFormatted, color: config.categories[elementIndex].color, shape: config.categories[elementIndex].shape }], elementName)
+                const rect = this.createRect(elementX, elementY, columnWidth, columnHeight, config.categories[elementIndex].color, "#ffffff", 1);
+                rect.setAttribute("aria-label", `${elementName}, ${valueFormatted}.${columnName ? ` ${this.encodeHtmlAttributeValue(columnName)}.` : ""}`);
+                const tooltipContent = tipKey
+                    ? this.createTooltip(chartClass, tipKey, rect, [{ name: elementName, value: valueFormatted, color: config.categories[elementIndex].color, shape: config.categories[elementIndex].shape }], columnName)
                     : undefined;
-                return tooltipContent ? [rect, tooltipContent] : [rect];
+                return { rect, tooltipContent };
             };
             const columns = config.data.map((item, i) => {
                 const columnX = config.chart.padding.left + (i * (columnWidth + columnSpacing)) + columnSpacing / 2;
                 const columnLabel = this.createText(columnX + columnWidth / 2, config.chart.height - config.chart.padding.bottom + 20, item.name, { "text-anchor": "middle", "font-size": "0.9em", "dominant-baseline": "middle" }, columnWidth);
                 let stackBase = 0;
                 const columnElements = item.data instanceof Array
-                    ? item.data.flatMap((stackValue, j) => getColumnElement(columnX, config.chart.padding.top + getSeriesY(stackBase + stackValue.value), item.name, stackValue.value, j, config.tip.show == "series", config.tip.includeShape, stackValue.name))
-                    : getColumnElement(columnX, config.chart.padding.top + getSeriesY(item.data), item.name, item.data, i);
+                    ? item.data.map((v, j) => getColumnElement(columnX, config.chart.padding.top + getSeriesY(stackBase + v), this.chartConfiguration.categories[j].text, v, j, config.tip.show == "series" ? `${i}-${j}` : undefined, item.name))
+                    : [getColumnElement(columnX, config.chart.padding.top + getSeriesY(item.data), item.name, item.data, i)];
                 const g = document.createElementNS(this.ns, "g");
-                let tooltipContent = undefined;
+                let tooltip = undefined;
                 if (config.tip.show == "category") {
-                    const seriesTexts = (item.data instanceof Array
-                        ? item.data.map((stackValue, j) => {
-                            return stackValue.value > 0
+                    const seriesTipInfo = (item.data instanceof Array
+                        ? item.data.map((v, j) => {
+                            return v > 0
                                 ? {
-                                    name: stackValue.name,
-                                    value: this.formatNumber(stackValue.value, "currency"),
+                                    name: config.categories[j].text,
+                                    value: this.formatNumber(v, "currency"),
                                     category: config.categories[j]
                                 }
                                 : undefined;
@@ -3340,11 +3339,11 @@ var KatApps;
                             shape: item.category.shape
                         };
                     });
-                    tooltipContent = this.createTooltip(chartClass, String(i), g, seriesTexts, item.name);
+                    tooltip = seriesTipInfo.length > 0 ? this.createTooltip(chartClass, String(i), g, seriesTipInfo, item.name) : undefined;
                 }
                 g.appendChild(columnLabel);
-                g.append(...columnElements);
-                return { g, tooltipContent };
+                g.append(...columnElements.map(e => e.rect));
+                return { g, tooltips: columnElements.filter(e => e.tooltipContent != undefined).map(e => e.tooltipContent).concat(tooltip ? [tooltip] : []) };
             });
             const svg = document.createElementNS(this.ns, "svg");
             svg.setAttribute("viewBox", `0 0 ${config.chart.width} ${config.chart.height}`);
@@ -3355,10 +3354,10 @@ var KatApps;
             svg.append(...columns.map(c => c.g));
             svg.appendChild(xAxisLine);
             el.appendChild(svg);
-            if (columns.some(c => c.tooltipContent)) {
+            if (columns.some(c => c.tooltips.length > 0)) {
                 const tips = document.createElement("div");
                 tips.style.display = "none";
-                tips.append(...columns.filter(c => c.tooltipContent != undefined).map(c => c.tooltipContent));
+                tips.append(...columns.filter(c => c.tooltips.length > 0).flatMap(c => c.tooltips));
                 el.appendChild(tips);
             }
             svg.querySelectorAll("rect").forEach(rect => {
@@ -3399,21 +3398,9 @@ var KatApps;
             svg.setAttribute("viewBox", `0 0 ${radius * 2} ${radius * 2}`);
             svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
             segments.forEach(segment => svg.appendChild(segment.path));
-            const circle = document.createElementNS(this.ns, "circle");
-            circle.setAttribute("cx", String(radius));
-            circle.setAttribute("cy", String(radius));
-            circle.setAttribute("r", String(radius - strokeWidth));
-            circle.setAttribute("fill", "white");
+            const circle = this.createCircle(radius, radius, radius - strokeWidth, "white");
             svg.appendChild(circle);
-            const text = document.createElementNS(this.ns, "text");
-            text.setAttribute("x", String(radius));
-            text.setAttribute("y", String(radius));
-            text.setAttribute("text-anchor", "middle");
-            text.setAttribute("dominant-baseline", "middle");
-            text.setAttribute("font-family", "Arial");
-            text.setAttribute("font-size", "14");
-            text.setAttribute("font-weight", "bold");
-            text.textContent = this.formatNumber(total, "currency");
+            const text = this.createText(radius, radius, this.formatNumber(total, "currency"), { "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": 14, "font-weight": "bold" });
             svg.appendChild(text);
             el.appendChild(svg);
             if (segments.some(s => s.tooltipContent)) {
@@ -3478,6 +3465,18 @@ var KatApps;
             }
             return line;
         }
+        createCircle(cx, cy, radius, fill, stroke, strokeWidth) {
+            const circle = document.createElementNS(this.ns, "circle");
+            circle.setAttribute("cx", String(cx));
+            circle.setAttribute("cy", String(cy));
+            circle.setAttribute("r", String(radius));
+            circle.setAttribute("fill", fill);
+            if (stroke) {
+                circle.setAttribute("stroke", stroke);
+                circle.setAttribute("stroke-width", String(strokeWidth));
+            }
+            return circle;
+        }
         createRect(x, y, width, height, fill, stroke, strokeWidth) {
             const rect = document.createElementNS(this.ns, "rect");
             rect.setAttribute("x", String(x));
@@ -3500,24 +3499,24 @@ var KatApps;
             target.setAttribute("data-bs-content-selector", `.${chartClass} .tooltip-${targetKey}`);
             const tooltipContent = document.createElement("div");
             tooltipContent.className = `tooltip-${targetKey}`;
-            const maxTextWidth = Math.max(...tipLines.map(item => `${item.name}: ${item.value}`.length)) * 7;
+            const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipLines.map(item => `${item.name}: ${item.value}`.length))) * 7;
             const svgWidth = maxTextWidth + this.chartConfiguration.tip.padding.left * 2;
             const tooltipSvg = document.createElementNS(this.ns, "svg");
             tooltipSvg.setAttribute("viewBox", `0 0 ${svgWidth} ${(tipLines.length + (header ? 1 : 0)) * 20 + this.chartConfiguration.tip.padding.top * 2}`);
             tooltipSvg.setAttribute("width", String(svgWidth));
-            const headerPadding = header ? 20 : 0;
+            const tipLineBaseY = header ? 17 : 0;
             if (header) {
-                const categoryText = this.createText(0, headerPadding, header, { "font-size": 14, "font-weight": "bold" });
+                const categoryText = this.createText(0, tipLineBaseY, header, { "font-size": "0.9em", "font-weight": "bold" });
                 categoryText.textContent = header;
                 tooltipSvg.appendChild(categoryText);
             }
             const shapeXPadding = this.chartConfiguration.tip.includeShape ? 15 : 0;
             tipLines.forEach((item, i) => {
-                const y = headerPadding + (i + 1) * 20;
+                const y = tipLineBaseY + (i + 1) * 20;
                 if (this.chartConfiguration.tip.includeShape) {
                     tooltipSvg.appendChild(this.getSeriesShape(y, item.shape, item.color));
                 }
-                const text = this.createText(shapeXPadding, y, `${item.name}: `, { "font-size": "12" });
+                const text = this.createText(shapeXPadding, y, `${item.name}: `, { "font-size": "1.1em" });
                 const tspan = document.createElementNS(this.ns, "tspan");
                 tspan.setAttribute("font-weight", "bold");
                 tspan.textContent = item.value;
@@ -3530,12 +3529,7 @@ var KatApps;
         getSeriesShape(y, shape, color) {
             switch (shape) {
                 case "circle":
-                    const circle = document.createElementNS(this.ns, "circle");
-                    circle.setAttribute("cx", "10");
-                    circle.setAttribute("cy", String(y - 5));
-                    circle.setAttribute("r", "5");
-                    circle.setAttribute("fill", color);
-                    return circle;
+                    return this.createCircle(5, y - 5, 5, color);
                 case "square":
                 default:
                     return this.createRect(0, y - 10, 10, 10, color);

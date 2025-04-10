@@ -200,6 +200,7 @@ declare namespace KatApps {
         private generateDonutChart;
         private createText;
         private createLine;
+        private createCircle;
         private createRect;
         private createTooltip;
         private getSeriesShape;
@@ -319,17 +320,13 @@ interface ITabDefRow extends IStringIndexer<string | undefined> {
 }
 interface ITabDefMetaRow extends IStringIndexer<string | undefined | IStringIndexer<string>> {
 }
-type IRblChartConfigurationDataType = number | Array<{
-    name: string;
-    value: number;
-}>;
+type IRblChartConfigurationDataType = number | Array<number>;
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
     chart: IRblChartConfigurationChart;
     data: Array<{
         name: string;
         data: T;
     }>;
-    columns: Array<IRblChartColumnName>;
     categories: Array<IRblChartConfigurationCategory>;
     legend: {
         show: boolean;
