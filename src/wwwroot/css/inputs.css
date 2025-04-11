@@ -15,6 +15,11 @@
 	opacity: 1;
 }
 
+.ka-chart svg {
+    width: 100%; 
+    height: auto; /* Keeps aspect ratio while respecting max-height */
+}
+
 /* Tooltip (warning/error) displays (currently duplicated in 'unused' inputs.float.css */
 .katapp-css.tooltip.is-invalid {
 	min-width: 140px;

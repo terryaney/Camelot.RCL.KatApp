@@ -3176,17 +3176,33 @@ var KatApps;
                     const chartType = this.getOptionValue(configRows, "type");
                     if (dataRows.length > 0 && chartType) {
                         this.buildChartConfiguration(chartType, configRows, dataRows);
+                        const chartContainer = document.createElement("div");
+                        const chartClass = `ka-chart-${scope.data.toLowerCase()}`;
+                        chartContainer.classList.add("ka-chart", `ka-chart-${this.chartConfiguration.chart.type}`, chartClass);
+                        if (scope.chartCss) {
+                            chartContainer.classList.add(scope.chartCss);
+                        }
+                        if (scope.maxHeight) {
+                            chartContainer.style.maxHeight = `${scope.maxHeight}px`;
+                        }
+                        el.appendChild(chartContainer);
                         switch (chartType) {
                             case "donut":
-                                this.generateDonutChart(scope.data, el);
+                                this.generateDonutChart(chartClass, chartContainer);
                                 break;
                             case "column":
                             case "columnStacked":
-                                this.generateColumnChart(scope.data, el);
+                                this.generateColumnChart(chartClass, chartContainer);
                                 break;
                             default:
-                                el.innerHTML = `<b>${scope.data} ${chartType} chart not supported</b>`;
+                                chartContainer.innerHTML = `<b>${scope.data} ${chartType} chart not supported</b>`;
                                 break;
+                        }
+                        if (scope.maxHeight) {
+                            const svg = chartContainer.querySelector("svg");
+                            if (svg) {
+                                svg.style.maxHeight = `${scope.maxHeight}px`;
+                            }
                         }
                     }
                 });
@@ -3197,28 +3213,25 @@ var KatApps;
             const text = configRows.find(r => r.id == "text");
             const colors = configRows.find(r => r.id == "color");
             const shapes = configRows.find(r => r.id == "shape") ?? {};
-            const showLegend = String.compare(this.getOptionValue(configRows, "legend.show"), "true", true) === 0;
             const tipShow = this.getOptionValue(configRows, "tip.show") ?? "category";
             const tipIncludeShape = String.compare(this.getOptionValue(configRows, "tip.includeShape") ?? "true", "true", true) === 0;
+            const dataLabelsShow = String.compare(this.getOptionValue(configRows, "dataLabels.show"), "true", true) === 0;
             const config = {
                 data: [],
-                chart: { type: chartType },
-                categories: dataColumns.map(c => ({
+                chart: {
+                    type: chartType,
+                    tip: {
+                        show: tipShow,
+                        includeShape: tipIncludeShape,
+                        padding: { top: 5, left: 5 }
+                    },
+                    dataLabel: { show: dataLabelsShow }
+                },
+                series: dataColumns.map(c => ({
                     text: text[c],
                     color: colors[c],
-                    shape: (shapes[c] ?? "square"),
-                    dataLabel: {
-                        show: String.compare(this.getOptionValue(configRows, "dataLabels.show"), "true", true) === 0
-                    }
+                    shape: (shapes[c] ?? shapes.value ?? "square")
                 })),
-                legend: {
-                    show: showLegend
-                },
-                tip: {
-                    show: tipShow,
-                    includeShape: tipIncludeShape,
-                    padding: { top: 5, left: 5 }
-                },
                 yAxis: {
                     label: this.getOptionValue(configRows, "yAxis.label"),
                     tickCount: +(this.getOptionValue(configRows, "yAxis.tickCount") ?? "5")
@@ -3226,118 +3239,126 @@ var KatApps;
             };
             switch (chartType) {
                 case "column":
+                case "donut":
+                    config.data = dataColumns.map(c => ({ name: text[c], data: +dataRows[0][c] }));
+                    break;
+                default:
+                    config.data = dataRows.map(r => ({ name: r.value, data: dataColumns.map(c => +r[c]) }));
+                    break;
+            }
+            switch (chartType) {
+                case "column":
                 case "columnStacked":
-                    const yAxisLabelPadding = config.yAxis.label ? 40 : 0;
                     config.chart.width = 400;
                     config.chart.height = 400;
-                    config.chart.padding = { top: 40, right: 40, bottom: 60, left: 100 + yAxisLabelPadding };
-                    config.data = chartType == "column"
-                        ? dataColumns.map(c => ({ name: text[c], data: +dataRows[0][c] }))
-                        : dataRows.map(r => {
-                            return {
-                                name: r.value,
-                                data: dataColumns.map(c => +r[c])
-                            };
+                    config.chart.padding = { top: 40, right: 40, bottom: 40, left: 40 };
+                    config.chart.padding.left += config.yAxis.label ? 30 : 0;
+                    config.chart.column = {
+                        maxValue: Math.max(...config.data.map(item => Array.isArray(item.data)
+                            ? item.data.reduce((sum, v) => sum + v, 0)
+                            : item.data)) * (config.chart.dataLabel.show ? 1.2 : 1.1)
+                    };
+                    const paddingLog10 = Math.floor(Math.log10(config.chart.column.maxValue));
+                    const powerOfTenPadding = Math.min(50, paddingLog10 >= 3 ? (paddingLog10 - 2) * 10 : 0);
+                    config.chart.padding.left += powerOfTenPadding;
+                    const plotWidth = config.chart.width - config.chart.padding.left - config.chart.padding.right;
+                    const columnCount = config.data.length;
+                    const columnWidth = plotWidth / columnCount * 0.7;
+                    const columnSpacing = plotWidth / columnCount - columnWidth;
+                    const maxLabelLines = Math.max(...config.data.map(item => {
+                        const words = item.name.split(" ");
+                        const lines = [];
+                        let currentLine = "";
+                        words.forEach(word => {
+                            const testLine = currentLine ? `${currentLine} ${word}` : word;
+                            const testLineWidth = testLine.length * 6;
+                            if (testLineWidth <= columnWidth) {
+                                currentLine = testLine;
+                            }
+                            else {
+                                lines.push(currentLine);
+                                currentLine = word;
+                            }
                         });
+                        if (currentLine)
+                            lines.push(currentLine);
+                        return Math.min(lines.length, 5) - 1;
+                    }));
+                    config.chart.padding.bottom += maxLabelLines * 15;
+                    config.chart.column.width = columnWidth;
+                    config.chart.column.spacing = columnSpacing;
                     break;
                 case "donut":
                     config.chart.padding = { top: 10, right: 10, bottom: 10, left: 10 };
-                    config.data = dataColumns.map(c => ({ name: text[c], data: +dataRows[0][c] }));
                     break;
             }
             console.log(config);
             this.chartConfiguration = config;
         }
-        generateColumnChart(chartName, el) {
+        generateColumnChart(chartClass, container) {
             const config = this.chartConfiguration;
-            const chartClass = `ka-chart-${chartName.toLowerCase()}`;
-            el.classList.add(chartClass);
-            const chartWidth = config.chart.width - config.chart.padding.left - config.chart.padding.right;
-            const columnCount = config.data.length;
-            const columnWidth = chartWidth / columnCount * 0.6;
-            const columnSpacing = chartWidth / columnCount - columnWidth;
-            const maxLabelLines = Math.max(...config.data.map(item => {
-                const words = item.name.split(" ");
-                const lines = [];
-                let currentLine = "";
-                words.forEach(word => {
-                    const testLine = currentLine ? `${currentLine} ${word}` : word;
-                    const testLineWidth = testLine.length * 6;
-                    if (testLineWidth <= columnWidth) {
-                        currentLine = testLine;
-                    }
-                    else {
-                        lines.push(currentLine);
-                        currentLine = word;
-                    }
-                });
-                if (currentLine)
-                    lines.push(currentLine);
-                return Math.min(lines.length, 5) - 1;
-            }));
-            config.chart.padding.bottom += maxLabelLines * 15;
-            const chartHeight = config.chart.height - config.chart.padding.top - config.chart.padding.bottom;
-            const yAxisBase = config.chart.height - config.chart.padding.bottom;
-            const xAxisLine = this.createLine(config.chart.padding.left, yAxisBase, config.chart.width - config.chart.padding.right, yAxisBase);
-            const yAxisLine = this.createLine(config.chart.padding.left, config.chart.padding.top, config.chart.padding.left, yAxisBase);
-            const yAxisLabelX = config.chart.padding.left / 3;
-            const yAxisLabelY = config.chart.height / 2;
+            const columnConfig = config.chart.column;
+            const paddingConfig = config.chart.padding;
+            const plotHeight = config.chart.height - paddingConfig.top - paddingConfig.bottom;
+            const yAxisBase = config.chart.height - paddingConfig.bottom;
+            const xAxisLine = this.createLine(paddingConfig.left, yAxisBase, config.chart.width - paddingConfig.right, yAxisBase);
+            const yAxisLine = this.createLine(paddingConfig.left, paddingConfig.top, paddingConfig.left, yAxisBase);
+            const yAxisLabelX = paddingConfig.left / 3;
+            const yAxisLabelY = plotHeight / 2;
             const yAxisLabel = config.yAxis.label
-                ? this.createText(yAxisLabelX, yAxisLabelY, config.yAxis.label, { "font-size": 14, fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
+                ? this.createText(yAxisLabelX, yAxisLabelY, config.yAxis.label, { "font-size": "0.8em", fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
                 : undefined;
-            const maxColumnValue = Math.max(...config.data.map(item => Array.isArray(item.data)
-                ? item.data.reduce((sum, v) => sum + v, 0)
-                : item.data)) * 1.1;
-            const yAxisInterval = this.calculateYAxisInterval(maxColumnValue, config.yAxis.tickCount);
-            const yAxisMax = Math.ceil(maxColumnValue / yAxisInterval) * yAxisInterval;
+            const yAxisInterval = this.calculateYAxisInterval(columnConfig.maxValue, config.yAxis.tickCount);
+            const yAxisMax = Math.ceil(columnConfig.maxValue / yAxisInterval) * yAxisInterval;
             const yAxisTicks = Array.from({ length: Math.ceil(yAxisMax / yAxisInterval) + 1 }, (_, i) => i * yAxisInterval)
                 .flatMap((value, i) => {
-                const y = config.chart.padding.top + chartHeight - (value / yAxisMax) * chartHeight;
+                const y = paddingConfig.top + plotHeight - (value / yAxisMax) * plotHeight;
                 const tickLine = i != 0
-                    ? this.createLine(config.chart.padding.left, y, config.chart.width - config.chart.padding.right, y, "#e6e6e6")
+                    ? this.createLine(paddingConfig.left, y, config.chart.width - paddingConfig.right, y, "#e6e6e6")
                     : undefined;
-                const tickLabel = this.createText(config.chart.padding.left - 10, y, this.formatNumber(value, "currency"), { "text-anchor": "end", "font-size": 14, "dominant-baseline": "middle" });
-                return tickLabel ? [tickLine, tickLabel] : [tickLine];
+                const tickLabel = this.createText(paddingConfig.left - 10, y, this.formatNumber(value, "currency"), { "text-anchor": "end", "font-size": "0.7em", "dominant-baseline": "middle" });
+                return tickLine ? [tickLine, tickLabel] : [tickLabel];
             });
-            const getSeriesY = (value) => chartHeight - (value / yAxisMax) * chartHeight;
+            const getSeriesY = (value) => plotHeight - (value / yAxisMax) * plotHeight;
             const getColumnElement = (elementX, elementY, elementName, value, elementIndex, tipKey, columnName) => {
-                const columnHeight = (value / yAxisMax) * chartHeight;
+                const columnHeight = (value / yAxisMax) * plotHeight;
                 const valueFormatted = this.formatNumber(value, "currency");
-                const rect = this.createRect(elementX, elementY, columnWidth, columnHeight, config.categories[elementIndex].color, "#ffffff", 1);
+                const rect = this.createRect(elementX, elementY, columnConfig.width, columnHeight, config.series[elementIndex].color, "#ffffff", 1);
+                rect.setAttribute("data-element", elementName);
                 rect.setAttribute("aria-label", `${elementName}, ${valueFormatted}.${columnName ? ` ${this.encodeHtmlAttributeValue(columnName)}.` : ""}`);
                 const tooltipContent = tipKey
-                    ? this.createTooltip(chartClass, tipKey, rect, [{ name: elementName, value: valueFormatted, color: config.categories[elementIndex].color, shape: config.categories[elementIndex].shape }], columnName)
+                    ? this.createTooltip(chartClass, tipKey, rect, [{ name: elementName, value: valueFormatted, color: config.series[elementIndex].color, shape: config.series[elementIndex].shape }], columnName)
                     : undefined;
                 return { rect, tooltipContent };
             };
             const columns = config.data.map((item, i) => {
-                const columnX = config.chart.padding.left + (i * (columnWidth + columnSpacing)) + columnSpacing / 2;
-                const columnLabel = this.createText(columnX + columnWidth / 2, config.chart.height - config.chart.padding.bottom + 20, item.name, { "text-anchor": "middle", "font-size": "0.9em", "dominant-baseline": "middle" }, columnWidth);
+                const columnX = paddingConfig.left + (i * (columnConfig.width + columnConfig.spacing)) + columnConfig.spacing / 2;
+                const columnLabel = this.createText(columnX + columnConfig.width / 2, config.chart.height - paddingConfig.bottom + 12, item.name, { "text-anchor": "middle", "font-size": "0.8em", "dominant-baseline": "middle" }, columnConfig.width);
                 let stackBase = 0;
                 const columnElements = item.data instanceof Array
                     ? item.data.map((v, j) => {
-                        const element = getColumnElement(columnX, config.chart.padding.top + getSeriesY(stackBase + v), this.chartConfiguration.categories[j].text, v, j, config.tip.show == "series" ? `${i}-${j}` : undefined, item.name);
+                        const element = getColumnElement(columnX, paddingConfig.top + getSeriesY(stackBase + v), this.chartConfiguration.series[j].text, v, j, config.chart.tip.show == "series" ? `${i}-${j}` : undefined, item.name);
                         stackBase += v;
                         return element;
                     })
-                    : [getColumnElement(columnX, config.chart.padding.top + getSeriesY(item.data), item.name, item.data, i)];
+                    : [getColumnElement(columnX, paddingConfig.top + getSeriesY(item.data), item.name, item.data, i)];
                 const g = document.createElementNS(this.ns, "g");
                 let tooltip = undefined;
-                if (config.tip.show == "category") {
+                if (config.chart.tip.show == "category") {
                     const seriesTipInfo = (item.data instanceof Array
                         ? item.data.map((v, j) => {
                             return v > 0
                                 ? {
-                                    name: config.categories[j].text,
+                                    name: config.series[j].text,
                                     value: this.formatNumber(v, "currency"),
-                                    category: config.categories[j]
+                                    category: config.series[j]
                                 }
                                 : undefined;
                         }).filter(v => v != undefined)
                         : [{
                                 name: item.name,
                                 value: this.formatNumber(item.data, "currency"),
-                                category: config.categories[i]
+                                category: config.series[i]
                             }]).map(item => {
                         return {
                             name: item.name,
@@ -3350,6 +3371,14 @@ var KatApps;
                 }
                 g.appendChild(columnLabel);
                 g.append(...columnElements.map(e => e.rect));
+                if (config.chart.dataLabel.show) {
+                    const totalValue = item.data instanceof Array
+                        ? item.data.reduce((sum, v) => sum + v, 0)
+                        : item.data;
+                    const labelY = paddingConfig.top + getSeriesY(totalValue) - 10;
+                    const dataLabel = this.createText(columnX + columnConfig.width / 2, labelY, this.formatNumber(totalValue, "currency"), { "text-anchor": "middle", "font-size": "0.7em", "font-weight": "bold" });
+                    g.appendChild(dataLabel);
+                }
                 return { g, tooltips: columnElements.filter(e => e.tooltipContent != undefined).map(e => e.tooltipContent).concat(tooltip ? [tooltip] : []) };
             });
             const svg = document.createElementNS(this.ns, "svg");
@@ -3360,22 +3389,17 @@ var KatApps;
             svg.append(...yAxisTicks);
             svg.append(...columns.map(c => c.g));
             svg.appendChild(xAxisLine);
-            el.appendChild(svg);
+            container.appendChild(svg);
             if (columns.some(c => c.tooltips.length > 0)) {
                 const tips = document.createElement("div");
                 tips.style.display = "none";
                 tips.append(...columns.filter(c => c.tooltips.length > 0).flatMap(c => c.tooltips));
-                el.appendChild(tips);
+                container.appendChild(tips);
             }
-            svg.querySelectorAll("rect").forEach(rect => {
-                rect.addEventListener("mouseover", () => rect.setAttribute("opacity", "0.7"));
-                rect.addEventListener("mouseout", () => rect.setAttribute("opacity", "1"));
-            });
+            this.addHoverEvents(svg, "rect");
         }
-        generateDonutChart(chartName, el) {
+        generateDonutChart(chartClass, container) {
             const config = this.chartConfiguration;
-            const chartClass = `ka-chart-${chartName.toLowerCase()}`;
-            el.classList.add(`ka-chart-${config.chart.type}`, chartClass);
             const total = config.data.reduce((sum, item) => sum + item.data, 0);
             const radius = 80;
             const strokeWidth = 35;
@@ -3394,31 +3418,36 @@ var KatApps;
                 const path = document.createElementNS(this.ns, "path");
                 path.setAttribute("key", String(index));
                 path.setAttribute("d", `M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`);
-                path.setAttribute("fill", config.categories[index].color);
+                path.setAttribute("fill", config.series[index].color);
                 path.setAttribute("aria-label", `${item.name}, ${valueFormatted}.`);
-                const tooltipContent = config.tip.show != "off"
-                    ? this.createTooltip(chartClass, String(index), path, [{ name: item.name, value: valueFormatted, color: config.categories[index].color, shape: config.categories[index].shape }])
+                path.setAttribute("data-element", item.name);
+                const tooltipContent = config.chart.tip.show != "off"
+                    ? this.createTooltip(chartClass, String(index), path, [{ name: item.name, value: valueFormatted, color: config.series[index].color, shape: config.series[index].shape }])
                     : undefined;
                 return { path, tooltipContent };
             });
             const svg = document.createElementNS(this.ns, "svg");
             svg.setAttribute("viewBox", `0 0 ${radius * 2} ${radius * 2}`);
             svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-            segments.forEach(segment => svg.appendChild(segment.path));
-            const circle = this.createCircle(radius, radius, radius - strokeWidth, "white");
-            svg.appendChild(circle);
-            const text = this.createText(radius, radius, this.formatNumber(total, "currency"), { "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": 14, "font-weight": "bold" });
-            svg.appendChild(text);
-            el.appendChild(svg);
+            svg.append(...segments.map(segment => segment.path));
+            svg.appendChild(this.createCircle(radius, radius, radius - strokeWidth, "white"));
+            svg.appendChild(this.createText(radius, radius, this.formatNumber(total, "currency"), { "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": 14, "font-weight": "bold" }));
+            container.appendChild(svg);
             if (segments.some(s => s.tooltipContent)) {
                 const tips = document.createElement("div");
                 tips.style.display = "none";
                 tips.append(...segments.filter(s => s.tooltipContent != undefined).map(s => s.tooltipContent));
-                el.appendChild(tips);
+                container.appendChild(tips);
             }
-            svg.querySelectorAll("path").forEach(path => {
-                path.addEventListener("mouseover", () => path.setAttribute("opacity", "0.7"));
-                path.addEventListener("mouseout", () => path.setAttribute("opacity", "1"));
+            this.addHoverEvents(svg, "path");
+        }
+        addHoverEvents(svg, elementName) {
+            svg.querySelectorAll(elementName).forEach(rect => {
+                rect.addEventListener("mouseover", () => {
+                    svg.querySelectorAll(elementName)
+                        .forEach(r => r.setAttribute("opacity", rect.getAttribute("data-element") == r.getAttribute("data-element") ? "1" : "0.2"));
+                });
+                rect.addEventListener("mouseout", () => svg.querySelectorAll(elementName).forEach(r => r.setAttribute("opacity", "1")));
             });
         }
         createText(x, y, text, properties = { "font-size": "14", "fill": "black" }, maxTextWidth) {
@@ -3451,12 +3480,12 @@ var KatApps;
                     const tspan = document.createElementNS(this.ns, "tspan");
                     tspan.setAttribute("x", String(x));
                     tspan.setAttribute("dy", index === 0 ? "0" : "15");
-                    tspan.textContent = line;
+                    tspan.innerHTML = line;
                     textSvg.appendChild(tspan);
                 });
             }
             else {
-                textSvg.textContent = text;
+                textSvg.innerHTML = text;
             }
             return textSvg;
         }
@@ -3504,29 +3533,30 @@ var KatApps;
             target.setAttribute("data-bs-class", "ka-chart-tip");
             target.setAttribute("data-bs-width", "auto");
             target.setAttribute("data-bs-content-selector", `.${chartClass} .tooltip-${targetKey}`);
+            const tipConfig = this.chartConfiguration.chart.tip;
             const tooltipContent = document.createElement("div");
             tooltipContent.className = `tooltip-${targetKey}`;
             const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipLines.map(item => `${item.name}: ${item.value}`.length))) * 7;
-            const svgWidth = maxTextWidth + this.chartConfiguration.tip.padding.left * 2;
+            const svgWidth = maxTextWidth + tipConfig.padding.left * 2;
             const tooltipSvg = document.createElementNS(this.ns, "svg");
-            tooltipSvg.setAttribute("viewBox", `0 0 ${svgWidth} ${(tipLines.length + (header ? 1 : 0)) * 20 + this.chartConfiguration.tip.padding.top * 2}`);
+            tooltipSvg.setAttribute("viewBox", `0 0 ${svgWidth} ${(tipLines.length + (header ? 1 : 0)) * 20 + tipConfig.padding.top * 2}`);
             tooltipSvg.setAttribute("width", String(svgWidth));
             const tipLineBaseY = header ? 17 : 0;
             if (header) {
                 const categoryText = this.createText(0, tipLineBaseY, header, { "font-size": "0.9em", "font-weight": "bold" });
-                categoryText.textContent = header;
+                categoryText.innerHTML = header;
                 tooltipSvg.appendChild(categoryText);
             }
-            const shapeXPadding = this.chartConfiguration.tip.includeShape ? 15 : 0;
+            const shapeXPadding = tipConfig.includeShape ? 15 : 0;
             tipLines.forEach((item, i) => {
                 const y = tipLineBaseY + (i + 1) * 20;
-                if (this.chartConfiguration.tip.includeShape) {
+                if (tipConfig.includeShape) {
                     tooltipSvg.appendChild(this.getSeriesShape(y, item.shape, item.color));
                 }
                 const text = this.createText(shapeXPadding, y, `${item.name}: `, { "font-size": "1.1em" });
                 const tspan = document.createElementNS(this.ns, "tspan");
                 tspan.setAttribute("font-weight", "bold");
-                tspan.textContent = item.value;
+                tspan.innerHTML = item.value;
                 text.appendChild(tspan);
                 tooltipSvg.appendChild(text);
             });

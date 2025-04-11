@@ -198,6 +198,7 @@ declare namespace KatApps {
         buildChartConfiguration(chartType: IRblChartConfigurationType, configRows: IRblChartDataRow[], dataRows: IRblChartDataRow[]): void;
         private generateColumnChart;
         private generateDonutChart;
+        private addHoverEvents;
         private createText;
         private createLine;
         private createCircle;
@@ -290,6 +291,75 @@ declare enum TraceVerbosity {
     Detailed = 4,
     Diagnostic = 5
 }
+type IRblChartConfigurationDataType = number | Array<number>;
+type IRblChartConfigurationTipShowOption = "off" | "category" | "series";
+type IRblChartConfigurationType = "column" | "columnStacked" | "donut";
+type IRblChartConfigurationShape = "square" | "circle" | "line";
+interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
+    chart: IRblChartConfigurationChart;
+    data: Array<{
+        name: string;
+        data: T;
+    }>;
+    series: Array<IRblChartConfigurationSeries>;
+    yAxis: {
+        label: string | undefined;
+        tickCount: number;
+    };
+}
+interface IRblChartConfigurationChart {
+    type: IRblChartConfigurationType;
+    height: number;
+    width: number;
+    column?: IRblChartConfigurationChartColumn;
+    padding: {
+        top: number;
+        right: number;
+        bottom: number;
+        left: number;
+    };
+    dataLabel: {
+        show: boolean;
+    };
+    tip: {
+        show: IRblChartConfigurationTipShowOption;
+        includeShape: boolean;
+        padding: {
+            top: number;
+            left: number;
+        };
+    };
+}
+interface IRblChartConfigurationChartColumn {
+    maxValue: number;
+    width: number;
+    spacing: number;
+}
+interface IRblChartConfigurationSeries {
+    text: string;
+    color: string;
+    shape: IRblChartConfigurationShape;
+}
+interface IRblChartDataRow {
+    id: string;
+    value: string;
+    [key: `data${number}`]: string | undefined;
+}
+type IRblChartColumnName = "value" | `data${number}`;
+interface IRblHighChartsOptionRow extends ITabDefRow {
+    key: string;
+    value: string;
+}
+interface IRblHighChartsDataRow extends IStringIndexer<string | undefined> {
+    category: string;
+    plotLine?: string;
+    plotBand?: string;
+}
+interface IHighChartsPlotConfigurationRow {
+    index: number;
+    plotLine: string;
+    plotBand: string;
+}
 interface IKatAppCalculationResponse {
     calcEngine: string;
     diagnostics?: IRblCalculationDiagnostics;
@@ -319,72 +389,6 @@ interface ITabDefRow extends IStringIndexer<string | undefined> {
     id?: string;
 }
 interface ITabDefMetaRow extends IStringIndexer<string | undefined | IStringIndexer<string>> {
-}
-type IRblChartConfigurationDataType = number | Array<number>;
-interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
-    chart: IRblChartConfigurationChart;
-    data: Array<{
-        name: string;
-        data: T;
-    }>;
-    categories: Array<IRblChartConfigurationCategory>;
-    legend: {
-        show: boolean;
-    };
-    tip: {
-        show: IRblChartConfigurationTipShowOption;
-        includeShape: boolean;
-        padding: {
-            top: number;
-            left: number;
-        };
-    };
-    yAxis: {
-        label: string | undefined;
-        tickCount: number;
-    };
-}
-interface IRblChartConfigurationChart {
-    type: IRblChartConfigurationType;
-    height: number;
-    width: number;
-    padding: {
-        top: number;
-        right: number;
-        bottom: number;
-        left: number;
-    };
-}
-interface IRblChartConfigurationCategory {
-    text: string;
-    color: string;
-    shape: IRblChartConfigurationShape;
-    dataLabel: {
-        show: boolean;
-    };
-}
-type IRblChartConfigurationTipShowOption = "off" | "category" | "series";
-type IRblChartConfigurationType = "column" | "columnStacked" | "donut";
-type IRblChartConfigurationShape = "square" | "circle" | "line";
-interface IRblChartDataRow {
-    id: string;
-    value: string;
-    [key: `data${number}`]: string | undefined;
-}
-type IRblChartColumnName = "value" | `data${number}`;
-interface IRblHighChartsOptionRow extends ITabDefRow {
-    key: string;
-    value: string;
-}
-interface IRblHighChartsDataRow extends IStringIndexer<string | undefined> {
-    category: string;
-    plotLine?: string;
-    plotBand?: string;
-}
-interface IHighChartsPlotConfigurationRow {
-    index: number;
-    plotLine: string;
-    plotBand: string;
 }
 interface ITabDefKatAppInfo {
     calcEngineKey: string;
@@ -854,6 +858,9 @@ interface IKaChartModel {
     data: string;
     ce?: string;
     tab?: string;
+    maxHeight?: number;
+    chartCss?: string;
+    legendCss?: string;
 }
 interface IKaHighchartModel {
     data: string;

@@ -492,6 +492,9 @@ interface IKaChartModel {
 	data: string;
 	ce?: string;
 	tab?: string;
+	maxHeight?: number;
+	chartCss?: string;
+	legendCss?: string;
 }
 interface IKaHighchartModel {
 	data: string;
