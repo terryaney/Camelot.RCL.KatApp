@@ -217,8 +217,8 @@
 						// Using short hand of just the 'table names': 'data.options' (.options name is optional)
 						const chartParts = scope.split('.');
 						const data = chartParts[0];
-						const options = chartParts.length >= 2 ? chartParts[1] : chartParts[0];
-						directive.setAttribute(attrName, `{ data: '${data}', options: '${options}' }`);
+						const options = chartParts.length >= 2 ? `'${chartParts[1]}'` : ( isHighchart ? `'${chartParts[0]}'` : "undefined" );
+						directive.setAttribute(attrName, `{ data: '${data}', options: ${options} }`);
 					}
 				}
 				else if (directive.hasAttribute("v-ka-table")) {

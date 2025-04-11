@@ -48,10 +48,14 @@ interface IRblChartConfigurationSeries {
 	shape: IRblChartConfigurationShape; // Default: "square"
 }
 
-interface IRblChartDataRow {
+interface IRblChartOptionRow<T = string> {
     id: string;
-    value: string;
-    [key: `data${number}`]: string | undefined; // Allows properties like data1, data2, etc.
+    value: T;
+}
+
+interface IRblChartDataRow<T = string> extends IRblChartOptionRow<T> {
+    value: T;
+    [key: `data${number}`]: T | undefined; // Allows properties like data1, data2, etc., with type T
 }
 
 type IRblChartColumnName = "value" | `data${number}`;

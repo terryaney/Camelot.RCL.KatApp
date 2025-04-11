@@ -22,10 +22,11 @@
 					// empty the element
 					el.replaceChildren();
 
-					const chartType = this.getOptionValue(configRows, "type") as IRblChartConfigurationType;
+					const chartType = this.getOptionValue<IRblChartConfigurationType>(configRows, "type");
 
 					if (dataRows.length > 0 && chartType) {
-						this.buildChartConfiguration(chartType, configRows, dataRows);
+						const globalOptions = application.state.rbl.source(scope.options ?? "chartOptions", scope.ce, scope.tab) as any as Array<IRblChartDataRow>;
+						this.buildChartConfiguration(chartType, globalOptions, configRows, dataRows);
 
 						const chartContainer = document.createElement("div");
 						const chartClass = `ka-chart-${scope.data.toLowerCase()}`;
@@ -65,19 +66,24 @@
 			};
 		}
 		
-		buildChartConfiguration(chartType: IRblChartConfigurationType, configRows: IRblChartDataRow[], dataRows: IRblChartDataRow[]) {
+		buildChartConfiguration(chartType: IRblChartConfigurationType, optionRows: IRblChartOptionRow[], configRows: IRblChartDataRow[], dataRows: IRblChartDataRow[]) {
 			
 			// Ideas for 'config' settings when needed: https://api.highcharts.com/highcharts
 
+			function configRow<T = string>(id: string): IRblChartDataRow<T> {
+				return (configRows.find(r => r.id == id) ?? {}) as IRblChartDataRow<T>;
+			}
+
 			const dataColumns = (Object.keys(dataRows[0]) as Array<IRblChartColumnName>).filter(c => c.startsWith("data"));
 
-			const text = configRows.find(r => r.id == "text")!;
-			const colors = configRows.find(r => r.id == "color")!;
-			const shapes = configRows.find(r => r.id == "shape") ?? {} as IRblChartDataRow;
-
-			const tipShow: IRblChartConfigurationTipShowOption = this.getOptionValue(configRows, "tip.show") as IRblChartConfigurationTipShowOption ?? "category";
-			const tipIncludeShape = String.compare(this.getOptionValue(configRows, "tip.includeShape") ?? "true", "true", true) === 0;
-			const dataLabelsShow = String.compare(this.getOptionValue(configRows, "dataLabels.show"), "true", true) === 0;
+			const text = configRow("text");
+			const colors = configRow("color");
+			const globalColors = optionRows.find(r => r.id == "colors")?.value.split(",") ?? [];
+			const shapes = configRow<IRblChartConfigurationShape>("shape");
+			const defaultShape = this.getOptionValue<IRblChartConfigurationShape>(configRows, "shape", optionRows, "square") as IRblChartConfigurationShape;
+			const tipShow = this.getOptionValue<IRblChartConfigurationTipShowOption>(configRows, "tip.show", optionRows, "category");
+			const tipIncludeShape = String.compare(this.getOptionValue(configRows, "tip.includeShape", optionRows, "true"), "true", true) === 0;
+			const dataLabelsShow = String.compare(this.getOptionValue(configRows, "dataLabels.show", optionRows), "true", true) === 0;
 
 			const config: IRblChartConfiguration<IRblChartConfigurationDataType> = {
 				data: [],
@@ -90,17 +96,17 @@
 						padding: { top: 5, left: 5 } // Param?
 					},
 					dataLabel: { show: dataLabelsShow }
-				} as unknown as IRblChartConfigurationChart,
+				} as unknown as IRblChartConfigurationChart, // rest of properties set below
 
-				series: dataColumns.map<IRblChartConfigurationSeries>(c => ({
+				series: dataColumns.map<IRblChartConfigurationSeries>((c, i) => ({
 					text: text[c]!,
-					color: colors[c]!,
-					shape: (shapes[c] ?? shapes.value ?? "square") as IRblChartConfigurationShape
+					color: colors[c] ?? i < globalColors.length ? globalColors[i] : "black",
+					shape: shapes[c] ?? defaultShape
 				})),
 
 				yAxis: {
-					label: this.getOptionValue(configRows, "yAxis.label"),
-					tickCount: +(this.getOptionValue(configRows, "yAxis.tickCount") ?? "5")
+					label: this.getOptionValue(configRows, "yAxis.label", optionRows),
+					tickCount: +this.getOptionValue(configRows, "yAxis.tickCount", optionRows, "5")!
 				}
 			};
 
@@ -169,7 +175,6 @@
 					config.chart.padding.bottom += maxLabelLines * 15; // Add 15px per line
 					config.chart.column.width = columnWidth;
 					config.chart.column.spacing = columnSpacing;
-
 					break;
 				
 				case "donut":
@@ -566,8 +571,9 @@
 			return residualValue * magnitude; // Final "nice" interval
 		}
 
-		private getOptionValue(configRows: Array<IRblChartDataRow>, configurationName: string, configColumn: IRblChartColumnName = "value"): string | undefined {
-			return configRows.find(r => String.compare(r.id, configurationName, true) === 0)?.[configColumn];
+		private getOptionValue<T = string>(configRows: Array<IRblChartDataRow>, name: string, globalOptions?: IRblChartOptionRow[], defaultValue?: string): T | undefined {
+			return (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
+				globalOptions?.find(r => r.id == name)?.value ?? defaultValue) as T;
 		}
 
 		private formatNumber(amount: number, style: 'decimal' | 'currency' | 'percent' | 'unit'): string {

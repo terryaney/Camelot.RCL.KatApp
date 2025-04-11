@@ -195,7 +195,7 @@ declare namespace KatApps {
         private application;
         private chartConfiguration;
         getDefinition(application: KatApp): Directive<Element>;
-        buildChartConfiguration(chartType: IRblChartConfigurationType, configRows: IRblChartDataRow[], dataRows: IRblChartDataRow[]): void;
+        buildChartConfiguration(chartType: IRblChartConfigurationType, optionRows: IRblChartOptionRow[], configRows: IRblChartDataRow[], dataRows: IRblChartDataRow[]): void;
         private generateColumnChart;
         private generateDonutChart;
         private addHoverEvents;
@@ -340,10 +340,13 @@ interface IRblChartConfigurationSeries {
     color: string;
     shape: IRblChartConfigurationShape;
 }
-interface IRblChartDataRow {
+interface IRblChartOptionRow<T = string> {
     id: string;
-    value: string;
-    [key: `data${number}`]: string | undefined;
+    value: T;
+}
+interface IRblChartDataRow<T = string> extends IRblChartOptionRow<T> {
+    value: T;
+    [key: `data${number}`]: T | undefined;
 }
 type IRblChartColumnName = "value" | `data${number}`;
 interface IRblHighChartsOptionRow extends ITabDefRow {
@@ -859,6 +862,7 @@ interface IKaChartModel {
     ce?: string;
     tab?: string;
     maxHeight?: number;
+    options?: string;
     chartCss?: string;
     legendCss?: string;
 }

@@ -3175,7 +3175,8 @@ var KatApps;
                     el.replaceChildren();
                     const chartType = this.getOptionValue(configRows, "type");
                     if (dataRows.length > 0 && chartType) {
-                        this.buildChartConfiguration(chartType, configRows, dataRows);
+                        const globalOptions = application.state.rbl.source(scope.options ?? "chartOptions", scope.ce, scope.tab);
+                        this.buildChartConfiguration(chartType, globalOptions, configRows, dataRows);
                         const chartContainer = document.createElement("div");
                         const chartClass = `ka-chart-${scope.data.toLowerCase()}`;
                         chartContainer.classList.add("ka-chart", `ka-chart-${this.chartConfiguration.chart.type}`, chartClass);
@@ -3208,14 +3209,19 @@ var KatApps;
                 });
             };
         }
-        buildChartConfiguration(chartType, configRows, dataRows) {
+        buildChartConfiguration(chartType, optionRows, configRows, dataRows) {
+            function configRow(id) {
+                return (configRows.find(r => r.id == id) ?? {});
+            }
             const dataColumns = Object.keys(dataRows[0]).filter(c => c.startsWith("data"));
-            const text = configRows.find(r => r.id == "text");
-            const colors = configRows.find(r => r.id == "color");
-            const shapes = configRows.find(r => r.id == "shape") ?? {};
-            const tipShow = this.getOptionValue(configRows, "tip.show") ?? "category";
-            const tipIncludeShape = String.compare(this.getOptionValue(configRows, "tip.includeShape") ?? "true", "true", true) === 0;
-            const dataLabelsShow = String.compare(this.getOptionValue(configRows, "dataLabels.show"), "true", true) === 0;
+            const text = configRow("text");
+            const colors = configRow("color");
+            const globalColors = optionRows.find(r => r.id == "colors")?.value.split(",") ?? [];
+            const shapes = configRow("shape");
+            const defaultShape = this.getOptionValue(configRows, "shape", optionRows, "square");
+            const tipShow = this.getOptionValue(configRows, "tip.show", optionRows, "category");
+            const tipIncludeShape = String.compare(this.getOptionValue(configRows, "tip.includeShape", optionRows, "true"), "true", true) === 0;
+            const dataLabelsShow = String.compare(this.getOptionValue(configRows, "dataLabels.show", optionRows), "true", true) === 0;
             const config = {
                 data: [],
                 chart: {
@@ -3227,14 +3233,14 @@ var KatApps;
                     },
                     dataLabel: { show: dataLabelsShow }
                 },
-                series: dataColumns.map(c => ({
+                series: dataColumns.map((c, i) => ({
                     text: text[c],
-                    color: colors[c],
-                    shape: (shapes[c] ?? shapes.value ?? "square")
+                    color: colors[c] ?? i < globalColors.length ? globalColors[i] : "black",
+                    shape: shapes[c] ?? defaultShape
                 })),
                 yAxis: {
-                    label: this.getOptionValue(configRows, "yAxis.label"),
-                    tickCount: +(this.getOptionValue(configRows, "yAxis.tickCount") ?? "5")
+                    label: this.getOptionValue(configRows, "yAxis.label", optionRows),
+                    tickCount: +this.getOptionValue(configRows, "yAxis.tickCount", optionRows, "5")
                 }
             };
             switch (chartType) {
@@ -3581,8 +3587,9 @@ var KatApps;
             const residualValue = residualIndex === -1 ? residualBreaks[residualBreaks.length - 1] : residualBreaks[residualIndex];
             return residualValue * magnitude;
         }
-        getOptionValue(configRows, configurationName, configColumn = "value") {
-            return configRows.find(r => String.compare(r.id, configurationName, true) === 0)?.[configColumn];
+        getOptionValue(configRows, name, globalOptions, defaultValue) {
+            return (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
+                globalOptions?.find(r => r.id == name)?.value ?? defaultValue);
         }
         formatNumber(amount, style) {
             const locales = window.camelot?.internationalization?.locales ?? "en-US";
@@ -4688,8 +4695,8 @@ var KatApps;
                     if (!scope.startsWith("{")) {
                         const chartParts = scope.split('.');
                         const data = chartParts[0];
-                        const options = chartParts.length >= 2 ? chartParts[1] : chartParts[0];
-                        directive.setAttribute(attrName, `{ data: '${data}', options: '${options}' }`);
+                        const options = chartParts.length >= 2 ? `'${chartParts[1]}'` : (isHighchart ? `'${chartParts[0]}'` : "undefined");
+                        directive.setAttribute(attrName, `{ data: '${data}', options: ${options} }`);
                     }
                 }
                 else if (directive.hasAttribute("v-ka-table")) {
