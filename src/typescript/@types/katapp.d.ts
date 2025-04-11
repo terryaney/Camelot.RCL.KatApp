@@ -195,7 +195,8 @@ declare namespace KatApps {
         private application;
         private chartConfiguration;
         getDefinition(application: KatApp): Directive<Element>;
-        buildChartConfiguration(chartType: IRblChartConfigurationType, optionRows: IRblChartOptionRow[], configRows: IRblChartDataRow[], dataRows: IRblChartDataRow[]): void;
+        private buildChartConfiguration;
+        private addLegend;
         private generateColumnChart;
         private generateDonutChart;
         private addHoverEvents;
@@ -308,6 +309,7 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
     };
 }
 interface IRblChartConfigurationChart {
+    name: string;
     type: IRblChartConfigurationType;
     height: number;
     width: number;
@@ -319,6 +321,9 @@ interface IRblChartConfigurationChart {
         left: number;
     };
     dataLabel: {
+        show: boolean;
+    };
+    legend: {
         show: boolean;
     };
     tip: {
@@ -859,6 +864,8 @@ interface IKaApiModel extends IApiOptions {
 }
 interface IKaChartModel {
     data: string;
+    mode?: "chart" | "legend";
+    legendTextSelector?: string;
     ce?: string;
     tab?: string;
     maxHeight?: number;

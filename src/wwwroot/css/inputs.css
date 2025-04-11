@@ -20,6 +20,20 @@
     height: auto; /* Keeps aspect ratio while respecting max-height */
 }
 
+.ka-chart-legend {
+	border: solid 1px rgb(51, 51, 51);
+	padding-bottom: 0.5rem;
+}
+
+.ka-chart-legend > .row {
+	justify-content: center;
+}
+
+.ka-chart-legend-item {
+	margin-top: 0.5rem;
+	margin-right: 0.5rem;
+	cursor: pointer;
+}
 /* Tooltip (warning/error) displays (currently duplicated in 'unused' inputs.float.css */
 .katapp-css.tooltip.is-invalid {
 	min-width: 140px;

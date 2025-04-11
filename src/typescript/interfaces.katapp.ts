@@ -490,6 +490,10 @@ interface IKaApiModel extends IApiOptions {
 }
 interface IKaChartModel {
 	data: string;
+	mode?: "chart" | "legend";
+	// If provided, Legend needs to have .ka-chart-legend-{name.toLower()} class.  Then each item needs to have ka-chart-hover-item="series.name" attribute.
+	// Then each 'text' element containing info that should be opaque needs to be provided via selector (i.e. div.legend-hover)
+	legendTextSelector?: string;
 	ce?: string;
 	tab?: string;
 	maxHeight?: number;

@@ -18,6 +18,7 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 }
 
 interface IRblChartConfigurationChart {
+	name: string;
 	type: IRblChartConfigurationType;
 	height: number;
 	width: number;
@@ -29,6 +30,11 @@ interface IRblChartConfigurationChart {
 	dataLabel: {
 		show: boolean; // Default: true, Show data label on each category or data point.
 	}
+
+	legend: {
+		show: boolean; // Default: false
+	}
+
 	tip: {
 		show: IRblChartConfigurationTipShowOption; // Default: true, Show tips on each xAxis entry or data point (when no xAxis).
 		includeShape: boolean; // Default: true, Include shape in the tip.
