@@ -203,6 +203,7 @@ declare namespace KatApps {
         private createText;
         private createLine;
         private createCircle;
+        private createPath;
         private createRect;
         private createTooltip;
         private getSeriesShape;
@@ -296,6 +297,7 @@ type IRblChartConfigurationDataType = number | Array<number>;
 type IRblChartConfigurationTipShowOption = "off" | "category" | "series";
 type IRblChartConfigurationType = "column" | "columnStacked" | "donut";
 type IRblChartConfigurationShape = "square" | "circle" | "line";
+type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
     chart: IRblChartConfigurationChart;
     data: Array<{
@@ -328,6 +330,7 @@ interface IRblChartConfigurationChart {
     };
     tip: {
         show: IRblChartConfigurationTipShowOption;
+        highlightSeries: boolean;
         includeShape: boolean;
         padding: {
             top: number;
@@ -344,6 +347,8 @@ interface IRblChartConfigurationSeries {
     text: string;
     color: string;
     shape: IRblChartConfigurationShape;
+    type: IRblChartSeriesType;
+    legend: boolean;
 }
 interface IRblChartOptionRow<T = string> {
     id: string;

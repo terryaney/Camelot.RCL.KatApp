@@ -2,6 +2,7 @@
 type IRblChartConfigurationTipShowOption = "off" | "category" | "series";
 type IRblChartConfigurationType = "column" | "columnStacked" | "donut";
 type IRblChartConfigurationShape = "square" | "circle" | "line";
+type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
 
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 	chart: IRblChartConfigurationChart;
@@ -20,6 +21,7 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 interface IRblChartConfigurationChart {
 	name: string;
 	type: IRblChartConfigurationType;
+
 	height: number;
 	width: number;
 	
@@ -37,6 +39,7 @@ interface IRblChartConfigurationChart {
 
 	tip: {
 		show: IRblChartConfigurationTipShowOption; // Default: true, Show tips on each xAxis entry or data point (when no xAxis).
+		highlightSeries: boolean; // Default: true, when show is "series", otherwise false.
 		includeShape: boolean; // Default: true, Include shape in the tip.
 		padding: { top: number; left: number; }
 	}
@@ -52,6 +55,8 @@ interface IRblChartConfigurationSeries {
 	text: string;
 	color: string;
 	shape: IRblChartConfigurationShape; // Default: "square"
+	type: IRblChartSeriesType;
+	legend: boolean; // Default series.type != "tooltip"
 }
 
 interface IRblChartOptionRow<T = string> {

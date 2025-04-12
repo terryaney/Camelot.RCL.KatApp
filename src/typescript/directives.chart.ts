@@ -70,7 +70,11 @@
 						const legendClass = `ka-chart-legend-${this.chartConfiguration.chart.name.toLowerCase()}`;
 
 						if (this.chartConfiguration.chart.legend.show) {
-							this.addLegend(el, legendClass);
+							const legendContainer = document.createElement("div");
+							legendContainer.className = `container ka-chart-legend ka-chart-legend-${this.chartConfiguration.chart.type} ${legendClass}`;
+							el.appendChild(legendContainer);
+
+							this.addLegend(legendContainer);
 						}
 
 						// If external legends are used, the legend isn't guaranteed to be rendered before chart is, so need to wait
@@ -83,14 +87,19 @@
 									if (domUpdated) return;
 
 									domUpdated = true;
-									const tooltipItems = [{ textSelector: "span", items: [...el.querySelectorAll("[ka-chart-hover-item]")] }];
+									const hoverItems = [
+										{ textSelector: "span", highlightOnHover: this.chartConfiguration.chart.tip.highlightSeries, items: [...el.querySelectorAll(".ka-chart [ka-chart-hover-item]")] },
+										{ textSelector: "span", highlightOnHover: true, items: [...el.querySelectorAll(".ka-chart-legend [ka-chart-hover-item]")] }
+									];
+									
 									if (scope.legendTextSelector) {
 										const legend = application.selectElement(`.${legendClass}`);
 										if (legend) {
-											tooltipItems.push({ textSelector: scope.legendTextSelector, items: [...legend!.querySelectorAll("[ka-chart-hover-item]")] });
+											hoverItems.push({ textSelector: scope.legendTextSelector, highlightOnHover: true, items: [...legend!.querySelectorAll("[ka-chart-hover-item]")] });
 										}
 									}			
-									this.addHoverEvents(tooltipItems);
+									
+									this.addHoverEvents(hoverItems);
 								};
 							});
 						}
@@ -109,13 +118,21 @@
 
 			const dataColumns = (Object.keys(dataRows[0]) as Array<IRblChartColumnName>).filter(c => c.startsWith("data"));
 
+			switch (chartType) {
+				case "columnStacked":
+					dataColumns.reverse();
+					break;
+			}
+
 			const text = configRow("text");
 			const colors = configRow("color");
+			const types = configRow<IRblChartSeriesType>("type");
 			const globalColors = globalOptions.find(r => r.id == "colors")?.value.split(",") ?? [];
 			const shapes = configRow<IRblChartConfigurationShape>("shape");
 			const defaultShape = this.getOptionValue<IRblChartConfigurationShape>(chartOptions, "shape", globalOptions, "square") as IRblChartConfigurationShape;
-			const tipShow = this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.show", globalOptions, "category");
+			const tipShow = this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.show", globalOptions, "category")!;
 			const tipIncludeShape = String.compare(this.getOptionValue(chartOptions, "tip.includeShape", globalOptions, "true"), "true", true) === 0;
+			const tipHighlightSeries = String.compare(this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.highlightSeries", globalOptions, tipShow == "series" ? "true" : "false"), "false", true) !== 0;
 			const dataLabelsShow = String.compare(this.getOptionValue(chartOptions, "dataLabels.show", globalOptions), "true", true) === 0;
 			const legendShow =
 				model.legendTextSelector == undefined &&
@@ -123,28 +140,34 @@
 					model.mode == "legend" ||
 					(model.mode != "chart" && String.compare(this.getOptionValue(chartOptions, "legend.show", globalOptions), "true", true) === 0)
 				);
-			
+			const aspectRatioParts = this.getOptionValue(chartOptions, "aspectRatio", globalOptions, "1:1")!.split(":");
+			const aspectRatio = +aspectRatioParts[0] / +aspectRatioParts[1];
 			const config: IRblChartConfiguration<IRblChartConfigurationDataType> = {
 				data: [],
 
 				chart: {
 					name: model.data,
 					type: chartType,
+					height: 400,
+					width: Math.ceil(400 * aspectRatio),
 					padding: { top: 5, right: 5, bottom: 5, left: 5 }, // Param?
 					tip: {
 						show: tipShow,
+						highlightSeries: tipHighlightSeries,
 						includeShape: tipIncludeShape,
 						padding: { top: 5, left: 5 } // Param?
 					},
 					dataLabel: { show: dataLabelsShow },
 					legend: { show: legendShow }
-				} as unknown as IRblChartConfigurationChart, // rest of properties set below
+				},
 
 				series: dataColumns.map<IRblChartConfigurationSeries>((c, i) => {
 					return {
 						text: text[c]!,
 						color: colors[c] ?? (i < globalColors.length ? globalColors[i] : "black"),
-						shape: shapes[c] ?? defaultShape
+						shape: shapes[c] ?? (types[c] == "line" ? "line" : undefined) ?? defaultShape,
+						legend: String.compare(types[c], "tooltip", true) !== 0,
+						type: types[c] ?? "column"
 					};
 				}),
 
@@ -162,7 +185,7 @@
 					break;
 				
 				// 'Category' charts with two or more series...
-				default:
+				case "columnStacked":
 					config.data = dataRows.map(r => ({ name: r.value!, data: dataColumns.map(c => +r[c]!) }));
 					break;
 			}
@@ -170,9 +193,6 @@
 			switch (chartType) {
 				case "column":
 				case "columnStacked":
-					config.chart.width = 400; // Param?
-					config.chart.height = 400 // Param?
-
 					config.chart.padding.top += 15; // Last yAxis tick
 					config.chart.padding.left += 25; // For yAxis ticks
 					config.chart.padding.bottom += 20; // For xAxis labels
@@ -183,7 +203,10 @@
 						maxValue: Math.max(
 							...config.data.map(item =>
 								Array.isArray(item.data)
-									? item.data.reduce((sum, v) => sum + v, 0)
+									? Math.max(
+										item.data.reduce((sum, v, i) => sum + config.series[i].shape != "line" ? v : 0, 0),
+										...item.data.map((v, i) => config.series[i].shape == "line" ? v : 0)
+									) 
 									: item.data
 							)
 						) * (config.chart.dataLabel.show ? 1.05 : 1.025) // Add 10% buffer...
@@ -231,34 +254,32 @@
 			this.chartConfiguration = config
 		}
 
-		private addLegend(container: Element, legendClass: string) {
-			const legendContainer = document.createElement("div");
-			legendContainer.className = `container ka-chart-legend ka-chart-legend-${this.chartConfiguration.chart.type} ${legendClass}`;
-
+		private addLegend(container: Element) {
 			const legend = document.createElement("div");
 			legend.className = "row gx-2 flex-wrap align-items-center";
 
-			this.chartConfiguration.series.forEach(s => {
-				const item = document.createElement("div");
-				item.className = "ka-chart-legend-item d-flex align-items-center col-auto"; // Keeps items inline
-				item.setAttribute("ka-chart-hover-item", s.text);
-				
-				const svg = document.createElementNS(this.ns, "svg");
-				svg.setAttribute("width", "12px");
-				svg.setAttribute("height", "12px");
-				const shape = this.getSeriesShape(10, s.shape, s.color);
-				svg.appendChild(shape);
-				
-				const text = document.createElement("span");
-				text.className = "ps-2 nowrap ka-chart-legend-text";
-				text.innerHTML = s.text;
+			this.chartConfiguration.series.toReversed()
+				.filter(s => s.legend)
+				.forEach(s => {
+					const item = document.createElement("div");
+					item.className = "ka-chart-legend-item d-flex align-items-center col-auto"; // Keeps items inline
+					item.setAttribute("ka-chart-hover-item", s.text);
+					
+					const svg = document.createElementNS(this.ns, "svg");
+					svg.setAttribute("width", "12px");
+					svg.setAttribute("height", "12px");
+					const shape = this.getSeriesShape(10, s.shape, s.color);
+					svg.appendChild(shape);
+					
+					const text = document.createElement("span");
+					text.className = "ps-2 nowrap ka-chart-legend-text";
+					text.innerHTML = s.text;
 
-				item.append(svg, text);
-				legend.appendChild(item);
-			});
+					item.append(svg, text);
+					legend.appendChild(item);
+				});
 
-			legendContainer.appendChild(legend);
-			container.appendChild(legendContainer);
+			container.appendChild(legend);
 		}
 
 		private generateColumnChart(idClass: string, container: HTMLElement) {
@@ -296,19 +317,44 @@
 			
 			const getSeriesY = (value: number) => plotHeight - (value / yAxisMax) * plotHeight;
 
-			const getColumnElement = (elementX: number, elementY: number, elementName: string, value: number, elementIndex: number, tipKey?: string, columnName?: string) => {
+			const getColumnElement = (elementX: number, elementY: number, nextElementY: number | undefined, elementName: string, value: number, elementIndex: number, tipKey?: string, columnName?: string) => {
 				const columnHeight = (value / yAxisMax) * plotHeight;
+
+				const columnMiddle = elementX + columnConfig.width / 2; // Start point for this column
+				const nextColumnMiddle = nextElementY
+					? elementX + columnConfig.width + columnConfig.spacing * 2 // End point (next column's X)
+					: columnMiddle; // No next column, so use current column's middle
+
 				const valueFormatted = this.formatNumber(value, "currency");
+				const isLine = config.series[elementIndex].shape == "line";
 
-				const rect = this.createRect(elementX, elementY, columnConfig.width, columnHeight, config.series[elementIndex].color, "#ffffff", 1);
-				rect.setAttribute("ka-chart-hover-item", elementName);
-				rect.setAttribute("aria-label", `${elementName}, ${valueFormatted}.${columnName ? ` ${this.encodeHtmlAttributeValue(columnName)}.` : ""}`);
+				/*
+				if (isLine) {
+					console.log(`Line Y1: ${elementY}, Y2: ${nextElementY}`);
+				}
+				*/
 
+				const element = isLine
+					? this.createPath(
+						`M ${columnMiddle} ${elementY} L ${nextColumnMiddle} ${(nextElementY ?? elementY)}`, 
+						config.series[elementIndex].color, 
+						2 // Stroke width
+					)
+					: this.createRect(elementX, elementY, columnConfig.width, columnHeight, config.series[elementIndex].color, "#ffffff", 1);
+
+				if (config.series[elementIndex].type == "tooltip") {
+					element.setAttribute("data-is-tooltip", "1");
+					element.setAttribute("opacity", "0");
+				}
+
+				element.setAttribute("ka-chart-hover-item", elementName);
+				element.setAttribute("aria-label", `${elementName}, ${valueFormatted}.${columnName ? ` ${this.encodeHtmlAttributeValue(columnName)}.` : ""}`);
+				
 				const tooltipContent = tipKey
-					? this.createTooltip(idClass, tipKey, rect, [{ name: elementName, value: valueFormatted, color: config.series[elementIndex].color, shape: config.series[elementIndex].shape }], columnName)
+					? this.createTooltip(idClass, tipKey, element, [{ name: elementName, value: valueFormatted, color: config.series[elementIndex].color, shape: config.series[elementIndex].shape }], columnName)
 					: undefined;
 
-				return { rect, tooltipContent };
+				return { element: element, tooltipContent };
 			};
 
 			const columns = config.data.map((item, i) => {
@@ -323,18 +369,31 @@
 				);
 				
 				let stackBase = 0;
-				const columnElements = item.data instanceof Array
+				const columnElements = (item.data instanceof Array
 					// Stacked ...
 					? item.data.map((v, j) => {
+						const isLine = config.series[j].shape == "line";
+						const nextValue = i < config.data.length - 1 ? (config.data[i + 1].data as Array<number>)[j] : undefined;
+
+						/*
+						if (isLine) {
+							console.log(`Line v1: ${v}, v2: ${nextValue}`);
+						}
+						*/
+
+						const yOffset = !isLine ? stackBase : 0;
 						const element = getColumnElement(
-							columnX, paddingConfig.top + getSeriesY(stackBase + v),
-							this.chartConfiguration.series[j].text, v, j,
-							config.chart.tip.show == "series" ? `${i}-${j}` : undefined, item.name
+							columnX,
+							paddingConfig.top + getSeriesY(yOffset + v),
+							nextValue ? paddingConfig.top + getSeriesY(yOffset + nextValue) : undefined,
+							config.series[j].text,
+							v, j, config.chart.tip.show == "series" ? `${i}-${j}` : undefined, item.name
 						);
-						stackBase += v;
+						stackBase += !isLine ? v : 0;
 						return element;
 					})
-					: [getColumnElement(columnX, paddingConfig.top + getSeriesY(item.data), item.name, item.data, i)];
+					: [getColumnElement(columnX, paddingConfig.top + getSeriesY(item.data), undefined, item.name, item.data, i)]
+				);
 
 				const g = document.createElementNS(this.ns, "g");
 				let tooltip: Element | undefined = undefined;
@@ -368,7 +427,7 @@
 				}
 			
 				g.appendChild(columnLabel);
-				g.append(...columnElements.map(e => e.rect));
+				g.append(...columnElements.filter(e => e.element.tagName == "rect").map(e => e.element));				
 
 				// Add data labels above columns if enabled
 				if (config.chart.dataLabel.show) {
@@ -387,7 +446,7 @@
 					g.appendChild(dataLabel);
 				}
 
-				return { g, tooltips: columnElements.filter(e => e.tooltipContent != undefined).map(e => e.tooltipContent!).concat(tooltip ? [tooltip] : []) };
+				return { g, lines: columnElements.filter(e => e.element.tagName == "path").map(e => e.element), tooltips: columnElements.filter(e => e.tooltipContent != undefined).map(e => e.tooltipContent!).concat(tooltip ? [tooltip] : []) };
 			});
 			
 			const svg = document.createElementNS(this.ns, "svg");
@@ -398,6 +457,13 @@
 
 			svg.append(...yAxisTicks);
 			svg.append(...columns.map(c => c.g))
+			
+			if (columns.some(c => c.lines.length > 0)) {
+				const lines = document.createElementNS(this.ns, "g");
+				lines.append(...columns.flatMap(c => c.lines));
+				svg.appendChild(lines);
+			}
+
 			svg.appendChild(xAxisLine);			
 			
 			container.appendChild(svg);
@@ -414,8 +480,8 @@
 			const config = this.chartConfiguration as IRblChartConfiguration<number>;
 			const total = config.data.reduce((sum, item) => sum + item.data, 0);
 
-			const radius = 80;
-			const strokeWidth = 35;
+			const radius = config.chart.height / 2;
+			const strokeWidth = radius * 0.4375;
 			const normalizedRadius = radius - strokeWidth / 2;
 
 			// Create segments
@@ -452,7 +518,7 @@
 			});
 
 			const svg = document.createElementNS(this.ns, "svg");
-			svg.setAttribute("viewBox", `0 0 ${radius * 2} ${radius * 2}`);
+			svg.setAttribute("viewBox", `0 0 ${config.chart.width} ${config.chart.height}`);
 			svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
 			svg.append(...segments.map(segment => segment.path));
@@ -461,7 +527,7 @@
 
 			svg.appendChild(this.createText(
 				radius, radius, this.formatNumber(total, "currency"),
-				{ "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": 14, "font-weight": "bold" },
+				{ "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": "2em", "font-weight": "bold" },
 			));
 
 			container.appendChild(svg);
@@ -474,11 +540,11 @@
 			}
 		}
 
-		private addHoverEvents(tooltipItems: Array<{ textSelector: string, items: Array<Element> }>) {
+		private addHoverEvents(items: Array<{ textSelector: string, highlightOnHover: boolean, items: Array<Element> }>) {
 
 			const toggleItems = (currentHoverItem?: string) => {
-				tooltipItems.forEach(tooltip => {
-					tooltip.items.forEach(i => {
+				items.forEach(tooltip => {
+					tooltip.items.filter( e => e.getAttribute("data-is-tooltip") != "1").forEach(i => {
 						const opacity = !currentHoverItem || currentHoverItem == i.getAttribute("ka-chart-hover-item") ? "1" : "0.2";
 						if (i instanceof SVGElement) {
 							i.setAttribute("opacity", opacity);
@@ -492,11 +558,13 @@
 				
 			};
 
-			tooltipItems.forEach(tooltip => {
-				tooltip.items.forEach(item => {
-					item.addEventListener("mouseover", () => toggleItems(item.getAttribute("ka-chart-hover-item")!));
-					item.addEventListener("mouseout", () => toggleItems());
-				});
+			items.forEach(tooltip => {
+				if (tooltip.highlightOnHover) {
+					tooltip.items.forEach(item => {
+						item.addEventListener("mouseover", () => toggleItems(item.getAttribute("ka-chart-hover-item")!));
+						item.addEventListener("mouseout", () => toggleItems());
+					});
+				}
 			});
 		}
 
@@ -574,6 +642,15 @@
 			return circle;
 		}
 
+		private createPath(d: string, stroke: string, strokeWidth: number) {
+			const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+			path.setAttribute("d", d);
+			path.setAttribute("fill", "none"); // Ensure no filling for line series
+			path.setAttribute("stroke", stroke); // Line color
+			path.setAttribute("stroke-width", strokeWidth.toString()); // Line thickness
+			return path;
+		}
+
 		private createRect(x: number, y: number, width: number, height: number, fill: string, stroke?: string, strokeWidth?: number): Element {
 			const rect = document.createElementNS(this.ns, "rect");
 			rect.setAttribute("x", String(x));
@@ -639,6 +716,10 @@
 			switch (shape) {
 				case "circle":
 					return this.createCircle(5, y - 5, 5, color);
+				
+				case "line":
+					return this.createLine(0, y - 5, 10, y - 5, color, 2);
+
 				case "square":
 				default:
 					return this.createRect(0, y - 10, 10, 10, color);

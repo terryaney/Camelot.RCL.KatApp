@@ -22,7 +22,7 @@
 
 .ka-chart-legend {
 	border: solid 1px rgb(51, 51, 51);
-	padding-bottom: 0.5rem;
+	padding-bottom: 0.1rem;
 }
 
 .ka-chart-legend > .row {
@@ -30,8 +30,8 @@
 }
 
 .ka-chart-legend-item {
-	margin-top: 0.5rem;
-	margin-right: 0.5rem;
+	margin-top: 0.1rem;
+	margin-right: 0.1rem;
 	cursor: pointer;
 }
 /* Tooltip (warning/error) displays (currently duplicated in 'unused' inputs.float.css */
