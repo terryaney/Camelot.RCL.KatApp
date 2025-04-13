@@ -33,6 +33,7 @@
 	margin-top: 0.1rem;
 	margin-right: 0.1rem;
 	cursor: pointer;
+	font-size: 0.9em;
 }
 /* Tooltip (warning/error) displays (currently duplicated in 'unused' inputs.float.css */
 .katapp-css.tooltip.is-invalid {

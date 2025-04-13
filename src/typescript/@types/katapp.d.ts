@@ -193,7 +193,7 @@ declare namespace KatApps {
         name: string;
         private ns;
         private application;
-        private chartConfiguration;
+        private configuration;
         getDefinition(application: KatApp): Directive<Element>;
         private buildChartConfiguration;
         private addLegend;
@@ -203,6 +203,7 @@ declare namespace KatApps {
         private createText;
         private createLine;
         private createCircle;
+        private createLineMarker;
         private createPath;
         private createRect;
         private createTooltip;
@@ -305,6 +306,9 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
         data: T;
     }>;
     series: Array<IRblChartConfigurationSeries>;
+    xAxis: {
+        label: string | undefined;
+    };
     yAxis: {
         label: string | undefined;
         tickCount: number;
@@ -332,6 +336,7 @@ interface IRblChartConfigurationChart {
         show: IRblChartConfigurationTipShowOption;
         highlightSeries: boolean;
         includeShape: boolean;
+        headerFormat: string | undefined;
         padding: {
             top: number;
             left: number;

@@ -12,6 +12,10 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 	// Settings for each series or data point (when single series).
 	series: Array<IRblChartConfigurationSeries>;
 
+	xAxis: {
+		label: string | undefined; // If present, render label
+	}
+
 	yAxis: {
 		label: string | undefined; // If present, render label
 		tickCount: number; // Default: 5, Number of major axis ticks to show on yAxis.
@@ -41,6 +45,7 @@ interface IRblChartConfigurationChart {
 		show: IRblChartConfigurationTipShowOption; // Default: true, Show tips on each xAxis entry or data point (when no xAxis).
 		highlightSeries: boolean; // Default: true, when show is "series", otherwise false.
 		includeShape: boolean; // Default: true, Include shape in the tip.
+		headerFormat: string | undefined; // Default: xAxis/category name
 		padding: { top: number; left: number; }
 	}
 }
