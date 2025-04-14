@@ -3,6 +3,7 @@ type IRblChartConfigurationTipShowOption = "off" | "category" | "series";
 type IRblChartConfigurationType = "column" | "columnStacked" | "donut";
 type IRblChartConfigurationShape = "square" | "circle" | "line";
 type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
+type IRblChartFormatStyle = 'decimal' | 'currency' | 'c0' | 'c2' | 'percent' | 'unit';
 
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 	chart: IRblChartConfigurationChart;
@@ -14,12 +15,23 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 
 	xAxis: {
 		label: string | undefined; // If present, render label
+		plotBands: Array<IRblChartPlotBand>;
 	}
 
 	yAxis: {
 		label: string | undefined; // If present, render label
 		tickCount: number; // Default: 5, Number of major axis ticks to show on yAxis.
 	}
+}
+
+interface IRblChartPlotBand {
+	label: {
+		text: string; // Default: "label"
+	}
+
+	color: string;
+	from: number;
+	to: number;
 }
 
 interface IRblChartConfigurationChart {
@@ -33,21 +45,22 @@ interface IRblChartConfigurationChart {
 
 	padding: { top: number; right: number; bottom: number; left: number; }
 	
-	dataLabel: {
-		show: boolean; // Default: true, Show data label on each category or data point.
-	}
+	dataLabels: IRblChartConfigurationDataLabels;
+	legend: boolean;
+	tip: IRblChartConfigurationTip;
+}
 
-	legend: {
-		show: boolean; // Default: false
-	}
+interface IRblChartConfigurationTip {
+	show: IRblChartConfigurationTipShowOption; // Default: true, Show tips on each xAxis entry or data point (when no xAxis).
+	highlightSeries: boolean; // Default: true, when show is "series", otherwise false.
+	includeShape: boolean; // Default: true, Include shape in the tip.
+	headerFormat: string | undefined; // Default: xAxis/category name
+	padding: { top: number; left: number; }
+}
 
-	tip: {
-		show: IRblChartConfigurationTipShowOption; // Default: true, Show tips on each xAxis entry or data point (when no xAxis).
-		highlightSeries: boolean; // Default: true, when show is "series", otherwise false.
-		includeShape: boolean; // Default: true, Include shape in the tip.
-		headerFormat: string | undefined; // Default: xAxis/category name
-		padding: { top: number; left: number; }
-	}
+interface IRblChartConfigurationDataLabels {
+	show: boolean; // Default: true, Show data label on each category or data point.
+	format: IRblChartFormatStyle; // Default: c0
 }
 
 interface IRblChartConfigurationChartColumn {

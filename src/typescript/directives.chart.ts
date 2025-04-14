@@ -69,7 +69,7 @@
 
 						const legendClass = `ka-chart-legend-${this.configuration.chart.name.toLowerCase()}`;
 
-						if (this.configuration.chart.legend.show) {
+						if (this.configuration.chart.legend) {
 							const legendContainer = document.createElement("div");
 							legendContainer.className = `container ka-chart-legend ka-chart-legend-${this.configuration.chart.type} ${legendClass}`;
 							el.appendChild(legendContainer);
@@ -97,7 +97,7 @@
 										if (legend) {
 											seriesItems.push({ textSelector: scope.legendTextSelector, highlightOnHover: true, items: [...legend!.querySelectorAll("[ka-chart-series-item]")] });
 										}
-									}			
+									}
 
 									this.addHoverEvents(el, seriesItems);
 								};
@@ -115,6 +115,9 @@
 			function configRow<T = string>(id: string): IRblChartDataRow<T> {
 				return (chartOptions.find(r => r.id == id) ?? {}) as IRblChartDataRow<T>;
 			}
+			function configRows<T = string>(id: string): Array<IRblChartDataRow<T>> {
+				return chartOptions.filter(r => r.id == id) as Array<IRblChartDataRow<T>>;
+			}
 
 			const dataColumns = (Object.keys(dataRows[0]) as Array<IRblChartColumnName>).filter(c => c.startsWith("data"));
 
@@ -130,17 +133,26 @@
 			const globalColors = globalOptions.find(r => r.id == "colors")?.value.split(",") ?? [];
 			const shapes = configRow<IRblChartConfigurationShape>("shape");
 			const defaultShape = this.getOptionValue<IRblChartConfigurationShape>(chartOptions, "shape", globalOptions, "square") as IRblChartConfigurationShape;
-			const tipShow = this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.show", globalOptions, "category")!;
-			const tipHeaderFormat = this.getOptionValue(chartOptions, "tip.headerFormat", globalOptions);
-			const tipIncludeShape = String.compare(this.getOptionValue(chartOptions, "tip.includeShape", globalOptions, "true"), "true", true) === 0;
-			const tipHighlightSeries = String.compare(this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.highlightSeries", globalOptions, tipShow == "series" ? "true" : "false"), "false", true) !== 0;
-			const dataLabelsShow = String.compare(this.getOptionValue(chartOptions, "dataLabels.show", globalOptions), "true", true) === 0;
-			const legendShow =
-				model.legendTextSelector == undefined &&
-				(
-					model.mode == "legend" ||
-					(model.mode != "chart" && String.compare(this.getOptionValue(chartOptions, "legend.show", globalOptions), "true", true) === 0)
-				);
+			
+			const getBooleanProperty = <T>(property: string, parsedValue: T | undefined, defaultCompare: string, getCompareValue: (value: T) => string = v => v ? "true" : "false"): boolean => {
+				return String.compare(
+					this.getOptionValue(chartOptions, property, globalOptions, parsedValue == undefined ? defaultCompare : getCompareValue(parsedValue)),
+					"true",
+					true
+				) === 0;
+			}
+			const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", globalOptions) ?? "{}") as IRblChartConfigurationTip;
+			tip.padding = { top: 5, left: 5 }; // Param?
+			tip.show = this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.show", globalOptions, tip.show ?? "category")!;
+			tip.headerFormat = this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
+			tip.includeShape = getBooleanProperty("tip.includeShape", tip.includeShape, "true");
+			tip.highlightSeries = getBooleanProperty("tip.highlightSeries", tip.highlightSeries, tip.show == "category" ? "true" : "false");
+
+
+			const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", globalOptions) ?? "{}") as IRblChartConfigurationDataLabels;
+			dataLabels.show = getBooleanProperty("dataLabels.show", dataLabels.show, "false");
+			dataLabels.format = this.getOptionValue<IRblChartFormatStyle>(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? "c2")!;
+
 			const aspectRatioParts = this.getOptionValue(chartOptions, "aspectRatio", globalOptions, "1:1")!.split(":");
 			const aspectRatio = +aspectRatioParts[0] / +aspectRatioParts[1];
 			const config: IRblChartConfiguration<IRblChartConfigurationDataType> = {
@@ -152,15 +164,13 @@
 					height: 400,
 					width: Math.ceil(400 * aspectRatio),
 					padding: { top: 5, right: 5, bottom: 5, left: 5 }, // Param?
-					tip: {
-						show: tipShow,
-						highlightSeries: tipHighlightSeries,
-						includeShape: tipIncludeShape,
-						headerFormat: tipHeaderFormat,
-						padding: { top: 5, left: 5 } // Param?
-					},
-					dataLabel: { show: dataLabelsShow },
-					legend: { show: legendShow }
+					tip: tip,
+					dataLabels: dataLabels,
+					legend: model.legendTextSelector == undefined &&
+						(
+							model.mode == "legend" ||
+							(model.mode != "chart" && getBooleanProperty("legend.show", undefined, "false"))
+						)
 				},
 
 				series: dataColumns.map<IRblChartConfigurationSeries>((c, i) => {
@@ -174,7 +184,8 @@
 				}),
 
 				xAxis: {
-					label: this.getOptionValue(chartOptions, "xAxis.label", globalOptions)
+					label: this.getOptionValue(chartOptions, "xAxis.label", globalOptions),
+					plotBands: configRows("xAxis.plotBand").map(r => JSON.parse(r.value) as IRblChartPlotBand)
 				},
 
 				yAxis: {
@@ -213,15 +224,15 @@
 									? Math.max(
 										item.data.reduce((sum, v, i) => sum + config.series[i].shape != "line" ? v : 0, 0),
 										...item.data.map((v, i) => config.series[i].shape == "line" ? v : 0)
-									) 
+									)
 									: item.data
 							)
-						) * (config.chart.dataLabel.show ? 1.05 : 1.025) // Add 10% buffer...
+						) * (config.chart.dataLabels.show ? 1.05 : 1.025) // Add 10% buffer...
 					} as unknown as IRblChartConfigurationChartColumn;
 		
 					// Add dynamic padding for powers of 10 >= 1000
 					const paddingLog10 = Math.floor(Math.log10(config.chart.column.maxValue));
-					const powerOfTenPadding = Math.min( 50, paddingLog10 >= 2 ? (paddingLog10 - 1) * 10 : 0 );
+					const powerOfTenPadding = Math.min(50, paddingLog10 >= 2 ? (paddingLog10 - 1) * 10 : 0);
 					config.chart.padding.left += powerOfTenPadding;
 					
 					const plotWidth = config.chart.width - config.chart.padding.left - config.chart.padding.right;
@@ -299,6 +310,7 @@
 			const yAxisBase = config.chart.height - paddingConfig.bottom;
 			const xAxisLine = this.createLine(paddingConfig.left, yAxisBase, config.chart.width - paddingConfig.right, yAxisBase);
 			const yAxisLine = this.createLine(paddingConfig.left, paddingConfig.top, paddingConfig.left, yAxisBase);
+			const xAxisTickLabelY = config.chart.height - paddingConfig.bottom + 12;
 
 			const yAxisLabelX = paddingConfig.left / 3;
 			const yAxisLabelY = plotHeight / 2;
@@ -306,7 +318,7 @@
 			const yAxisLabel = config.yAxis.label
 				? this.createText(yAxisLabelX, yAxisLabelY, config.yAxis.label, { "font-size": "0.9em", fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
 				: undefined;
-
+				
 			const yAxisInterval = this.calculateYAxisInterval(columnConfig.maxValue, config.yAxis.tickCount);
 			const yAxisMax = Math.ceil(columnConfig.maxValue / yAxisInterval) * yAxisInterval;
 			
@@ -319,11 +331,37 @@
 							? this.createLine(paddingConfig.left, y, config.chart.width - paddingConfig.right, y, "#e6e6e6")
 							: undefined;
 
-						const tickLabel = this.createText(paddingConfig.left - 10, y, this.formatNumber(value, "currency"), { "text-anchor": "end", "font-size": "0.9em", "dominant-baseline": "middle" })
+						const tickLabel = this.createText(paddingConfig.left - 10, y, this.formatNumber(value, "currency"), { "text-anchor": "end", "font-size": "0.8em", "dominant-baseline": "middle" })
 						return tickLine ? [tickLine!, tickLabel] : [tickLabel];
 					});
+
+			const svg = document.createElementNS(this.ns, "svg");
+			svg.setAttribute("viewBox", `0 0 ${config.chart.width} ${config.chart.height}`);
+			svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+			if (yAxisLabel != undefined) svg.appendChild(yAxisLabel);
+
+			const plotBand0 = plotWidth / (config.data.length * 2);
+			const plotBands = config.xAxis.plotBands.map(band => {
+				const from = paddingConfig.left + plotBand0 + (band.from / 0.5) * plotBand0;
+				const to = paddingConfig.left + plotBand0 + (band.to / 0.5) * plotBand0;
+				const rect = this.createRect(from, paddingConfig.top, to - from, plotHeight, band.color);
+
+				const label = band.label.text
+					? this.createText(
+						from, paddingConfig.top - 3,
+						band.label.text,
+						{ "text-anchor": "start", "font-size": "0.8em", "dominant-baseline": "baseline" })
+					: undefined;
+				return label ? [label, rect] : [rect];
+			});
+			svg.append(...plotBands.flat());
+
+			svg.append(...yAxisTicks);
+
+			// svg.appendChild(yAxisLine);
 			
-			const getSeriesY = (value: number) => plotHeight - (value / yAxisMax) * plotHeight;
+			const getColumnElementY = (value: number) => plotHeight - (value / yAxisMax) * plotHeight;
 
 			const getColumnElement = (elementX: number, elementY: number, value: number, elementConfig: IRblChartConfigurationSeries, tipKey?: string, headerName?: string) => {
 				const columnHeight = (value / yAxisMax) * plotHeight;
@@ -345,7 +383,6 @@
 				return { element: element, tooltipContent };
 			};
 
-			const columnLabelY = config.chart.height - paddingConfig.bottom + 12;
 			const xAxisSkipInterval = Math.ceil(config.data.length / (plotWidth / 25)); // Adjust 50 for desired spacing
 
 			const columns = config.data.map((item, i) => {
@@ -358,7 +395,7 @@
 						const elementConfig = config.series[j];
 						
 						if (elementConfig.shape == "line") {
-							const lineY = paddingConfig.top + getSeriesY(v);
+							const lineY = paddingConfig.top + getColumnElementY(v);
 							const lineX = columnX + columnConfig.width / 2;
 							// console.log(`Line x: ${lineX}, y: ${lineY}`);
 							return {
@@ -372,7 +409,7 @@
 						else {
 							const element = getColumnElement(
 								columnX,
-								paddingConfig.top + getSeriesY(stackBase + v),
+								paddingConfig.top + getColumnElementY(stackBase + v),
 								v,
 								elementConfig,
 								config.chart.tip.show == "series" ? `${i}-${j}` : undefined,
@@ -382,7 +419,7 @@
 							return element;
 						}
 					})
-					: [getColumnElement(columnX, paddingConfig.top + getSeriesY(item.data), item.data, config.series[ i ])]
+					: [getColumnElement(columnX, paddingConfig.top + getColumnElementY(item.data), item.data, config.series[i])]
 				);
 
 				const columnGroup = document.createElementNS(this.ns, "g");
@@ -390,14 +427,14 @@
 				columnGroup.setAttribute("ka-chart-marker-item", String(i));
 
 				if (i % xAxisSkipInterval == 0) {
-					const columnLabel = this.createText(
+					const xAxisTickLabel = this.createText(
 						columnX + columnConfig.width / 2, // center...
-						columnLabelY,
+						xAxisTickLabelY,
 						item.name,
-						{ "text-anchor": "middle", "font-size": "0.9em", "dominant-baseline": "middle" },
+						{ "text-anchor": "middle", "font-size": "0.8em", "dominant-baseline": "middle" },
 						columnConfig.width
 					);
-					columnGroup.appendChild(columnLabel);
+					columnGroup.appendChild(xAxisTickLabel);
 				}
 
 				let tooltip: Element | undefined = undefined;
@@ -438,16 +475,16 @@
 				columnGroup.append(...rectElements.map(e => e.element));
 				
 				// Add data labels above columns if enabled
-				if (config.chart.dataLabel.show) {
+				if (config.chart.dataLabels.show) {
 					const totalValue = item.data instanceof Array
 						? item.data.reduce((sum, v) => sum + v, 0)
 						: item.data;
 
-					const labelY = paddingConfig.top + getSeriesY(totalValue) - 10; // Position above the column
+					const labelY = paddingConfig.top + getColumnElementY(totalValue) - 10; // Position above the column
 					const dataLabel = this.createText(
 						columnX + columnConfig.width / 2, // Centered above the column
 						labelY,
-						this.formatNumber(totalValue, "currency"),
+						this.formatNumber(totalValue, config.chart.dataLabels.format),
 						{ "text-anchor": "middle", "font-size": "0.7em", "font-weight": "bold" }
 					);
 
@@ -465,13 +502,6 @@
 				};
 			});
 			
-			const svg = document.createElementNS(this.ns, "svg");
-			svg.setAttribute("viewBox", `0 0 ${config.chart.width} ${config.chart.height}`);
-			svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-
-			if (yAxisLabel != undefined) svg.appendChild(yAxisLabel);
-
-			svg.append(...yAxisTicks);
 			svg.append(...columns.map(c => c.g))
 			
 			if (columns.some(c => c.linePoints.length > 0)) {
@@ -515,29 +545,29 @@
 					
 							return `C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${point.x} ${point.y}`;
 						}
-					}).join(" ");					
+					}).join(" ");
 					
 					const lineConfig = linePoints[0].config;
 					const path = this.createPath(pathD, lineConfig.color, 2);
 					path.setAttribute("ka-chart-series-item", lineConfig.text); // Make sure I can do 'opacity hover'
 
-					lineGroup.appendChild(path);					
+					lineGroup.appendChild(path);
 					
 					svg.appendChild(lineGroup);
-					svg.appendChild(lineMarkerGroup);					
+					svg.appendChild(lineMarkerGroup);
 				}
 			}
 
-			// svg.appendChild(yAxisLine);
+			// Add xAxis line last so first column isn't rendered on top of it
+			svg.appendChild(xAxisLine);
+
 			if (config.xAxis.label) {
 				const xAxisLabelX = config.chart.padding.left + plotWidth / 2;
-				const xAxisLabelY = columnLabelY + 19;
+				const xAxisLabelY = xAxisTickLabelY + 19;
 				const xAxisLabel = this.createText(xAxisLabelX, xAxisLabelY, config.xAxis.label, { "text-anchor": "middle", "font-size": "1em", "dominant-baseline": "middle" });
 				svg.appendChild(xAxisLabel);
 			}
 
-			svg.appendChild(xAxisLine);			
-			
 			container.appendChild(svg);
 
 			if (columns.some(c => c.tooltips.length > 0)) {
@@ -645,7 +675,7 @@
 				const toggleLineMarkers = (markerItem?: string) => {
 					lineMarkers.forEach(marker => {
 						const isActive = markerItem == marker.getAttribute("ka-chart-marker-item");
-						const opacity = isActive ? "1" : "0";						
+						const opacity = isActive ? "1" : "0";
 						marker.setAttribute("opacity", opacity);
 						
 						const glow = marker.parentElement!.firstElementChild!;
@@ -782,7 +812,7 @@
 			return rect;
 		}
 
-		private createTooltip(idClass: string, targetKey: string, target: Element, tipLines: Array<{name: string, value: string, color: string, shape: IRblChartConfigurationShape}>, header?: string): Element {
+		private createTooltip(idClass: string, targetKey: string, target: Element, tipLines: Array<{ name: string, value: string, color: string, shape: IRblChartConfigurationShape }>, header?: string): Element {
 			target.setAttribute("data-bs-toggle", "tooltip");
 			target.setAttribute("data-bs-placement", "auto");
 			target.setAttribute("data-bs-container", `.${idClass} .ka-chart`);
@@ -858,15 +888,15 @@
 				globalOptions?.find(r => r.id == name)?.value ?? defaultValue) as T;
 		}
 
-		private formatNumber(amount: number, style: 'decimal' | 'currency' | 'percent' | 'unit'): string {
+		private formatNumber(amount: number, style: IRblChartFormatStyle): string {
 			const locales = (window as any).camelot?.internationalization?.locales ?? "en-US";
 			const currencyCode = (window as any).camelot?.internationalization?.currencyCode ?? "USD";
 
 			return Intl.NumberFormat(locales, {
-				style: style,
+				style: style == "c0" || style == "c2" ? "currency" : style,
 				currency: currencyCode,
-				minimumFractionDigits: 0,
-				maximumFractionDigits: 0
+				minimumFractionDigits: style == "c2" ? 2 : 0,
+				maximumFractionDigits: style == "c2" ? 2 : 0
 			}).format(amount);
 		}
 

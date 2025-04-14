@@ -299,6 +299,7 @@ type IRblChartConfigurationTipShowOption = "off" | "category" | "series";
 type IRblChartConfigurationType = "column" | "columnStacked" | "donut";
 type IRblChartConfigurationShape = "square" | "circle" | "line";
 type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
+type IRblChartFormatStyle = 'decimal' | 'currency' | 'c0' | 'c2' | 'percent' | 'unit';
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
     chart: IRblChartConfigurationChart;
     data: Array<{
@@ -308,11 +309,20 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
     series: Array<IRblChartConfigurationSeries>;
     xAxis: {
         label: string | undefined;
+        plotBands: Array<IRblChartPlotBand>;
     };
     yAxis: {
         label: string | undefined;
         tickCount: number;
     };
+}
+interface IRblChartPlotBand {
+    label: {
+        text: string;
+    };
+    color: string;
+    from: number;
+    to: number;
 }
 interface IRblChartConfigurationChart {
     name: string;
@@ -326,22 +336,23 @@ interface IRblChartConfigurationChart {
         bottom: number;
         left: number;
     };
-    dataLabel: {
-        show: boolean;
+    dataLabels: IRblChartConfigurationDataLabels;
+    legend: boolean;
+    tip: IRblChartConfigurationTip;
+}
+interface IRblChartConfigurationTip {
+    show: IRblChartConfigurationTipShowOption;
+    highlightSeries: boolean;
+    includeShape: boolean;
+    headerFormat: string | undefined;
+    padding: {
+        top: number;
+        left: number;
     };
-    legend: {
-        show: boolean;
-    };
-    tip: {
-        show: IRblChartConfigurationTipShowOption;
-        highlightSeries: boolean;
-        includeShape: boolean;
-        headerFormat: string | undefined;
-        padding: {
-            top: number;
-            left: number;
-        };
-    };
+}
+interface IRblChartConfigurationDataLabels {
+    show: boolean;
+    format: IRblChartFormatStyle;
 }
 interface IRblChartConfigurationChartColumn {
     maxValue: number;
