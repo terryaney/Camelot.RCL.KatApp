@@ -490,16 +490,24 @@ interface IKaApiModel extends IApiOptions {
 }
 interface IKaChartModel {
 	data: string;
-	mode?: "chart" | "legend";
+	options?: string; // Default: chartOptions
+	mode?: "chart" | "legend"; // Default: both (but legend could be turned off via CalcEngine options if mode not provided, otherwise mode overrides legend.show)
+
+	categories?: {
+		from?: number; // If from/to are provided, the chart will be sliced to only show the range of categories.  If not provided, all categories will be shown.
+		to?: number;
+		
+		maxHeight?: number; // Max height of 'breakpoint' charts when rendered.  Default is model.maxHeight.
+		xs?: number; // If xs is provided, the primary chart will be wrapped with appropriate bootstrap classes to make it render, then in xs breakpoint, the number provided specifies how many categories to show
+	}
+
 	// If provided, Legend needs to have .ka-chart-legend-{name.toLower()} class.  Then each item needs to have ka-chart-hover-item="series.name" attribute.
 	// Then each 'text' element containing info that should be opaque needs to be provided via selector (i.e. div.legend-hover)
 	legendTextSelector?: string;
+	maxHeight?: number;
+
 	ce?: string;
 	tab?: string;
-	maxHeight?: number;
-	options?: string;
-	chartCss?: string;
-	legendCss?: string;
 }
 interface IKaHighchartModel {
 	data: string;

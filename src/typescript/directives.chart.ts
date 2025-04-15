@@ -39,9 +39,10 @@
 							const chartContainer = document.createElement("div");
 							chartContainer.classList.add("ka-chart", `ka-chart-${this.configuration.chart.type}`);
 
-							if (scope.chartCss) {
-								chartContainer.classList.add(scope.chartCss);
+							if (scope.categories?.xs) {
+								chartContainer.classList.add("d-none", "d-sm-block");
 							}
+
 							if (scope.maxHeight) {
 								chartContainer.style.maxHeight = `${scope.maxHeight}px`;
 							}
@@ -55,6 +56,42 @@
 								case "column":
 								case "columnStacked":
 									this.generateColumnChart(idClass, chartContainer);
+
+									if (scope.categories?.xs) {
+										this.configuration.chart.aspectRadio.current = "xs";
+										this.configuration.chart.column.count = scope.categories.xs;
+										
+										const xsContainer = document.createElement("div");
+										xsContainer.className = `d-block d-sm-none ka-chart-xs ka-chart-${this.configuration.chart.type}`;
+
+										el.appendChild(xsContainer);	
+
+										const maxHeight = scope.categories.maxHeight ?? scope.maxHeight;
+
+										for (let index = 0; index < Math.ceil(this.configuration.data.length / scope.categories.xs); index++) {
+											const plotStart = index * scope.categories.xs;
+											const plotEnd = plotStart + scope.categories.xs;
+	
+											let xsContainerMaxHeight: HTMLElement | undefined = undefined;
+
+											if (maxHeight) {
+												xsContainerMaxHeight = document.createElement("div");
+												xsContainerMaxHeight.style.maxHeight = `${scope.maxHeight}px`;
+												xsContainer.appendChild(xsContainerMaxHeight);	
+											}
+	
+											this.configuration.xAxis.minCategory = plotStart - 0.5;
+											this.configuration.xAxis.maxCategory = plotEnd - 0.5;
+
+											const partialData = this.configuration.data.slice(plotStart, plotEnd);
+											this.generateColumnChart(idClass, xsContainerMaxHeight ?? xsContainer, { plotStart, plotLabel: "textXs", data: partialData, containerClass: ".ka-chart-xs" });
+										}
+
+										if (maxHeight) {
+											[...xsContainer.children].forEach(div => div.querySelector("svg")!.style.maxHeight = `${scope.categories!.maxHeight}px`);
+										}
+									}
+
 									break;
 									
 								default:
@@ -77,32 +114,7 @@
 							this.addLegend(legendContainer);
 						}
 
-						// If external legends are used, the legend isn't guaranteed to be rendered before chart is, so need to wait
-						// for domUpdated event to do all the DOM selections for events.
-						if (!el.getAttribute("ka-events-handled")) {
-							el.setAttribute("ka-events-handled", "true");
-							application.handleEvents(events => {
-								let domUpdated = false;
-								events.domUpdated = () => {
-									if (domUpdated) return;
-
-									domUpdated = true;
-									const seriesItems = [
-										{ textSelector: "span", highlightOnHover: this.configuration.chart.tip.highlightSeries, items: [...el.querySelectorAll(".ka-chart [ka-chart-series-item]")] },
-										{ textSelector: "span", highlightOnHover: true, items: [...el.querySelectorAll(".ka-chart-legend [ka-chart-series-item]")] }
-									];
-									
-									if (scope.legendTextSelector) {
-										const legend = application.selectElement(`.${legendClass}`);
-										if (legend) {
-											seriesItems.push({ textSelector: scope.legendTextSelector, highlightOnHover: true, items: [...legend!.querySelectorAll("[ka-chart-series-item]")] });
-										}
-									}
-
-									this.addHoverEvents(el, seriesItems);
-								};
-							});
-						}
+						this.addHoverEvents(el, application, scope, legendClass);
 					}
 				});
 			};
@@ -149,24 +161,138 @@
 			tip.headerFormat = this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
 			tip.headerFormat = this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
 			tip.includeShape = getBooleanProperty("tip.includeShape", tip.includeShape, "true");
-			tip.highlightSeries = getBooleanProperty("tip.highlightSeries", tip.highlightSeries, tip.show == "category" ? "true" : "false");
+			tip.highlightSeries = getBooleanProperty("tip.highlightSeries", tip.highlightSeries, tip.show == "category" ? "false" : "true");
 
 
 			const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", globalOptions) ?? "{}") as IRblChartConfigurationDataLabels;
 			dataLabels.show = getBooleanProperty("dataLabels.show", dataLabels.show, "false");
 			dataLabels.format = this.getOptionValue<IRblChartFormatStyle>(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat)!;
 
-			const aspectRatioParts = this.getOptionValue(chartOptions, "aspectRatio", globalOptions, "1:1")!.split(":");
-			const aspectRatio = +aspectRatioParts[0] / +aspectRatioParts[1];
+			const aspectRatioValue = this.getOptionValue(chartOptions, "aspectRatio", globalOptions, "1:1")!;
+			const aspectRatioConfig = JSON.parse(aspectRatioValue.startsWith("{") ? aspectRatioValue : `{ "value": "${aspectRatioValue}" }`);
+			const calcAspectRatio = (ratio: string) => {
+				const parts = ratio.split(":");
+				return +parts[0] / +parts[1];
+			};
+			aspectRatioConfig.current = "value";
+			aspectRatioConfig.value = calcAspectRatio(aspectRatioConfig.value);
+			if (aspectRatioConfig.xs) aspectRatioConfig.xs = calcAspectRatio(aspectRatioConfig.xs);
+
+			const xAxisConfig: IRblChartConfigurationXAxis = {
+				label: this.getOptionValue(chartOptions, "xAxis.label", globalOptions),
+				minCategory: -0.5,
+				maxCategory: dataRows.length - 0.5,
+				plotBands: configRows("xAxis.plotBand").map(r => JSON.parse(r.value) as IRblChartPlotBand),
+				plotLines: configRows("xAxis.plotLine").map(r => JSON.parse(r.value) as IRblChartPlotLine)
+			};
+			const yAxisConfig: IRblChartConfigurationYAxis = {
+				label: this.getOptionValue(chartOptions, "yAxis.label", globalOptions),
+				tickCount: +this.getOptionValue(chartOptions, "yAxis.tickCount", globalOptions, "5")!
+			};
+			const seriesConfig = dataColumns.map<IRblChartConfigurationSeries>((c, i) => {
+				return {
+					text: text[c]!,
+					color: (colors[c] as unknown == "" ? undefined : colors[c]) ?? (i < globalColors.length ? globalColors[i] : "black"),
+					shape: (shapes[c] as unknown == "" ? undefined : shapes[c]) ?? (types[c] == "line" ? "line" : undefined) ?? defaultShape,
+					legend: String.compare(types[c], "tooltip", true) !== 0,
+					type: (types[c] as unknown == "" ? undefined : types[c]) ?? "column"
+				};
+			});
+
+			
+			let data: Array<{ name: string, data: IRblChartConfigurationDataType }> = []
+			switch (chartType) {
+				// Data 'point' charts with single 'series'
+				case "column":
+				case "donut":
+					data = dataColumns.map(c => ({ name: text[c]!, data: +dataRows[0][c]! }));
+					break;
+				
+				// 'Category' charts with two or more series...
+				case "columnStacked":
+					data = dataRows.map(r => ({ name: r.value!, data: dataColumns.map(c => +r[c]!) }));
+					break;
+			}
+			const maxDataValue = Math.max(
+				...data.map(item =>
+					Array.isArray(item.data)
+						? Math.max(
+							item.data.reduce((sum, v, i) => sum + seriesConfig[i].shape != "line" ? v : 0, 0),
+							...item.data.map((v, i) => seriesConfig[i].shape == "line" ? v : 0)
+						)
+						: item.data
+				)
+			) * (dataLabels.show ? 1.05 : 1.025); // Add 10% buffer...
+
+			const hasAxis = chartType != "donut";
+
 			const config: IRblChartConfiguration<IRblChartConfigurationDataType> = {
-				data: [],
+				data: data,
 
 				chart: {
 					name: model.data,
 					type: chartType,
+					
+					aspectRadio: aspectRatioConfig,
 					height: 400,
-					width: Math.ceil(400 * aspectRatio),
-					padding: { top: 5, right: 5, bottom: 5, left: 5 }, // Param?
+					
+					get width() { return Math.ceil(400 * this.aspectRadio[this.aspectRadio.current]!); },
+					get plotWidth() { return this.width - this.padding.left - this.padding.right; },
+					
+					padding: {
+						get top() {
+							return 5 +
+								(hasAxis ? 15 : 0); // Last yAxis tick
+						},
+						right: 5,
+						get bottom() {
+							return 5 +
+								(hasAxis ? 20 : 0) + // For xAxis tick labels
+								(xAxisConfig.label ? 20 : 0) +  // Add extra padding if xAxisLabel is set
+								(hasAxis ? this._parent.column.maxLabelLines : 0) * 15; // Add 15px per line
+						},
+						get left() {
+							const paddingLog10 = Math.floor(Math.log10(maxDataValue));
+							// Add dynamic padding for powers of 10 >= 1000
+							const powerOfTenPadding = Math.min(50, paddingLog10 >= 2 ? (paddingLog10 - 1) * 10 : 0);
+	
+							return 5 +
+								(hasAxis ? 25 : 0) + // For yAxis ticks
+								(yAxisConfig.label ? 20 : 0) + // Add extra padding if yAxisLabel is set
+								powerOfTenPadding; // font requirement for yaxis tick labels
+						}
+					} as IRblChartConfigurationPadding,
+	
+					column: {
+						count: data.length,
+						get width() { return this._parent.plotWidth / this.count * 0.65; },
+						get spacing() { return this._parent.plotWidth / this.count - this.width; },
+						get maxLabelLines() {
+							const that = this as IRblChartConfigurationChartColumn;
+							return Math.max(
+								...config.data.map(item => {
+									const words = item.name.split(" ");
+									const lines = [];
+									let currentLine = "";
+							
+									words.forEach(word => {
+										const testLine = currentLine ? `${currentLine} ${word}` : word;
+										const testLineWidth = testLine.length * 6; // Approximate width per character
+										if (testLineWidth <= that.width) {
+											currentLine = testLine;
+										} else {
+											lines.push(currentLine);
+											currentLine = word;
+										}
+									});
+									if (currentLine) lines.push(currentLine);
+							
+									return Math.min(lines.length, 5) - 1; // Limit to 5 lines max, then deduct one b/c original padding handles single line
+								})
+							);
+						},
+						maxValue: maxDataValue
+					} as IRblChartConfigurationChartColumn,
 					tip: tip,
 					dataLabels: dataLabels,
 					legend: model.legendTextSelector == undefined &&
@@ -176,100 +302,14 @@
 						)
 				},
 
-				series: dataColumns.map<IRblChartConfigurationSeries>((c, i) => {
-					return {
-						text: text[c]!,
-						color: (colors[c] as unknown == "" ? undefined : colors[c]) ?? (i < globalColors.length ? globalColors[i] : "black"),
-						shape: (shapes[c] as unknown == "" ? undefined : shapes[c]) ?? (types[c] == "line" ? "line" : undefined) ?? defaultShape,
-						legend: String.compare(types[c], "tooltip", true) !== 0,
-						type: (types[c] as unknown == "" ? undefined : types[c]) ?? "column"
-					};
-				}),
+				series: seriesConfig,
 
-				xAxis: {
-					label: this.getOptionValue(chartOptions, "xAxis.label", globalOptions),
-					plotBands: configRows("xAxis.plotBand").map(r => JSON.parse(r.value) as IRblChartPlotBand),
-					plotLines: configRows("xAxis.plotLine").map(r => JSON.parse(r.value) as IRblChartPlotLine)
-				},
-
-				yAxis: {
-					label: this.getOptionValue(chartOptions, "yAxis.label", globalOptions),
-					tickCount: +this.getOptionValue(chartOptions, "yAxis.tickCount", globalOptions, "5")!
-				}
+				xAxis: xAxisConfig,
+				yAxis: yAxisConfig
 			};
 
-			switch (chartType) {
-				// Data 'point' charts with single 'series'
-				case "column":
-				case "donut":
-					config.data = dataColumns.map(c => ({ name: text[c]!, data: +dataRows[0][c]! }));
-					break;
-				
-				// 'Category' charts with two or more series...
-				case "columnStacked":
-					config.data = dataRows.map(r => ({ name: r.value!, data: dataColumns.map(c => +r[c]!) }));
-					break;
-			}
-
-			switch (chartType) {
-				case "column":
-				case "columnStacked":
-					config.chart.padding.top += 15; // Last yAxis tick
-					config.chart.padding.left += 25; // For yAxis ticks
-					config.chart.padding.bottom += 20; // For xAxis labels
-
-					config.chart.padding.left += config.yAxis.label ? 20 : 0; // Add extra padding if yAxisLabel is set
-					config.chart.padding.bottom += config.xAxis.label ? 20 : 0; // Add extra padding if yAxisLabel is set
-
-					config.chart.column = {
-						maxValue: Math.max(
-							...config.data.map(item =>
-								Array.isArray(item.data)
-									? Math.max(
-										item.data.reduce((sum, v, i) => sum + config.series[i].shape != "line" ? v : 0, 0),
-										...item.data.map((v, i) => config.series[i].shape == "line" ? v : 0)
-									)
-									: item.data
-							)
-						) * (config.chart.dataLabels.show ? 1.05 : 1.025) // Add 10% buffer...
-					} as unknown as IRblChartConfigurationChartColumn;
-		
-					// Add dynamic padding for powers of 10 >= 1000
-					const paddingLog10 = Math.floor(Math.log10(config.chart.column.maxValue));
-					const powerOfTenPadding = Math.min(50, paddingLog10 >= 2 ? (paddingLog10 - 1) * 10 : 0);
-					config.chart.padding.left += powerOfTenPadding;
-					
-					const plotWidth = config.chart.width - config.chart.padding.left - config.chart.padding.right;
-					const columnCount = config.data.length;
-					const columnWidth = plotWidth / columnCount * 0.65;
-					const columnSpacing = plotWidth / columnCount - columnWidth;
-		
-					const maxLabelLines = Math.max(
-						...config.data.map(item => {
-							const words = item.name.split(" ");
-							const lines = [];
-							let currentLine = "";
-					
-							words.forEach(word => {
-								const testLine = currentLine ? `${currentLine} ${word}` : word;
-								const testLineWidth = testLine.length * 6; // Approximate width per character
-								if (testLineWidth <= columnWidth) {
-									currentLine = testLine;
-								} else {
-									lines.push(currentLine);
-									currentLine = word;
-								}
-							});
-							if (currentLine) lines.push(currentLine);
-					
-							return Math.min(lines.length, 5) - 1; // Limit to 5 lines max, then deduct one b/c original padding handles single line
-						})
-					);
-					config.chart.padding.bottom += maxLabelLines * 15; // Add 15px per line
-					config.chart.column.width = columnWidth;
-					config.chart.column.spacing = columnSpacing;
-					break;
-			}
+			config.chart.padding._parent = config.chart;
+			config.chart.column._parent = config.chart;
 
 			console.log(config);
 
@@ -304,8 +344,9 @@
 			container.appendChild(legend);
 		}
 
-		private generateColumnChart(idClass: string, container: HTMLElement) {
+		private generateColumnChart(idClass: string, container: HTMLElement, partial?: { plotStart: number, plotLabel: "textXs", data: Array<{ name: string, data: IRblChartConfigurationDataType }>, containerClass?: string } ) {
 			const config = this.configuration as IRblChartConfiguration<IRblChartConfigurationDataType>;
+			const data = partial?.data ?? config.data;
 			const columnConfig = config.chart.column!;
 			const paddingConfig = config.chart.padding;
 
@@ -345,16 +386,18 @@
 
 			if (yAxisLabel != undefined) svg.appendChild(yAxisLabel);
 
-			const plotBand0 = plotWidth / (config.data.length * 2);
-			const plotBands = config.xAxis.plotBands.map(band => {
-				const from = paddingConfig.left + plotBand0 + (band.from / 0.5) * plotBand0;
-				const to = paddingConfig.left + plotBand0 + (band.to / 0.5) * plotBand0;
+			const plotBand0 = plotWidth / (data.length * 2);
+			const partialStart = partial?.plotStart ?? 0;
+			const plotBands = config.xAxis.plotBands.filter( b => b.from < config.xAxis.maxCategory && b.to > config.xAxis.minCategory ).map(band => {
+				const from = paddingConfig.left + plotBand0 + ((band.from - partialStart) / 0.5) * plotBand0;
+				const to = paddingConfig.left + plotBand0 + ((band.to - partialStart) / 0.5) * plotBand0;
 				const rect = this.createRect(from, paddingConfig.top, to - from, plotHeight, band.color);
 
-				const label = band.label?.text
+				const plotLabel = band.label?.[partial?.plotLabel ?? "text"] ?? band.label?.text;
+				const label = plotLabel
 					? this.createText(
 						from, paddingConfig.top - 3,
-						band.label.text,
+						plotLabel,
 						{ "text-anchor": "start", "font-size": "0.8em", "dominant-baseline": "baseline" })
 					: undefined;
 				return label ? [label, rect] : [rect];
@@ -365,8 +408,8 @@
 
 			// svg.appendChild(yAxisLine);
 
-			const plotLines = config.xAxis.plotLines.map(line => {
-				const value = paddingConfig.left + plotBand0 + (line.value / 0.5) * plotBand0;
+			const plotLines = config.xAxis.plotLines.filter( l => config.xAxis.minCategory < l.value && l.value < config.xAxis.maxCategory ).map(line => {
+				const value = paddingConfig.left + plotBand0 + ((line.value - partialStart) / 0.5) * plotBand0;
 				const plotLine = this.createLine(value, paddingConfig.top, value, yAxisBase, line.color, 2);
 
 				const label = line.label?.text
@@ -395,15 +438,15 @@
 				element.setAttribute("aria-label", `${elementConfig.text}, ${valueFormatted}.${headerName ? ` ${this.encodeHtmlAttributeValue(headerName)}.` : ""}`);
 				
 				const tooltipContent = tipKey
-					? this.createTooltip(idClass, tipKey, element, [{ name: elementConfig.text, value: valueFormatted, color: elementConfig.color, shape: elementConfig.shape }], headerName)
+					? this.createTooltip(idClass, tipKey, element, [{ name: elementConfig.text, value: valueFormatted, color: elementConfig.color, shape: elementConfig.shape }], headerName, partial?.containerClass)
 					: undefined;
 				
 				return { element: element, tooltipContent };
 			};
 
-			const xAxisSkipInterval = Math.ceil(config.data.length / (plotWidth / 25)); // Adjust 50 for desired spacing
+			const xAxisSkipInterval = Math.ceil(data.length / (plotWidth / 25)); // Adjust 50 for desired spacing
 
-			const columns = config.data.map((item, i) => {
+			const columns = data.map((item, i) => {
 				const columnX = paddingConfig.left + (i * (columnConfig.width + columnConfig.spacing)) + columnConfig.spacing / 2;
 
 				let stackBase = 0;
@@ -411,7 +454,8 @@
 					// Stacked ...
 					? item.data.map((v, j) => {
 						const elementConfig = config.series[j];
-						
+						const tipKey = config.chart.tip.show == "series" ? `${i + (partial?.plotStart ?? 0)}-${j}` : undefined;
+
 						if (elementConfig.shape == "line") {
 							const lineY = paddingConfig.top + getColumnElementY(v);
 							const lineX = columnX + columnConfig.width / 2;
@@ -420,7 +464,7 @@
 								x: lineX, y: lineY,
 								config: elementConfig,
 								value: v,
-								tipKey: config.chart.tip.show == "series" ? `${i}-${j}` : undefined,
+								tipKey,
 								headerName: item.name
 							};
 						}
@@ -430,7 +474,7 @@
 								paddingConfig.top + getColumnElementY(stackBase + v),
 								v,
 								elementConfig,
-								config.chart.tip.show == "series" ? `${i}-${j}` : undefined,
+								tipKey,
 								item.name
 							);
 							stackBase += v;
@@ -484,7 +528,7 @@
 					});
 
 					tooltip = seriesTipInfo.length > 0
-						? this.createTooltip(idClass, String(i), columnGroup, seriesTipInfo.reverse(), item.name)
+						? this.createTooltip(idClass, String(i + (partial?.plotStart ?? 0)), columnGroup, seriesTipInfo.reverse(), item.name, partial?.containerClass)
 						: undefined;
 				}
 
@@ -660,9 +704,9 @@
 			}
 		}
 
-		private addHoverEvents(el: Element, seriesItems: Array<{ textSelector: string, highlightOnHover: boolean, items: Array<Element> }>) {
+		private addHoverEvents(el: Element, application: IKatApp, scope: IKaChartModel, legendClass: string) {
 
-			const toggleItems = (currentHoverItem?: string) => {
+			const toggleItems = (seriesItems: Array<{textSelector: string, highlightOnHover: boolean, items: Array<Element>}>, currentHoverItem?: string) => {
 				seriesItems.forEach(tooltip => {
 					// If data is a tooltip, its opacity is always 0, so just skip it and never modify it
 					tooltip.items.filter(e => e.getAttribute("data-is-tooltip") != "1").forEach(i => {
@@ -678,39 +722,64 @@
 				});
 			};
 
-			seriesItems.forEach(tooltip => {
-				if (tooltip.highlightOnHover) {
-					tooltip.items.forEach(item => {
-						item.addEventListener("mouseover", () => toggleItems(item.getAttribute("ka-chart-series-item")!));
-						item.addEventListener("mouseout", () => toggleItems());
-					});
-				}
-			});
+			// If external legends are used, the legend isn't guaranteed to be rendered before chart is, so need to wait
+			// for domUpdated event to do all the DOM selections for events.
+			if (!el.getAttribute("ka-events-handled")) {
+				el.setAttribute("ka-events-handled", "true");
+				application.handleEvents(events => {
+					let domUpdated = false;
+					events.domUpdated = () => {
+						if (domUpdated) return;
 
-			if (el.querySelector(".ka-chart-line-markers")) {
-				const lineMarkers = [...el.querySelectorAll(".ka-chart-line-markers .ka-chart-point")];
-
-				const toggleLineMarkers = (markerItem?: string) => {
-					lineMarkers.forEach(marker => {
-						const isActive = markerItem == marker.getAttribute("ka-chart-marker-item");
-						const opacity = isActive ? "1" : "0";
-						marker.setAttribute("opacity", opacity);
+						domUpdated = true;
+						const seriesItems = [
+							{ textSelector: "span", highlightOnHover: this.configuration.chart.tip.highlightSeries, items: [...el.querySelectorAll(".ka-chart [ka-chart-series-item]")] },
+							{ textSelector: "span", highlightOnHover: true, items: [...el.querySelectorAll(".ka-chart-legend [ka-chart-series-item]")] }
+						];
 						
-						const glow = marker.parentElement!.firstElementChild!;
-						glow.setAttribute("opacity", markerItem ? "0.2" : "0");
-						if (isActive) {
-							const point = marker.getAttribute("ka-chart-marker-item-point")!.split(",");
-							glow.setAttribute("cx", point[0]);
-							glow.setAttribute("cy", point[1]);
+						if (scope.legendTextSelector) {
+							const legend = application.selectElement(`.${legendClass}`);
+							if (legend) {
+								seriesItems.push({ textSelector: scope.legendTextSelector, highlightOnHover: true, items: [...legend!.querySelectorAll("[ka-chart-series-item]")] });
+							}
 						}
-					});
-				};
 
-				// ka-chart-marker-item
-				const categoryItems = [...el.querySelectorAll(".ka-chart-category")];
-				categoryItems.forEach(category => {
-					category.addEventListener("mouseover", () => toggleLineMarkers(category.getAttribute("ka-chart-marker-item")!));
-					category.addEventListener("mouseout", () => toggleLineMarkers());
+						seriesItems.forEach(tooltip => {
+							if (tooltip.highlightOnHover) {
+								tooltip.items.forEach(item => {
+									item.addEventListener("mouseover", () => toggleItems(seriesItems, item.getAttribute("ka-chart-series-item")!));
+									item.addEventListener("mouseout", () => toggleItems(seriesItems));
+								});
+							}
+						});
+
+						if (el.querySelector(".ka-chart-line-markers")) {
+							const lineMarkers = [...el.querySelectorAll(".ka-chart-line-markers .ka-chart-point")];
+
+							const toggleLineMarkers = (markerItem?: string) => {
+								lineMarkers.forEach(marker => {
+									const isActive = markerItem == marker.getAttribute("ka-chart-marker-item");
+									const opacity = isActive ? "1" : "0";
+									marker.setAttribute("opacity", opacity);
+									
+									const glow = marker.parentElement!.firstElementChild!;
+									glow.setAttribute("opacity", markerItem ? "0.2" : "0");
+									if (isActive) {
+										const point = marker.getAttribute("ka-chart-marker-item-point")!.split(",");
+										glow.setAttribute("cx", point[0]);
+										glow.setAttribute("cy", point[1]);
+									}
+								});
+							};
+
+							// ka-chart-marker-item
+							const categoryItems = [...el.querySelectorAll(".ka-chart-category")];
+							categoryItems.forEach(category => {
+								category.addEventListener("mouseover", () => toggleLineMarkers(category.getAttribute("ka-chart-marker-item")!));
+								category.addEventListener("mouseout", () => toggleLineMarkers());
+							});
+						}
+					};
 				});
 			}
 		}
@@ -830,13 +899,15 @@
 			return rect;
 		}
 
-		private createTooltip(idClass: string, targetKey: string, target: Element, tipLines: Array<{ name: string, value: string, color: string, shape: IRblChartConfigurationShape }>, header?: string): Element {
+		private createTooltip(idClass: string, targetKey: string, target: Element, tipLines: Array<{ name: string, value: string, color: string, shape: IRblChartConfigurationShape }>, header: string | undefined = undefined, tipContainerClass: string = ".ka-chart"): Element | undefined {
 			target.setAttribute("data-bs-toggle", "tooltip");
 			target.setAttribute("data-bs-placement", "auto");
-			target.setAttribute("data-bs-container", `.${idClass} .ka-chart`);
+			target.setAttribute("data-bs-container", `.${idClass} ${tipContainerClass}`);
 			target.setAttribute("data-bs-class", "ka-chart-tip");
 			target.setAttribute("data-bs-width", "auto");
 			target.setAttribute("data-bs-content-selector", `.${idClass} .ka-chart .tooltip-${targetKey}`);
+
+			if (tipContainerClass != ".ka-chart") return undefined;
 
 			const tipConfig = this.configuration.chart.tip;
 			const tooltipContent = document.createElement("div");

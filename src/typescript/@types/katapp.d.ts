@@ -296,7 +296,7 @@ declare enum TraceVerbosity {
 }
 type IRblChartConfigurationDataType = number | Array<number>;
 type IRblChartConfigurationTipShowOption = "off" | "category" | "series";
-type IRblChartConfigurationType = "column" | "columnStacked" | "donut";
+type IRblChartConfigurationType = "column" | "columnStacked" | "donut" | "sharkfin";
 type IRblChartConfigurationShape = "square" | "circle" | "line";
 type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
 type IRblChartFormatStyle = 'decimal' | 'currency' | 'c0' | 'c2' | 'percent' | 'unit';
@@ -307,19 +307,33 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
         data: T;
     }>;
     series: Array<IRblChartConfigurationSeries>;
-    xAxis: {
-        label: string | undefined;
-        plotBands: Array<IRblChartPlotBand>;
-        plotLines: Array<IRblChartPlotLine>;
+    xAxis: IRblChartConfigurationXAxis;
+    yAxis: IRblChartConfigurationYAxis;
+}
+interface IRblChartConfigurationXAxis {
+    label: string | undefined;
+    minCategory: number;
+    maxCategory: number;
+    plotBands: Array<IRblChartPlotBand>;
+    plotLines: Array<IRblChartPlotLine>;
+}
+interface IRblChartConfigurationYAxis {
+    label: string | undefined;
+    tickCount: number;
+}
+interface IRblChartConfigurationSharkfin {
+    line: {
+        color: string;
     };
-    yAxis: {
-        label: string | undefined;
-        tickCount: number;
+    fill: {
+        color: string;
     };
+    retirementAge: number;
 }
 interface IRblChartPlotBand {
     label?: {
         text: string;
+        textXs?: string;
     };
     color: string;
     from: number;
@@ -328,6 +342,7 @@ interface IRblChartPlotBand {
 interface IRblChartPlotLine {
     label?: {
         text: string;
+        textXs?: string;
     };
     color: string;
     value: number;
@@ -335,18 +350,26 @@ interface IRblChartPlotLine {
 interface IRblChartConfigurationChart {
     name: string;
     type: IRblChartConfigurationType;
+    aspectRadio: {
+        current: "value" | "xs";
+        value: number;
+        xs?: number;
+    };
     height: number;
     width: number;
-    column?: IRblChartConfigurationChartColumn;
-    padding: {
-        top: number;
-        right: number;
-        bottom: number;
-        left: number;
-    };
+    plotWidth: number;
+    column: IRblChartConfigurationChartColumn;
+    padding: IRblChartConfigurationPadding;
     dataLabels: IRblChartConfigurationDataLabels;
     legend: boolean;
     tip: IRblChartConfigurationTip;
+}
+interface IRblChartConfigurationPadding {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+    _parent: IRblChartConfigurationChart;
 }
 interface IRblChartConfigurationTip {
     show: IRblChartConfigurationTipShowOption;
@@ -365,8 +388,11 @@ interface IRblChartConfigurationDataLabels {
 }
 interface IRblChartConfigurationChartColumn {
     maxValue: number;
+    maxLabelLines: number;
+    count: number;
     width: number;
     spacing: number;
+    _parent: IRblChartConfigurationChart;
 }
 interface IRblChartConfigurationSeries {
     text: string;
@@ -894,14 +920,18 @@ interface IKaApiModel extends IApiOptions {
 }
 interface IKaChartModel {
     data: string;
+    options?: string;
     mode?: "chart" | "legend";
+    categories?: {
+        from?: number;
+        to?: number;
+        maxHeight?: number;
+        xs?: number;
+    };
     legendTextSelector?: string;
+    maxHeight?: number;
     ce?: string;
     tab?: string;
-    maxHeight?: number;
-    options?: string;
-    chartCss?: string;
-    legendCss?: string;
 }
 interface IKaHighchartModel {
     data: string;

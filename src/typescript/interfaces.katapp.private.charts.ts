@@ -1,6 +1,6 @@
 ﻿type IRblChartConfigurationDataType = number | Array<number>;
 type IRblChartConfigurationTipShowOption = "off" | "category" | "series";
-type IRblChartConfigurationType = "column" | "columnStacked" | "donut";
+type IRblChartConfigurationType = "column" | "columnStacked" | "donut" | "sharkfin";
 type IRblChartConfigurationShape = "square" | "circle" | "line";
 type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
 type IRblChartFormatStyle = 'decimal' | 'currency' | 'c0' | 'c2' | 'percent' | 'unit';
@@ -13,21 +13,34 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 	// Settings for each series or data point (when single series).
 	series: Array<IRblChartConfigurationSeries>;
 
-	xAxis: {
-		label: string | undefined; // If present, render label
-		plotBands: Array<IRblChartPlotBand>;
-		plotLines: Array<IRblChartPlotLine>;
-	}
+	xAxis: IRblChartConfigurationXAxis;
 
-	yAxis: {
-		label: string | undefined; // If present, render label
-		tickCount: number; // Default: 5, Number of major axis ticks to show on yAxis.
-	}
+	yAxis: IRblChartConfigurationYAxis;
+}
+
+interface IRblChartConfigurationXAxis {
+	label: string | undefined; // If present, render label
+	minCategory: number;
+	maxCategory: number;
+	plotBands: Array<IRblChartPlotBand>;
+	plotLines: Array<IRblChartPlotLine>;
+}
+
+interface IRblChartConfigurationYAxis {
+	label: string | undefined; // If present, render label
+	tickCount: number; // Default: 5, Number of major axis ticks to show on yAxis.
+}
+
+interface IRblChartConfigurationSharkfin {
+	line: { color: string; }
+	fill: { color: string; }
+	retirementAge: number;
 }
 
 interface IRblChartPlotBand {
 	label?: {
 		text: string;
+		textXs?: string;
 	}
 
 	color: string;
@@ -38,6 +51,7 @@ interface IRblChartPlotBand {
 interface IRblChartPlotLine {
 	label?: {
 		text: string;
+		textXs?: string;
 	}
 
 	color: string;
@@ -48,17 +62,21 @@ interface IRblChartConfigurationChart {
 	name: string;
 	type: IRblChartConfigurationType;
 
+	aspectRadio: { current: "value" | "xs", value: number, xs?: number };
 	height: number;
 	width: number;
+	plotWidth: number;
 	
-	column?: IRblChartConfigurationChartColumn; // Only for column and columnStacked charts.
+	column: IRblChartConfigurationChartColumn; // Only for column and columnStacked charts.
 
-	padding: { top: number; right: number; bottom: number; left: number; }
+	padding: IRblChartConfigurationPadding;
 	
 	dataLabels: IRblChartConfigurationDataLabels;
 	legend: boolean;
 	tip: IRblChartConfigurationTip;
 }
+
+interface IRblChartConfigurationPadding { top: number; right: number; bottom: number; left: number; _parent: IRblChartConfigurationChart }
 
 interface IRblChartConfigurationTip {
 	show: IRblChartConfigurationTipShowOption; // Default: true, Show tips on each xAxis entry or data point (when no xAxis).
@@ -76,8 +94,11 @@ interface IRblChartConfigurationDataLabels {
 
 interface IRblChartConfigurationChartColumn {
 	maxValue: number; // Maximum value for the column chart.
+	maxLabelLines: number;
+	count: number;
 	width: number; // Width of each column.
 	spacing: number; // Spacing between columns.
+	_parent: IRblChartConfigurationChart;
 }
 
 interface IRblChartConfigurationSeries {
