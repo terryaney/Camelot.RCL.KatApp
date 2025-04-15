@@ -3455,8 +3455,8 @@ var KatApps;
             const plotBand0 = plotWidth / (data.length * 2);
             const partialStart = partial?.plotStart ?? 0;
             const plotBands = config.xAxis.plotBands.filter(b => b.from < config.xAxis.maxCategory && b.to > config.xAxis.minCategory).map(band => {
-                const from = paddingConfig.left + plotBand0 + ((band.from - partialStart) / 0.5) * plotBand0;
-                const to = paddingConfig.left + plotBand0 + ((band.to - partialStart) / 0.5) * plotBand0;
+                const from = paddingConfig.left + plotBand0 + (Math.max(-0.5, band.from - partialStart) / 0.5) * plotBand0;
+                const to = paddingConfig.left + plotBand0 + (Math.min(band.to - partialStart, data.length - 0.5) / 0.5) * plotBand0;
                 const rect = this.createRect(from, paddingConfig.top, to - from, plotHeight, band.color);
                 const plotLabel = band.label?.[partial?.plotLabel ?? "text"] ?? band.label?.text;
                 const label = plotLabel
