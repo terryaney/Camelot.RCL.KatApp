@@ -310,6 +310,7 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
     xAxis: {
         label: string | undefined;
         plotBands: Array<IRblChartPlotBand>;
+        plotLines: Array<IRblChartPlotLine>;
     };
     yAxis: {
         label: string | undefined;
@@ -317,12 +318,19 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
     };
 }
 interface IRblChartPlotBand {
-    label: {
+    label?: {
         text: string;
     };
     color: string;
     from: number;
     to: number;
+}
+interface IRblChartPlotLine {
+    label?: {
+        text: string;
+    };
+    color: string;
+    value: number;
 }
 interface IRblChartConfigurationChart {
     name: string;
@@ -342,6 +350,7 @@ interface IRblChartConfigurationChart {
 }
 interface IRblChartConfigurationTip {
     show: IRblChartConfigurationTipShowOption;
+    format: IRblChartFormatStyle;
     highlightSeries: boolean;
     includeShape: boolean;
     headerFormat: string | undefined;

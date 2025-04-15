@@ -21,19 +21,18 @@
 }
 
 .ka-chart-legend {
-	border: solid 1px rgb(51, 51, 51);
-	padding-bottom: 0.1rem;
-}
-
-.ka-chart-legend > .row {
+	display: flex;
 	justify-content: center;
 }
 
+.ka-chart-legend > .row {
+	border: solid 1px rgb(51, 51, 51);	
+	padding: 0.2em;
+}
+
 .ka-chart-legend-item {
-	margin-top: 0.1rem;
-	margin-right: 0.1rem;
 	cursor: pointer;
-	font-size: 0.9em;
+	font-size: 0.8em;
 }
 /* Tooltip (warning/error) displays (currently duplicated in 'unused' inputs.float.css */
 .katapp-css.tooltip.is-invalid {

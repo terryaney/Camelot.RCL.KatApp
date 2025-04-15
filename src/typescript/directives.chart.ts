@@ -71,7 +71,7 @@
 
 						if (this.configuration.chart.legend) {
 							const legendContainer = document.createElement("div");
-							legendContainer.className = `container ka-chart-legend ka-chart-legend-${this.configuration.chart.type} ${legendClass}`;
+							legendContainer.className = `ka-chart-legend ka-chart-legend-${this.configuration.chart.type} ${legendClass}`;
 							el.appendChild(legendContainer);
 
 							this.addLegend(legendContainer);
@@ -131,6 +131,7 @@
 			const colors = configRow("color");
 			const types = configRow<IRblChartSeriesType>("type");
 			const globalColors = globalOptions.find(r => r.id == "colors")?.value.split(",") ?? [];
+			const globalFormat = globalOptions.find(r => r.id == "format")?.value ?? "c0";
 			const shapes = configRow<IRblChartConfigurationShape>("shape");
 			const defaultShape = this.getOptionValue<IRblChartConfigurationShape>(chartOptions, "shape", globalOptions, "square") as IRblChartConfigurationShape;
 			
@@ -144,6 +145,8 @@
 			const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", globalOptions) ?? "{}") as IRblChartConfigurationTip;
 			tip.padding = { top: 5, left: 5 }; // Param?
 			tip.show = this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.show", globalOptions, tip.show ?? "category")!;
+			tip.format = this.getOptionValue<IRblChartFormatStyle>(chartOptions, "tip.format", globalOptions, tip.format ?? globalFormat)!;
+			tip.headerFormat = this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
 			tip.headerFormat = this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
 			tip.includeShape = getBooleanProperty("tip.includeShape", tip.includeShape, "true");
 			tip.highlightSeries = getBooleanProperty("tip.highlightSeries", tip.highlightSeries, tip.show == "category" ? "true" : "false");
@@ -151,7 +154,7 @@
 
 			const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", globalOptions) ?? "{}") as IRblChartConfigurationDataLabels;
 			dataLabels.show = getBooleanProperty("dataLabels.show", dataLabels.show, "false");
-			dataLabels.format = this.getOptionValue<IRblChartFormatStyle>(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? "c2")!;
+			dataLabels.format = this.getOptionValue<IRblChartFormatStyle>(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat)!;
 
 			const aspectRatioParts = this.getOptionValue(chartOptions, "aspectRatio", globalOptions, "1:1")!.split(":");
 			const aspectRatio = +aspectRatioParts[0] / +aspectRatioParts[1];
@@ -176,16 +179,17 @@
 				series: dataColumns.map<IRblChartConfigurationSeries>((c, i) => {
 					return {
 						text: text[c]!,
-						color: colors[c] ?? (i < globalColors.length ? globalColors[i] : "black"),
-						shape: shapes[c] ?? (types[c] == "line" ? "line" : undefined) ?? defaultShape,
+						color: (colors[c] as unknown == "" ? undefined : colors[c]) ?? (i < globalColors.length ? globalColors[i] : "black"),
+						shape: (shapes[c] as unknown == "" ? undefined : shapes[c]) ?? (types[c] == "line" ? "line" : undefined) ?? defaultShape,
 						legend: String.compare(types[c], "tooltip", true) !== 0,
-						type: types[c] ?? "column"
+						type: (types[c] as unknown == "" ? undefined : types[c]) ?? "column"
 					};
 				}),
 
 				xAxis: {
 					label: this.getOptionValue(chartOptions, "xAxis.label", globalOptions),
-					plotBands: configRows("xAxis.plotBand").map(r => JSON.parse(r.value) as IRblChartPlotBand)
+					plotBands: configRows("xAxis.plotBand").map(r => JSON.parse(r.value) as IRblChartPlotBand),
+					plotLines: configRows("xAxis.plotLine").map(r => JSON.parse(r.value) as IRblChartPlotLine)
 				},
 
 				yAxis: {
@@ -237,7 +241,7 @@
 					
 					const plotWidth = config.chart.width - config.chart.padding.left - config.chart.padding.right;
 					const columnCount = config.data.length;
-					const columnWidth = plotWidth / columnCount * 0.7;
+					const columnWidth = plotWidth / columnCount * 0.65;
 					const columnSpacing = plotWidth / columnCount - columnWidth;
 		
 					const maxLabelLines = Math.max(
@@ -347,7 +351,7 @@
 				const to = paddingConfig.left + plotBand0 + (band.to / 0.5) * plotBand0;
 				const rect = this.createRect(from, paddingConfig.top, to - from, plotHeight, band.color);
 
-				const label = band.label.text
+				const label = band.label?.text
 					? this.createText(
 						from, paddingConfig.top - 3,
 						band.label.text,
@@ -360,6 +364,20 @@
 			svg.append(...yAxisTicks);
 
 			// svg.appendChild(yAxisLine);
+
+			const plotLines = config.xAxis.plotLines.map(line => {
+				const value = paddingConfig.left + plotBand0 + (line.value / 0.5) * plotBand0;
+				const plotLine = this.createLine(value, paddingConfig.top, value, yAxisBase, line.color, 2);
+
+				const label = line.label?.text
+					? this.createText(
+						value, paddingConfig.top + 3,
+						line.label.text,
+						{ "text-anchor": "start", "font-size": "0.8em", "dominant-baseline": "baseline" })
+					: undefined;
+				return label ? [label, plotLine] : [plotLine];
+			});
+			svg.append(...plotLines.flat());
 			
 			const getColumnElementY = (value: number) => plotHeight - (value / yAxisMax) * plotHeight;
 
@@ -372,7 +390,7 @@
 					element.setAttribute("opacity", "0");
 				}
 
-				const valueFormatted = this.formatNumber(value, "currency");
+				const valueFormatted = this.formatNumber(value, config.chart.tip.format);
 				element.setAttribute("ka-chart-series-item", elementConfig.text);
 				element.setAttribute("aria-label", `${elementConfig.text}, ${valueFormatted}.${headerName ? ` ${this.encodeHtmlAttributeValue(headerName)}.` : ""}`);
 				
@@ -446,14 +464,14 @@
 							return v > 0
 								? {
 									name: config.series[j].text,
-									value: this.formatNumber(v, "currency"),
+									value: this.formatNumber(v, config.chart.tip.format),
 									config: config.series[j]
 								}
 								: undefined;
 						}).filter(v => v != undefined)
 						: [{
 							name: item.name,
-							value: this.formatNumber(item.data, "currency"),
+							value: this.formatNumber(item.data, config.chart.tip.format),
 							config: config.series[i]
 						}]
 					).map(item => {

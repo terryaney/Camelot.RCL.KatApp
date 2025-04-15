@@ -3213,7 +3213,7 @@ var KatApps;
                         const legendClass = `ka-chart-legend-${this.configuration.chart.name.toLowerCase()}`;
                         if (this.configuration.chart.legend) {
                             const legendContainer = document.createElement("div");
-                            legendContainer.className = `container ka-chart-legend ka-chart-legend-${this.configuration.chart.type} ${legendClass}`;
+                            legendContainer.className = `ka-chart-legend ka-chart-legend-${this.configuration.chart.type} ${legendClass}`;
                             el.appendChild(legendContainer);
                             this.addLegend(legendContainer);
                         }
@@ -3260,6 +3260,7 @@ var KatApps;
             const colors = configRow("color");
             const types = configRow("type");
             const globalColors = globalOptions.find(r => r.id == "colors")?.value.split(",") ?? [];
+            const globalFormat = globalOptions.find(r => r.id == "format")?.value ?? "c0";
             const shapes = configRow("shape");
             const defaultShape = this.getOptionValue(chartOptions, "shape", globalOptions, "square");
             const getBooleanProperty = (property, parsedValue, defaultCompare, getCompareValue = v => v ? "true" : "false") => {
@@ -3268,12 +3269,14 @@ var KatApps;
             const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", globalOptions) ?? "{}");
             tip.padding = { top: 5, left: 5 };
             tip.show = this.getOptionValue(chartOptions, "tip.show", globalOptions, tip.show ?? "category");
+            tip.format = this.getOptionValue(chartOptions, "tip.format", globalOptions, tip.format ?? globalFormat);
+            tip.headerFormat = this.getOptionValue(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
             tip.headerFormat = this.getOptionValue(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
             tip.includeShape = getBooleanProperty("tip.includeShape", tip.includeShape, "true");
             tip.highlightSeries = getBooleanProperty("tip.highlightSeries", tip.highlightSeries, tip.show == "category" ? "true" : "false");
             const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", globalOptions) ?? "{}");
             dataLabels.show = getBooleanProperty("dataLabels.show", dataLabels.show, "false");
-            dataLabels.format = this.getOptionValue(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? "c2");
+            dataLabels.format = this.getOptionValue(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat);
             const aspectRatioParts = this.getOptionValue(chartOptions, "aspectRatio", globalOptions, "1:1").split(":");
             const aspectRatio = +aspectRatioParts[0] / +aspectRatioParts[1];
             const config = {
@@ -3293,15 +3296,16 @@ var KatApps;
                 series: dataColumns.map((c, i) => {
                     return {
                         text: text[c],
-                        color: colors[c] ?? (i < globalColors.length ? globalColors[i] : "black"),
-                        shape: shapes[c] ?? (types[c] == "line" ? "line" : undefined) ?? defaultShape,
+                        color: (colors[c] == "" ? undefined : colors[c]) ?? (i < globalColors.length ? globalColors[i] : "black"),
+                        shape: (shapes[c] == "" ? undefined : shapes[c]) ?? (types[c] == "line" ? "line" : undefined) ?? defaultShape,
                         legend: String.compare(types[c], "tooltip", true) !== 0,
-                        type: types[c] ?? "column"
+                        type: (types[c] == "" ? undefined : types[c]) ?? "column"
                     };
                 }),
                 xAxis: {
                     label: this.getOptionValue(chartOptions, "xAxis.label", globalOptions),
-                    plotBands: configRows("xAxis.plotBand").map(r => JSON.parse(r.value))
+                    plotBands: configRows("xAxis.plotBand").map(r => JSON.parse(r.value)),
+                    plotLines: configRows("xAxis.plotLine").map(r => JSON.parse(r.value))
                 },
                 yAxis: {
                     label: this.getOptionValue(chartOptions, "yAxis.label", globalOptions),
@@ -3335,7 +3339,7 @@ var KatApps;
                     config.chart.padding.left += powerOfTenPadding;
                     const plotWidth = config.chart.width - config.chart.padding.left - config.chart.padding.right;
                     const columnCount = config.data.length;
-                    const columnWidth = plotWidth / columnCount * 0.7;
+                    const columnWidth = plotWidth / columnCount * 0.65;
                     const columnSpacing = plotWidth / columnCount - columnWidth;
                     const maxLabelLines = Math.max(...config.data.map(item => {
                         const words = item.name.split(" ");
@@ -3422,13 +3426,22 @@ var KatApps;
                 const from = paddingConfig.left + plotBand0 + (band.from / 0.5) * plotBand0;
                 const to = paddingConfig.left + plotBand0 + (band.to / 0.5) * plotBand0;
                 const rect = this.createRect(from, paddingConfig.top, to - from, plotHeight, band.color);
-                const label = band.label.text
+                const label = band.label?.text
                     ? this.createText(from, paddingConfig.top - 3, band.label.text, { "text-anchor": "start", "font-size": "0.8em", "dominant-baseline": "baseline" })
                     : undefined;
                 return label ? [label, rect] : [rect];
             });
             svg.append(...plotBands.flat());
             svg.append(...yAxisTicks);
+            const plotLines = config.xAxis.plotLines.map(line => {
+                const value = paddingConfig.left + plotBand0 + (line.value / 0.5) * plotBand0;
+                const plotLine = this.createLine(value, paddingConfig.top, value, yAxisBase, line.color, 2);
+                const label = line.label?.text
+                    ? this.createText(value, paddingConfig.top + 3, line.label.text, { "text-anchor": "start", "font-size": "0.8em", "dominant-baseline": "baseline" })
+                    : undefined;
+                return label ? [label, plotLine] : [plotLine];
+            });
+            svg.append(...plotLines.flat());
             const getColumnElementY = (value) => plotHeight - (value / yAxisMax) * plotHeight;
             const getColumnElement = (elementX, elementY, value, elementConfig, tipKey, headerName) => {
                 const columnHeight = (value / yAxisMax) * plotHeight;
@@ -3437,7 +3450,7 @@ var KatApps;
                     element.setAttribute("data-is-tooltip", "1");
                     element.setAttribute("opacity", "0");
                 }
-                const valueFormatted = this.formatNumber(value, "currency");
+                const valueFormatted = this.formatNumber(value, config.chart.tip.format);
                 element.setAttribute("ka-chart-series-item", elementConfig.text);
                 element.setAttribute("aria-label", `${elementConfig.text}, ${valueFormatted}.${headerName ? ` ${this.encodeHtmlAttributeValue(headerName)}.` : ""}`);
                 const tooltipContent = tipKey
@@ -3484,14 +3497,14 @@ var KatApps;
                             return v > 0
                                 ? {
                                     name: config.series[j].text,
-                                    value: this.formatNumber(v, "currency"),
+                                    value: this.formatNumber(v, config.chart.tip.format),
                                     config: config.series[j]
                                 }
                                 : undefined;
                         }).filter(v => v != undefined)
                         : [{
                                 name: item.name,
-                                value: this.formatNumber(item.data, "currency"),
+                                value: this.formatNumber(item.data, config.chart.tip.format),
                                 config: config.series[i]
                             }]).map(item => {
                         return {

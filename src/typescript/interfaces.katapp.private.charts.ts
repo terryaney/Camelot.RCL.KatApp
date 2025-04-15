@@ -16,6 +16,7 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 	xAxis: {
 		label: string | undefined; // If present, render label
 		plotBands: Array<IRblChartPlotBand>;
+		plotLines: Array<IRblChartPlotLine>;
 	}
 
 	yAxis: {
@@ -25,13 +26,22 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 }
 
 interface IRblChartPlotBand {
-	label: {
-		text: string; // Default: "label"
+	label?: {
+		text: string;
 	}
 
 	color: string;
 	from: number;
 	to: number;
+}
+
+interface IRblChartPlotLine {
+	label?: {
+		text: string;
+	}
+
+	color: string;
+	value: number;
 }
 
 interface IRblChartConfigurationChart {
@@ -52,6 +62,7 @@ interface IRblChartConfigurationChart {
 
 interface IRblChartConfigurationTip {
 	show: IRblChartConfigurationTipShowOption; // Default: true, Show tips on each xAxis entry or data point (when no xAxis).
+	format: IRblChartFormatStyle; // Default: c0
 	highlightSeries: boolean; // Default: true, when show is "series", otherwise false.
 	includeShape: boolean; // Default: true, Include shape in the tip.
 	headerFormat: string | undefined; // Default: xAxis/category name
