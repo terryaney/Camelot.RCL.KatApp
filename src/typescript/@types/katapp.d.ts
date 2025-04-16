@@ -197,6 +197,8 @@ declare namespace KatApps {
         getDefinition(application: KatApp): Directive<Element>;
         private buildChartConfiguration;
         private addLegend;
+        private getLabelLines;
+        private getChartSvgElement;
         private generateColumnChart;
         private generateDonutChart;
         private addHoverEvents;
@@ -301,24 +303,26 @@ type IRblChartConfigurationShape = "square" | "circle" | "line";
 type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
 type IRblChartFormatStyle = 'decimal' | 'currency' | 'c0' | 'c2' | 'percent' | 'unit';
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
-    chart: IRblChartConfigurationChart;
     data: Array<{
         name: string;
         data: T;
     }>;
+    plotOptions: IRblChartConfigurationPlotOptions;
     series: Array<IRblChartConfigurationSeries>;
-    xAxis: IRblChartConfigurationXAxis;
-    yAxis: IRblChartConfigurationYAxis;
 }
 interface IRblChartConfigurationXAxis {
     label: string | undefined;
+    format: IRblChartFormatStyle;
     minCategory: number;
     maxCategory: number;
     plotBands: Array<IRblChartPlotBand>;
     plotLines: Array<IRblChartPlotLine>;
+    skipInterval: number;
+    _parent: IRblChartConfigurationPlotOptions;
 }
 interface IRblChartConfigurationYAxis {
     label: string | undefined;
+    format: IRblChartFormatStyle;
     tickCount: number;
 }
 interface IRblChartConfigurationSharkfin {
@@ -347,9 +351,25 @@ interface IRblChartPlotLine {
     color: string;
     value: number;
 }
-interface IRblChartConfigurationChart {
+interface IRblChartConfigurationPlotOptions {
     name: string;
     type: IRblChartConfigurationType;
+    font: {
+        size: {
+            heuristic: number;
+            default: number;
+            yAxisLabel: number;
+            yAxisTickLabels: number;
+            xAxisLabel: number;
+            xAxisTickLabels: number;
+            plotBandLabel: number;
+            plotBandLine: number;
+            dataLabel: number;
+            donutLabel: number;
+            tipHeader: number;
+            tipBody: number;
+        };
+    };
     aspectRadio: {
         current: "value" | "xs";
         value: number;
@@ -357,23 +377,25 @@ interface IRblChartConfigurationChart {
     };
     height: number;
     width: number;
+    plotHeight: number;
     plotWidth: number;
     column: IRblChartConfigurationChartColumn;
     padding: IRblChartConfigurationPadding;
-    dataLabels: IRblChartConfigurationDataLabels;
     legend: boolean;
+    dataLabels: IRblChartConfigurationDataLabels;
     tip: IRblChartConfigurationTip;
+    xAxis: IRblChartConfigurationXAxis;
+    yAxis: IRblChartConfigurationYAxis;
 }
 interface IRblChartConfigurationPadding {
     top: number;
     right: number;
     bottom: number;
     left: number;
-    _parent: IRblChartConfigurationChart;
+    _parent: IRblChartConfigurationPlotOptions;
 }
 interface IRblChartConfigurationTip {
     show: IRblChartConfigurationTipShowOption;
-    format: IRblChartFormatStyle;
     highlightSeries: boolean;
     includeShape: boolean;
     headerFormat: string | undefined;
@@ -388,11 +410,11 @@ interface IRblChartConfigurationDataLabels {
 }
 interface IRblChartConfigurationChartColumn {
     maxValue: number;
-    maxLabelLines: number;
     count: number;
     width: number;
     spacing: number;
-    _parent: IRblChartConfigurationChart;
+    maxLabelWidth: number;
+    _parent: IRblChartConfigurationPlotOptions;
 }
 interface IRblChartConfigurationSeries {
     text: string;

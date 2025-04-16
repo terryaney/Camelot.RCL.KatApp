@@ -3186,7 +3186,7 @@ var KatApps;
                         this.buildChartConfiguration(scope, chartType, globalOptions, configRows, dataRows);
                         if (scope.mode != "legend") {
                             const chartContainer = document.createElement("div");
-                            chartContainer.classList.add("ka-chart", `ka-chart-${this.configuration.chart.type}`);
+                            chartContainer.classList.add("ka-chart", `ka-chart-${this.configuration.plotOptions.type}`);
                             if (scope.categories?.xs) {
                                 chartContainer.classList.add("d-none", "d-sm-block");
                             }
@@ -3202,10 +3202,10 @@ var KatApps;
                                 case "columnStacked":
                                     this.generateColumnChart(idClass, chartContainer);
                                     if (scope.categories?.xs) {
-                                        this.configuration.chart.aspectRadio.current = "xs";
-                                        this.configuration.chart.column.count = scope.categories.xs;
+                                        this.configuration.plotOptions.aspectRadio.current = "xs";
+                                        this.configuration.plotOptions.column.count = scope.categories.xs;
                                         const xsContainer = document.createElement("div");
-                                        xsContainer.className = `d-block d-sm-none ka-chart-xs ka-chart-${this.configuration.chart.type}`;
+                                        xsContainer.className = `d-block d-sm-none ka-chart-xs ka-chart-${this.configuration.plotOptions.type}`;
                                         el.appendChild(xsContainer);
                                         const maxHeight = scope.categories.maxHeight ?? scope.maxHeight;
                                         for (let index = 0; index < Math.ceil(this.configuration.data.length / scope.categories.xs); index++) {
@@ -3217,8 +3217,8 @@ var KatApps;
                                                 xsContainerMaxHeight.style.maxHeight = `${scope.maxHeight}px`;
                                                 xsContainer.appendChild(xsContainerMaxHeight);
                                             }
-                                            this.configuration.xAxis.minCategory = plotStart - 0.5;
-                                            this.configuration.xAxis.maxCategory = plotEnd - 0.5;
+                                            this.configuration.plotOptions.xAxis.minCategory = plotStart - 0.5;
+                                            this.configuration.plotOptions.xAxis.maxCategory = plotEnd - 0.5;
                                             const partialData = this.configuration.data.slice(plotStart, plotEnd);
                                             this.generateColumnChart(idClass, xsContainerMaxHeight ?? xsContainer, { plotStart, plotLabel: "textXs", data: partialData, containerClass: ".ka-chart-xs" });
                                         }
@@ -3235,10 +3235,10 @@ var KatApps;
                                 chartContainer.querySelector("svg").style.maxHeight = `${scope.maxHeight}px`;
                             }
                         }
-                        const legendClass = `ka-chart-legend-${this.configuration.chart.name.toLowerCase()}`;
-                        if (this.configuration.chart.legend) {
+                        const legendClass = `ka-chart-legend-${this.configuration.plotOptions.name.toLowerCase()}`;
+                        if (this.configuration.plotOptions.legend) {
                             const legendContainer = document.createElement("div");
-                            legendContainer.className = `ka-chart-legend ka-chart-legend-${this.configuration.chart.type} ${legendClass}`;
+                            legendContainer.className = `ka-chart-legend ka-chart-legend-${this.configuration.plotOptions.type} ${legendClass}`;
                             el.appendChild(legendContainer);
                             this.addLegend(legendContainer);
                         }
@@ -3261,6 +3261,16 @@ var KatApps;
                     break;
             }
             const text = configRow("text");
+            let data = [];
+            switch (chartType) {
+                case "column":
+                case "donut":
+                    data = dataColumns.map(c => ({ name: text[c], data: +dataRows[0][c] }));
+                    break;
+                case "columnStacked":
+                    data = dataRows.map(r => ({ name: r.value, data: dataColumns.map(c => +r[c]) }));
+                    break;
+            }
             const colors = configRow("color");
             const types = configRow("type");
             const globalColors = globalOptions.find(r => r.id == "colors")?.value.split(",") ?? [];
@@ -3273,11 +3283,11 @@ var KatApps;
             const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", globalOptions) ?? "{}");
             tip.padding = { top: 5, left: 5 };
             tip.show = this.getOptionValue(chartOptions, "tip.show", globalOptions, tip.show ?? "category");
-            tip.format = this.getOptionValue(chartOptions, "tip.format", globalOptions, tip.format ?? globalFormat);
             tip.headerFormat = this.getOptionValue(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
             tip.headerFormat = this.getOptionValue(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
             tip.includeShape = getBooleanProperty("tip.includeShape", tip.includeShape, "true");
-            tip.highlightSeries = getBooleanProperty("tip.highlightSeries", tip.highlightSeries, tip.show == "category" ? "false" : "true");
+            const chartsToHighlightSeries = ["column", "donut"];
+            tip.highlightSeries = getBooleanProperty("tip.highlightSeries", tip.highlightSeries, tip.show == "category" ? (chartsToHighlightSeries.includes(chartType) ? "true" : "false") : "true");
             const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", globalOptions) ?? "{}");
             dataLabels.show = getBooleanProperty("dataLabels.show", dataLabels.show, "false");
             dataLabels.format = this.getOptionValue(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat);
@@ -3293,13 +3303,18 @@ var KatApps;
                 aspectRatioConfig.xs = calcAspectRatio(aspectRatioConfig.xs);
             const xAxisConfig = {
                 label: this.getOptionValue(chartOptions, "xAxis.label", globalOptions),
+                format: "c0",
                 minCategory: -0.5,
                 maxCategory: dataRows.length - 0.5,
                 plotBands: configRows("xAxis.plotBand").map(r => JSON.parse(r.value)),
-                plotLines: configRows("xAxis.plotLine").map(r => JSON.parse(r.value))
+                plotLines: configRows("xAxis.plotLine").map(r => JSON.parse(r.value)),
+                get skipInterval() {
+                    return Math.ceil(data.length / (this._parent.plotWidth / 25));
+                }
             };
             const yAxisConfig = {
                 label: this.getOptionValue(chartOptions, "yAxis.label", globalOptions),
+                format: "c0",
                 tickCount: +this.getOptionValue(chartOptions, "yAxis.tickCount", globalOptions, "5")
             };
             const seriesConfig = dataColumns.map((c, i) => {
@@ -3311,101 +3326,90 @@ var KatApps;
                     type: (types[c] == "" ? undefined : types[c]) ?? "column"
                 };
             });
-            let data = [];
-            switch (chartType) {
-                case "column":
-                case "donut":
-                    data = dataColumns.map(c => ({ name: text[c], data: +dataRows[0][c] }));
-                    break;
-                case "columnStacked":
-                    data = dataRows.map(r => ({ name: r.value, data: dataColumns.map(c => +r[c]) }));
-                    break;
-            }
             const maxDataValue = Math.max(...data.map(item => Array.isArray(item.data)
                 ? Math.max(item.data.reduce((sum, v, i) => sum + seriesConfig[i].shape != "line" ? v : 0, 0), ...item.data.map((v, i) => seriesConfig[i].shape == "line" ? v : 0))
                 : item.data)) * (dataLabels.show ? 1.05 : 1.025);
+            const maxDataValueString = this.formatNumber(maxDataValue, yAxisConfig.format) + "000";
             const hasAxis = chartType != "donut";
+            const directive = this;
             const config = {
                 data: data,
-                chart: {
+                plotOptions: {
                     name: model.data,
                     type: chartType,
+                    font: {
+                        size: {
+                            heuristic: 0.6,
+                            default: 16,
+                            yAxisLabel: 16 * 0.9,
+                            yAxisTickLabels: 16 * 0.8,
+                            xAxisLabel: 16 * 0.9,
+                            xAxisTickLabels: 16 * 0.8,
+                            plotBandLabel: 16 * 0.7,
+                            plotBandLine: 16 * 0.8,
+                            dataLabel: 16 * 0.7,
+                            donutLabel: 16 * 2,
+                            tipHeader: 16 * 0.6,
+                            tipBody: 16 * 0.8
+                        }
+                    },
                     aspectRadio: aspectRatioConfig,
                     height: 400,
                     get width() { return Math.ceil(400 * this.aspectRadio[this.aspectRadio.current]); },
                     get plotWidth() { return this.width - this.padding.left - this.padding.right; },
+                    get plotHeight() { return this.height - this.padding.top - this.padding.bottom; },
                     padding: {
                         get top() {
                             return 5 +
-                                (hasAxis ? 15 : 0);
+                                (hasAxis ? this._parent.font.size.yAxisTickLabels : 0);
                         },
                         right: 5,
                         get bottom() {
+                            const labelLines = !hasAxis ? 0 : Math.max(...config.data.map(item => directive.getLabelLines(item.name).length + 1));
                             return 5 +
-                                (hasAxis ? 20 : 0) +
-                                (xAxisConfig.label ? 20 : 0) +
-                                (hasAxis ? this._parent.column.maxLabelLines : 0) * 15;
+                                labelLines * this._parent.font.size.xAxisTickLabels +
+                                Math.max(0, labelLines - 1) * 5 +
+                                (xAxisConfig.label ? this._parent.font.size.xAxisLabel : 0);
                         },
                         get left() {
-                            const paddingLog10 = Math.floor(Math.log10(maxDataValue));
-                            const powerOfTenPadding = Math.min(50, paddingLog10 >= 2 ? (paddingLog10 - 1) * 10 : 0);
                             return 5 +
-                                (hasAxis ? 25 : 0) +
-                                (yAxisConfig.label ? 20 : 0) +
-                                powerOfTenPadding;
+                                (hasAxis ? maxDataValueString.length * this._parent.font.size.yAxisTickLabels * this._parent.font.size.heuristic : 0) +
+                                (yAxisConfig.label ? this._parent.font.size.yAxisLabel : 0);
                         }
                     },
                     column: {
                         count: data.length,
                         get width() { return this._parent.plotWidth / this.count * 0.65; },
                         get spacing() { return this._parent.plotWidth / this.count - this.width; },
-                        get maxLabelLines() {
-                            const that = this;
-                            return Math.max(...config.data.map(item => {
-                                const words = item.name.split(" ");
-                                const lines = [];
-                                let currentLine = "";
-                                words.forEach(word => {
-                                    const testLine = currentLine ? `${currentLine} ${word}` : word;
-                                    const testLineWidth = testLine.length * 6;
-                                    if (testLineWidth <= that.width) {
-                                        currentLine = testLine;
-                                    }
-                                    else {
-                                        lines.push(currentLine);
-                                        currentLine = word;
-                                    }
-                                });
-                                if (currentLine)
-                                    lines.push(currentLine);
-                                return Math.min(lines.length, 5) - 1;
-                            }));
-                        },
-                        maxValue: maxDataValue
+                        maxValue: maxDataValue,
+                        get maxLabelWidth() {
+                            return (this.width + this.spacing * 1.25) * this._parent.xAxis.skipInterval;
+                        }
                     },
-                    tip: tip,
                     dataLabels: dataLabels,
+                    tip: tip,
+                    xAxis: xAxisConfig,
+                    yAxis: yAxisConfig,
                     legend: model.legendTextSelector == undefined &&
                         (model.mode == "legend" ||
                             (model.mode != "chart" && getBooleanProperty("legend.show", undefined, "false")))
                 },
-                series: seriesConfig,
-                xAxis: xAxisConfig,
-                yAxis: yAxisConfig
+                series: seriesConfig
             };
-            config.chart.padding._parent = config.chart;
-            config.chart.column._parent = config.chart;
+            config.plotOptions.padding._parent = config.plotOptions;
+            config.plotOptions.column._parent = config.plotOptions;
+            config.plotOptions.xAxis._parent = config.plotOptions;
             console.log(config);
             this.configuration = config;
         }
         addLegend(container) {
             const legend = document.createElement("div");
-            legend.className = "row gx-2 flex-wrap align-items-center";
+            legend.className = "ka-chart-legend-item-wrapper";
             this.configuration.series.toReversed()
                 .filter(s => s.legend)
                 .forEach(s => {
                 const item = document.createElement("div");
-                item.className = "ka-chart-legend-item d-flex align-items-center col-auto";
+                item.className = "ka-chart-legend-item";
                 item.setAttribute("ka-chart-series-item", s.text);
                 const svg = document.createElementNS(this.ns, "svg");
                 svg.setAttribute("width", "12px");
@@ -3420,57 +3424,82 @@ var KatApps;
             });
             container.appendChild(legend);
         }
+        getLabelLines(label) {
+            const words = label.split(" ");
+            const lines = [];
+            let currentLine = "";
+            words.forEach(word => {
+                const testLine = currentLine ? `${currentLine} ${word}` : word;
+                const testLineWidth = testLine.length * this.configuration.plotOptions.font.size.xAxisTickLabels * this.configuration.plotOptions.font.size.heuristic;
+                if (testLineWidth <= this.configuration.plotOptions.column.maxLabelWidth) {
+                    currentLine = testLine;
+                }
+                else {
+                    if (currentLine) {
+                        lines.push(currentLine);
+                    }
+                    currentLine = word;
+                }
+            });
+            if (currentLine)
+                lines.push(currentLine);
+            return lines;
+        }
+        ;
+        getChartSvgElement() {
+            const svg = document.createElementNS(this.ns, "svg");
+            svg.setAttribute("viewBox", `0 0 ${this.configuration.plotOptions.width} ${this.configuration.plotOptions.height}`);
+            svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+            return svg;
+        }
         generateColumnChart(idClass, container, partial) {
             const config = this.configuration;
             const data = partial?.data ?? config.data;
-            const columnConfig = config.chart.column;
-            const paddingConfig = config.chart.padding;
-            const plotHeight = config.chart.height - paddingConfig.top - paddingConfig.bottom;
-            const plotWidth = config.chart.width - paddingConfig.left - paddingConfig.right;
-            const yAxisBase = config.chart.height - paddingConfig.bottom;
-            const xAxisLine = this.createLine(paddingConfig.left, yAxisBase, config.chart.width - paddingConfig.right, yAxisBase);
+            const columnConfig = config.plotOptions.column;
+            const paddingConfig = config.plotOptions.padding;
+            const plotHeight = config.plotOptions.plotHeight;
+            const plotWidth = config.plotOptions.plotWidth;
+            const yAxisBase = config.plotOptions.height - paddingConfig.bottom;
+            const xAxisLine = this.createLine(paddingConfig.left, yAxisBase, config.plotOptions.width - paddingConfig.right, yAxisBase);
             const yAxisLine = this.createLine(paddingConfig.left, paddingConfig.top, paddingConfig.left, yAxisBase);
-            const xAxisTickLabelY = config.chart.height - paddingConfig.bottom + 12;
-            const yAxisLabelX = paddingConfig.left / 3;
+            const yAxisLabelX = config.plotOptions.font.size.yAxisLabel;
             const yAxisLabelY = plotHeight / 2;
-            const yAxisLabel = config.yAxis.label
-                ? this.createText(yAxisLabelX, yAxisLabelY, config.yAxis.label, { "font-size": "0.9em", fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
+            const yAxisLabel = config.plotOptions.yAxis.label
+                ? this.createText(yAxisLabelX, yAxisLabelY, config.plotOptions.yAxis.label, { "font-size": `${config.plotOptions.font.size.yAxisLabel}px`, fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
                 : undefined;
-            const yAxisInterval = this.calculateYAxisInterval(columnConfig.maxValue, config.yAxis.tickCount);
+            const yAxisInterval = this.calculateYAxisInterval(columnConfig.maxValue, config.plotOptions.yAxis.tickCount);
             const yAxisMax = Math.ceil(columnConfig.maxValue / yAxisInterval) * yAxisInterval;
             const yAxisTicks = Array.from({ length: Math.ceil(yAxisMax / yAxisInterval) + 1 }, (_, i) => i * yAxisInterval)
                 .flatMap((value, i) => {
                 const y = paddingConfig.top + plotHeight - (value / yAxisMax) * plotHeight;
                 const tickLine = i != 0
-                    ? this.createLine(paddingConfig.left, y, config.chart.width - paddingConfig.right, y, "#e6e6e6")
+                    ? this.createLine(paddingConfig.left, y, config.plotOptions.width - paddingConfig.right, y, "#e6e6e6")
                     : undefined;
-                const tickLabel = this.createText(paddingConfig.left - 10, y, this.formatNumber(value, "currency"), { "text-anchor": "end", "font-size": "0.8em", "dominant-baseline": "middle" });
+                const tickLabel = this.createText(paddingConfig.left - 7, y, this.formatNumber(value, config.plotOptions.yAxis.format), { "text-anchor": "end", "font-size": `${config.plotOptions.font.size.yAxisTickLabels}px`, "dominant-baseline": "middle" });
                 return tickLine ? [tickLine, tickLabel] : [tickLabel];
             });
-            const svg = document.createElementNS(this.ns, "svg");
-            svg.setAttribute("viewBox", `0 0 ${config.chart.width} ${config.chart.height}`);
-            svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+            const svg = this.getChartSvgElement();
             if (yAxisLabel != undefined)
                 svg.appendChild(yAxisLabel);
             const plotBand0 = plotWidth / (data.length * 2);
             const partialStart = partial?.plotStart ?? 0;
-            const plotBands = config.xAxis.plotBands.filter(b => b.from < config.xAxis.maxCategory && b.to > config.xAxis.minCategory).map(band => {
+            const plotBands = config.plotOptions.xAxis.plotBands.filter(b => b.from < config.plotOptions.xAxis.maxCategory && b.to > config.plotOptions.xAxis.minCategory).map(band => {
                 const from = paddingConfig.left + plotBand0 + (Math.max(-0.5, band.from - partialStart) / 0.5) * plotBand0;
                 const to = paddingConfig.left + plotBand0 + (Math.min(band.to - partialStart, data.length - 0.5) / 0.5) * plotBand0;
                 const rect = this.createRect(from, paddingConfig.top, to - from, plotHeight, band.color);
                 const plotLabel = band.label?.[partial?.plotLabel ?? "text"] ?? band.label?.text;
                 const label = plotLabel
-                    ? this.createText(from, paddingConfig.top - 3, plotLabel, { "text-anchor": "start", "font-size": "0.8em", "dominant-baseline": "baseline" })
+                    ? this.createText(from, paddingConfig.top - 3, plotLabel, { "text-anchor": "start", "font-size": `${config.plotOptions.font.size.plotBandLabel}px`, "dominant-baseline": "baseline" })
                     : undefined;
                 return label ? [label, rect] : [rect];
             });
             svg.append(...plotBands.flat());
             svg.append(...yAxisTicks);
-            const plotLines = config.xAxis.plotLines.filter(l => config.xAxis.minCategory < l.value && l.value < config.xAxis.maxCategory).map(line => {
+            const plotLines = config.plotOptions.xAxis.plotLines.filter(l => config.plotOptions.xAxis.minCategory < l.value && l.value < config.plotOptions.xAxis.maxCategory).map(line => {
                 const value = paddingConfig.left + plotBand0 + ((line.value - partialStart) / 0.5) * plotBand0;
                 const plotLine = this.createLine(value, paddingConfig.top, value, yAxisBase, line.color, 2);
                 const label = line.label?.text
-                    ? this.createText(value, paddingConfig.top + 3, line.label.text, { "text-anchor": "start", "font-size": "0.8em", "dominant-baseline": "baseline" })
+                    ? this.createText(value, paddingConfig.top - 3, line.label.text, { "text-anchor": "start", "font-size": `${config.plotOptions.font.size.plotBandLine}px`, "dominant-baseline": "baseline" })
                     : undefined;
                 return label ? [label, plotLine] : [plotLine];
             });
@@ -3483,7 +3512,7 @@ var KatApps;
                     element.setAttribute("data-is-tooltip", "1");
                     element.setAttribute("opacity", "0");
                 }
-                const valueFormatted = this.formatNumber(value, config.chart.tip.format);
+                const valueFormatted = this.formatNumber(value, config.plotOptions.dataLabels.format);
                 element.setAttribute("ka-chart-series-item", elementConfig.text);
                 element.setAttribute("aria-label", `${elementConfig.text}, ${valueFormatted}.${headerName ? ` ${this.encodeHtmlAttributeValue(headerName)}.` : ""}`);
                 const tooltipContent = tipKey
@@ -3491,14 +3520,13 @@ var KatApps;
                     : undefined;
                 return { element: element, tooltipContent };
             };
-            const xAxisSkipInterval = Math.ceil(data.length / (plotWidth / 25));
             const columns = data.map((item, i) => {
                 const columnX = paddingConfig.left + (i * (columnConfig.width + columnConfig.spacing)) + columnConfig.spacing / 2;
                 let stackBase = 0;
                 const columnElements = (item.data instanceof Array
                     ? item.data.map((v, j) => {
                         const elementConfig = config.series[j];
-                        const tipKey = config.chart.tip.show == "series" ? `${i + (partial?.plotStart ?? 0)}-${j}` : undefined;
+                        const tipKey = config.plotOptions.tip.show == "series" ? `${i + (partial?.plotStart ?? 0)}-${j}` : undefined;
                         if (elementConfig.shape == "line") {
                             const lineY = paddingConfig.top + getColumnElementY(v);
                             const lineX = columnX + columnConfig.width / 2;
@@ -3520,25 +3548,25 @@ var KatApps;
                 const columnGroup = document.createElementNS(this.ns, "g");
                 columnGroup.classList.add("ka-chart-category");
                 columnGroup.setAttribute("ka-chart-marker-item", String(i));
-                if (i % xAxisSkipInterval == 0) {
-                    const xAxisTickLabel = this.createText(columnX + columnConfig.width / 2, xAxisTickLabelY, item.name, { "text-anchor": "middle", "font-size": "0.8em", "dominant-baseline": "middle" }, columnConfig.width);
+                if (i % config.plotOptions.xAxis.skipInterval == 0) {
+                    const xAxisTickLabel = this.createText(columnX + columnConfig.width / 2, yAxisBase + 2, item.name, { "text-anchor": "middle", "font-size": `${config.plotOptions.font.size.xAxisTickLabels}px`, "dominant-baseline": "text-before-edge" }, true);
                     columnGroup.appendChild(xAxisTickLabel);
                 }
                 let tooltip = undefined;
-                if (config.chart.tip.show == "category") {
+                if (config.plotOptions.tip.show == "category") {
                     const seriesTipInfo = (item.data instanceof Array
                         ? item.data.map((v, j) => {
                             return v > 0
                                 ? {
                                     name: config.series[j].text,
-                                    value: this.formatNumber(v, config.chart.tip.format),
+                                    value: this.formatNumber(v, config.plotOptions.dataLabels.format),
                                     config: config.series[j]
                                 }
                                 : undefined;
                         }).filter(v => v != undefined)
                         : [{
                                 name: item.name,
-                                value: this.formatNumber(item.data, config.chart.tip.format),
+                                value: this.formatNumber(item.data, config.plotOptions.dataLabels.format),
                                 config: config.series[i]
                             }]).map(item => {
                         return {
@@ -3554,12 +3582,12 @@ var KatApps;
                 }
                 const rectElements = columnElements.filter(e => "element" in e);
                 columnGroup.append(...rectElements.map(e => e.element));
-                if (config.chart.dataLabels.show) {
+                if (config.plotOptions.dataLabels.show) {
                     const totalValue = item.data instanceof Array
                         ? item.data.reduce((sum, v) => sum + v, 0)
                         : item.data;
                     const labelY = paddingConfig.top + getColumnElementY(totalValue) - 10;
-                    const dataLabel = this.createText(columnX + columnConfig.width / 2, labelY, this.formatNumber(totalValue, config.chart.dataLabels.format), { "text-anchor": "middle", "font-size": "0.7em", "font-weight": "bold" });
+                    const dataLabel = this.createText(columnX + columnConfig.width / 2, labelY, this.formatNumber(totalValue, config.plotOptions.dataLabels.format), { "text-anchor": "middle", "font-size": `${config.plotOptions.font.size.dataLabel}px`, "font-weight": "bold" });
                     columnGroup.appendChild(dataLabel);
                 }
                 const linePoints = columnElements.filter(e => "x" in e);
@@ -3585,7 +3613,7 @@ var KatApps;
                     lineMarkerGroup.appendChild(glow);
                     const pathD = linePoints.map((point, index) => {
                         const diamond = this.createLineMarker(point.x, point.y, point.config.color);
-                        const valueFormatted = this.formatNumber(point.value, "currency");
+                        const valueFormatted = this.formatNumber(point.value, config.plotOptions.dataLabels.format);
                         diamond.setAttribute("ka-chart-marker-item", String(index));
                         diamond.setAttribute("aria-label", `${point.config.text}, ${valueFormatted}. ${this.encodeHtmlAttributeValue(point.headerName)}.`);
                         diamond.setAttribute("ka-chart-marker-item-point", `${point.x},${point.y}`);
@@ -3612,10 +3640,10 @@ var KatApps;
                 }
             }
             svg.appendChild(xAxisLine);
-            if (config.xAxis.label) {
-                const xAxisLabelX = config.chart.padding.left + plotWidth / 2;
-                const xAxisLabelY = xAxisTickLabelY + 19;
-                const xAxisLabel = this.createText(xAxisLabelX, xAxisLabelY, config.xAxis.label, { "text-anchor": "middle", "font-size": "1em", "dominant-baseline": "middle" });
+            if (config.plotOptions.xAxis.label) {
+                const xAxisLabelX = config.plotOptions.padding.left + plotWidth / 2;
+                const xAxisLabelY = config.plotOptions.height - config.plotOptions.font.size.xAxisLabel * 1.5;
+                const xAxisLabel = this.createText(xAxisLabelX, xAxisLabelY, config.plotOptions.xAxis.label, { "text-anchor": "middle", "font-size": `${config.plotOptions.font.size.xAxisLabel}px`, "dominant-baseline": "middle" });
                 svg.appendChild(xAxisLabel);
             }
             container.appendChild(svg);
@@ -3629,7 +3657,7 @@ var KatApps;
         generateDonutChart(idClass, container) {
             const config = this.configuration;
             const total = config.data.reduce((sum, item) => sum + item.data, 0);
-            const radius = config.chart.height / 2;
+            const radius = config.plotOptions.height / 2;
             const strokeWidth = radius * 0.4375;
             const normalizedRadius = radius - strokeWidth / 2;
             let currentAngle = 0;
@@ -3642,24 +3670,22 @@ var KatApps;
                 const x2 = normalizedRadius * Math.cos((currentAngle - 90) * Math.PI / 180) + radius;
                 const y2 = normalizedRadius * Math.sin((currentAngle - 90) * Math.PI / 180) + radius;
                 const largeArcFlag = angle > 180 ? 1 : 0;
-                const valueFormatted = this.formatNumber(item.data, "currency");
+                const valueFormatted = this.formatNumber(item.data, config.plotOptions.dataLabels.format);
                 const path = document.createElementNS(this.ns, "path");
                 path.setAttribute("key", String(index));
                 path.setAttribute("d", `M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`);
                 path.setAttribute("fill", config.series[index].color);
                 path.setAttribute("aria-label", `${item.name}, ${valueFormatted}.`);
                 path.setAttribute("ka-chart-series-item", item.name);
-                const tooltipContent = config.chart.tip.show != "off"
+                const tooltipContent = config.plotOptions.tip.show != "off"
                     ? this.createTooltip(idClass, String(index), path, [{ name: item.name, value: valueFormatted, color: config.series[index].color, shape: config.series[index].shape }])
                     : undefined;
                 return { path, tooltipContent };
             });
-            const svg = document.createElementNS(this.ns, "svg");
-            svg.setAttribute("viewBox", `0 0 ${config.chart.width} ${config.chart.height}`);
-            svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+            const svg = this.getChartSvgElement();
             svg.append(...segments.map(segment => segment.path));
             svg.appendChild(this.createCircle(radius, radius, radius - strokeWidth, "white"));
-            svg.appendChild(this.createText(radius, radius, this.formatNumber(total, "currency"), { "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": "2em", "font-weight": "bold" }));
+            svg.appendChild(this.createText(radius, radius, this.formatNumber(total, config.plotOptions.dataLabels.format), { "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": `${config.plotOptions.font.size.donutLabel}px`, "font-weight": "bold" }));
             container.appendChild(svg);
             if (segments.some(s => s.tooltipContent)) {
                 const tips = document.createElement("div");
@@ -3692,7 +3718,7 @@ var KatApps;
                             return;
                         domUpdated = true;
                         const seriesItems = [
-                            { textSelector: "span", highlightOnHover: this.configuration.chart.tip.highlightSeries, items: [...el.querySelectorAll(".ka-chart [ka-chart-series-item]")] },
+                            { textSelector: "span", highlightOnHover: this.configuration.plotOptions.tip.highlightSeries, items: [...el.querySelectorAll(".ka-chart [ka-chart-series-item]")] },
                             { textSelector: "span", highlightOnHover: true, items: [...el.querySelectorAll(".ka-chart-legend [ka-chart-series-item]")] }
                         ];
                         if (scope.legendTextSelector) {
@@ -3735,7 +3761,7 @@ var KatApps;
                 });
             }
         }
-        createText(x, y, text, properties = {}, maxTextWidth) {
+        createText(x, y, text, properties = {}, isxAxisLabel) {
             const textSvg = document.createElementNS(this.ns, "text");
             textSvg.setAttribute("x", String(x));
             textSvg.setAttribute("y", String(y));
@@ -3744,27 +3770,12 @@ var KatApps;
                     textSvg.setAttribute(key, String(value));
                 }
             }
-            if (maxTextWidth) {
-                const words = text.split(" ");
-                const lines = [];
-                let currentLine = "";
-                words.forEach(word => {
-                    const testLine = currentLine ? `${currentLine} ${word}` : word;
-                    const testLineWidth = testLine.length * 6;
-                    if (testLineWidth <= maxTextWidth) {
-                        currentLine = testLine;
-                    }
-                    else {
-                        lines.push(currentLine);
-                        currentLine = word;
-                    }
-                });
-                if (currentLine)
-                    lines.push(currentLine);
-                lines.slice(0, 5).forEach((line, index) => {
+            if (isxAxisLabel) {
+                const lines = this.getLabelLines(text);
+                lines.forEach((line, index) => {
                     const tspan = document.createElementNS(this.ns, "tspan");
                     tspan.setAttribute("x", String(x));
-                    tspan.setAttribute("dy", index === 0 ? "0" : "15");
+                    tspan.setAttribute("dy", String(index === 0 ? 0 : this.configuration.plotOptions.font.size.xAxisTickLabels + 5));
                     tspan.innerHTML = line;
                     textSvg.appendChild(tspan);
                 });
@@ -3842,7 +3853,7 @@ var KatApps;
             target.setAttribute("data-bs-content-selector", `.${idClass} .ka-chart .tooltip-${targetKey}`);
             if (tipContainerClass != ".ka-chart")
                 return undefined;
-            const tipConfig = this.configuration.chart.tip;
+            const tipConfig = this.configuration.plotOptions.tip;
             const tooltipContent = document.createElement("div");
             tooltipContent.className = `tooltip-${targetKey}`;
             const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipLines.map(item => `${item.name}: ${item.value}`.length))) * 7;
@@ -3852,8 +3863,8 @@ var KatApps;
             tooltipSvg.setAttribute("width", String(svgWidth));
             const tipLineBaseY = header ? 17 : 0;
             if (header) {
-                const categoryHeader = this.configuration.chart.tip.headerFormat?.replace("{x}", header) ?? header;
-                const categoryText = this.createText(0, tipLineBaseY, categoryHeader, { "font-size": "0.9em", "font-weight": "bold" });
+                const categoryHeader = this.configuration.plotOptions.tip.headerFormat?.replace("{x}", header) ?? header;
+                const categoryText = this.createText(0, tipLineBaseY, categoryHeader, { "font-size": `${this.configuration.plotOptions.font.size.tipHeader}px`, "font-weight": "bold" });
                 tooltipSvg.appendChild(categoryText);
             }
             const shapeXPadding = tipConfig.includeShape ? 15 : 0;
@@ -3862,7 +3873,7 @@ var KatApps;
                 if (tipConfig.includeShape) {
                     tooltipSvg.appendChild(this.getSeriesShape(y, item.shape, item.color));
                 }
-                const text = this.createText(shapeXPadding, y, `${item.name}: `, { "font-size": "1.1em" });
+                const text = this.createText(shapeXPadding, y, `${item.name}: `, { "font-size": `${this.configuration.plotOptions.font.size.tipBody}px` });
                 const tspan = document.createElementNS(this.ns, "tspan");
                 tspan.setAttribute("font-weight", "bold");
                 tspan.innerHTML = item.value;
