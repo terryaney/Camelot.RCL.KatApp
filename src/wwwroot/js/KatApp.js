@@ -3327,7 +3327,7 @@ var KatApps;
                 };
             });
             const maxDataValue = Math.max(...data.map(item => Array.isArray(item.data)
-                ? Math.max(item.data.reduce((sum, v, i) => sum + seriesConfig[i].shape != "line" ? v : 0, 0), ...item.data.map((v, i) => seriesConfig[i].shape == "line" ? v : 0))
+                ? Math.max(item.data.reduce((sum, v, i) => sum + (seriesConfig[i].shape != "line" ? v : 0), 0), ...item.data.map((v, i) => seriesConfig[i].shape != "line" ? v : 0))
                 : item.data)) * (dataLabels.show ? 1.05 : 1.025);
             const maxDataValueString = this.formatNumber(maxDataValue, yAxisConfig.format) + "000";
             const hasAxis = chartType != "donut";

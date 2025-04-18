@@ -224,8 +224,8 @@
 				...data.map(item =>
 					Array.isArray(item.data)
 						? Math.max(
-							item.data.reduce((sum, v, i) => sum + seriesConfig[i].shape != "line" ? v : 0, 0),
-							...item.data.map((v, i) => seriesConfig[i].shape == "line" ? v : 0)
+							item.data.reduce((sum, v, i) => sum + (seriesConfig[i].shape != "line" ? v : 0), 0),
+							...item.data.map((v, i) => seriesConfig[i].shape != "line" ? v : 0)
 						)
 						: item.data
 				)
