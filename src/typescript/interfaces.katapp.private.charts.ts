@@ -4,6 +4,8 @@ type IRblChartConfigurationType = "column" | "columnStacked" | "donut" | "sharkf
 type IRblChartConfigurationShape = "square" | "circle" | "line";
 type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
 type IRblChartFormatStyle = 'decimal' | 'currency' | 'c0' | 'c2' | 'percent' | 'unit';
+type IRblChartColumnName = "value" | `data${number}`;
+type IRblPlotColumnName = "text" | "textXs";
 
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 	data: Array<{ name: string, data: T }>;
@@ -19,6 +21,7 @@ interface IRblChartConfigurationXAxis {
 	format: IRblChartFormatStyle; // Default: c0
 	minCategory: number;
 	maxCategory: number;
+	plotBandSegmentWidth: number;
 	plotBands: Array<IRblChartPlotBand>;
 	plotLines: Array<IRblChartPlotLine>;
 	skipInterval: number;
@@ -29,6 +32,11 @@ interface IRblChartConfigurationYAxis {
 	label: string | undefined; // If present, render label
 	format: IRblChartFormatStyle; // Default: c0
 	tickCount: number; // Default: 5, Number of major axis ticks to show on yAxis.
+	intervalSize: number;
+	maxValue: number;
+	baseY: number;
+	getY: (index: number) => number; // Function to get the x position of a column based on its index.
+	_parent: IRblChartConfigurationPlotOptions;
 }
 
 interface IRblChartConfigurationSharkfin {
@@ -85,14 +93,23 @@ interface IRblChartConfigurationPlotOptions {
 
 	plotHeight: number;
 	plotWidth: number;
-	
+
 	column: IRblChartConfigurationChartColumn; // Only for column and columnStacked charts.
 
 	padding: IRblChartConfigurationPadding;
 	
-	legend: boolean;
+	legend: {
+		show: boolean; // Default: true, Show legend.
+	}
+
+	highlightSeries: {
+		hoverItem: boolean; // Default: true when type is donut or column
+		hoverLegend: boolean; // Default: true
+	}
+
 	dataLabels: IRblChartConfigurationDataLabels;
 	tip: IRblChartConfigurationTip;
+	
 	xAxis: IRblChartConfigurationXAxis;
 	yAxis: IRblChartConfigurationYAxis;
 }
@@ -105,9 +122,18 @@ interface IRblChartConfigurationPadding {
 	_parent: IRblChartConfigurationPlotOptions
 }
 
+interface IRblChartConfigurationSharkfin {
+	retirementAge: number;
+	line: {
+		color: string;
+	}
+	fill: {
+		color: string;
+	}
+}
+
 interface IRblChartConfigurationTip {
 	show: IRblChartConfigurationTipShowOption; // Default: true, Show tips on each xAxis entry or data point (when no xAxis).
-	highlightSeries: boolean; // Default: true, when show is "series", otherwise false.
 	includeShape: boolean; // Default: true, Include shape in the tip.
 	headerFormat: string | undefined; // Default: xAxis/category name
 	padding: { top: number; left: number; }
@@ -124,6 +150,7 @@ interface IRblChartConfigurationChartColumn {
 	width: number; // Width of each column.
 	spacing: number; // Spacing between columns.
 	maxLabelWidth: number;
+	getX: (index: number) => number; // Function to get the x position of a column based on its index.
 	_parent: IRblChartConfigurationPlotOptions;
 }
 
@@ -145,4 +172,10 @@ interface IRblChartDataRow<T = string> extends IRblChartOptionRow<T> {
     [key: `data${number}`]: T | undefined; // Allows properties like data1, data2, etc., with type T
 }
 
-type IRblChartColumnName = "value" | `data${number}`;
+interface IRblChartPoint {
+	x: number;
+	y: number;
+	seriesConfig: IRblChartConfigurationSeries;
+	value: number;
+	name: string;
+}

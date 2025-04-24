@@ -194,23 +194,36 @@ declare namespace KatApps {
         private ns;
         private application;
         private configuration;
+        private idClass;
+        private chartTypeClass;
+        private legendClass;
+        private legendTypeClass;
         getDefinition(application: KatApp): Directive<Element>;
+        private resetContextElement;
+        private addChart;
         private buildChartConfiguration;
-        private addLegend;
-        private getLabelLines;
-        private getChartSvgElement;
+        private generateStackedArea;
         private generateColumnChart;
+        private generateBreakpointColumnCharts;
         private generateDonutChart;
         private addHoverEvents;
+        private addMarkerPoints;
+        private addPlotLines;
+        private addPlotBands;
+        private addXAxis;
+        private addYAxis;
+        private addLegend;
+        private getWrappedColumnLabels;
+        private getChartSvgElement;
+        private getSeriesShape;
         private createText;
         private createLine;
         private createCircle;
-        private createLineMarker;
+        private createPointMarker;
         private createPath;
         private createRect;
         private createTooltip;
-        private getSeriesShape;
-        private calculateYAxisInterval;
+        private getOptionJson;
         private getOptionValue;
         private formatNumber;
         private encodeHtmlAttributeValue;
@@ -302,6 +315,8 @@ type IRblChartConfigurationType = "column" | "columnStacked" | "donut" | "sharkf
 type IRblChartConfigurationShape = "square" | "circle" | "line";
 type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
 type IRblChartFormatStyle = 'decimal' | 'currency' | 'c0' | 'c2' | 'percent' | 'unit';
+type IRblChartColumnName = "value" | `data${number}`;
+type IRblPlotColumnName = "text" | "textXs";
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
     data: Array<{
         name: string;
@@ -315,6 +330,7 @@ interface IRblChartConfigurationXAxis {
     format: IRblChartFormatStyle;
     minCategory: number;
     maxCategory: number;
+    plotBandSegmentWidth: number;
     plotBands: Array<IRblChartPlotBand>;
     plotLines: Array<IRblChartPlotLine>;
     skipInterval: number;
@@ -324,6 +340,11 @@ interface IRblChartConfigurationYAxis {
     label: string | undefined;
     format: IRblChartFormatStyle;
     tickCount: number;
+    intervalSize: number;
+    maxValue: number;
+    baseY: number;
+    getY: (index: number) => number;
+    _parent: IRblChartConfigurationPlotOptions;
 }
 interface IRblChartConfigurationSharkfin {
     line: {
@@ -381,7 +402,13 @@ interface IRblChartConfigurationPlotOptions {
     plotWidth: number;
     column: IRblChartConfigurationChartColumn;
     padding: IRblChartConfigurationPadding;
-    legend: boolean;
+    legend: {
+        show: boolean;
+    };
+    highlightSeries: {
+        hoverItem: boolean;
+        hoverLegend: boolean;
+    };
     dataLabels: IRblChartConfigurationDataLabels;
     tip: IRblChartConfigurationTip;
     xAxis: IRblChartConfigurationXAxis;
@@ -394,9 +421,17 @@ interface IRblChartConfigurationPadding {
     left: number;
     _parent: IRblChartConfigurationPlotOptions;
 }
+interface IRblChartConfigurationSharkfin {
+    retirementAge: number;
+    line: {
+        color: string;
+    };
+    fill: {
+        color: string;
+    };
+}
 interface IRblChartConfigurationTip {
     show: IRblChartConfigurationTipShowOption;
-    highlightSeries: boolean;
     includeShape: boolean;
     headerFormat: string | undefined;
     padding: {
@@ -414,6 +449,7 @@ interface IRblChartConfigurationChartColumn {
     width: number;
     spacing: number;
     maxLabelWidth: number;
+    getX: (index: number) => number;
     _parent: IRblChartConfigurationPlotOptions;
 }
 interface IRblChartConfigurationSeries {
@@ -431,7 +467,13 @@ interface IRblChartDataRow<T = string> extends IRblChartOptionRow<T> {
     value: T;
     [key: `data${number}`]: T | undefined;
 }
-type IRblChartColumnName = "value" | `data${number}`;
+interface IRblChartPoint {
+    x: number;
+    y: number;
+    seriesConfig: IRblChartConfigurationSeries;
+    value: number;
+    name: string;
+}
 interface IRblHighChartsOptionRow extends ITabDefRow {
     key: string;
     value: string;
@@ -944,16 +986,17 @@ interface IKaChartModel {
     data: string;
     options?: string;
     mode?: "chart" | "legend";
-    categories?: {
-        from?: number;
-        to?: number;
-        maxHeight?: number;
-        xs?: number;
-    };
+    categories?: IKaChartModelCategories;
     legendTextSelector?: string;
     maxHeight?: number;
     ce?: string;
     tab?: string;
+}
+interface IKaChartModelCategories {
+    from?: number;
+    to?: number;
+    maxHeight?: number;
+    xs?: number;
 }
 interface IKaHighchartModel {
     data: string;
