@@ -4,44 +4,35 @@
 
 		private ns = "http://www.w3.org/2000/svg"
 		private application!: KatApp;
-		private configuration!: IRblChartConfiguration<IRblChartConfigurationDataType>;
-		private idClass!: string;
-		private chartTypeClass!: string;
-		private legendClass!: string;
-		private legendTypeClass!: string;
 
 		public getDefinition(application: KatApp): Directive<Element> {
 			return ctx => {
 				this.application = application;
-				const el = ctx.el as HTMLElement;
+				const el = ctx.el as KaChartElement<IRblChartConfigurationDataType>;
 
 				ctx.effect(() => {
 					const scope: IKaChartModel = ctx.get();
 
-					this.buildChartConfiguration(scope);
+					const configuration = this.buildChartConfiguration(scope);
 
-					this.idClass = `ka-chart-${scope.data.toLowerCase()}`;
-					this.legendClass = `ka-chart-legend-${scope.data.toLowerCase()}`;
-					this.chartTypeClass = `ka-chart-${this.configuration.plotOptions.type.toLowerCase()}`;
-					this.legendTypeClass = `ka-chart-legend-${this.configuration.plotOptions.type.toLowerCase()}`;
+					this.resetContextElement(el, configuration);
 
-					this.resetContextElement(el);
-
-					if (this.configuration.data.length > 0) {
+					if (configuration.data.length > 0) {
 						this.addChart(scope, el)
 						this.addLegend(el);
-						this.addTipContent(el);
+						this.addTooltips(scope, el);
 						this.addHoverEvents(scope, el);
 					}
 				});
 			};
 		}
 		
-		private addChart(model: IKaChartModel, el: HTMLElement) {
+		private addChart(model: IKaChartModel, el: KaChartElement<IRblChartConfigurationDataType>) {
 			if (model.mode == "legend") return;
 
+			const configuration = el.kaChart;
 			const chartContainer = document.createElement("div");
-			chartContainer.classList.add("ka-chart", this.chartTypeClass);
+			chartContainer.classList.add("ka-chart", configuration.css.chartType);
 
 			if (model.categories?.xs) {
 				chartContainer.classList.add("d-none", "d-sm-block");
@@ -52,23 +43,23 @@
 			}
 			el.appendChild(chartContainer);
 
-			switch (this.configuration.plotOptions.type) {
+			switch (configuration.plotOptions.type) {
 				case "donut":
-					this.generateDonutChart(chartContainer);
+					this.generateDonutChart(configuration, chartContainer);
 					break;
 				
 				case "sharkfin":
-					this.generateStackedArea(chartContainer);
+					this.generateStackedArea(configuration, chartContainer);
 					break;
 				
 				case "column":
 				case "columnStacked":
-					this.generateColumnChart(chartContainer);
+					this.generateColumnChart(configuration, chartContainer);
 					this.generateBreakpointColumnCharts(el, model);
 					break;
 					
 				default:
-					chartContainer.innerHTML = `<b>${model.data} ${this.configuration.plotOptions.type} chart not supported</b>`;
+					chartContainer.innerHTML = `<b>${model.data} ${configuration.plotOptions.type} chart not supported</b>`;
 					return;
 			}
 
@@ -77,13 +68,14 @@
 			}
 		}
 		
-		private buildChartConfiguration(model: IKaChartModel) {
+		private buildChartConfiguration(model: IKaChartModel): IRblChartConfiguration<IRblChartConfigurationDataType> {
 			const dataSource = this.application.state.rbl.source(model.data, model.ce, model.tab) as any as Array<IRblChartDataRow>;
 			const dataRows = dataSource.filter(r => r.id == "category");
 			const chartOptions = dataSource.filter(r => r.id != "category");
 			const globalOptions = this.application.state.rbl.source(model.options ?? "chartOptions", model.ce, model.tab) as any as Array<IRblChartDataRow>;
 
 			const chartType = this.getOptionValue<IRblChartConfigurationType>(chartOptions, "type")!;
+			const chartIsStacked = !["column", "donut"].includes(chartType);
 
 			// Ideas for 'config' settings when needed: https://api.highcharts.com/highcharts
 
@@ -125,24 +117,24 @@
 			const shapes = configRow<IRblChartConfigurationShape>("shape");
 			const defaultShape = this.getOptionValue<IRblChartConfigurationShape>(chartOptions, "shape", globalOptions, "square") as IRblChartConfigurationShape;
 			
-			const getBooleanProperty = <T>(property: string, parsedValue: T | undefined, defaultCompare: string, getCompareValue: (value: T) => string = v => v ? "true" : "false"): boolean => {
+			const getBooleanProperty = <T>(property: string, parsedValue: T | undefined, defaultValue: boolean): boolean => {
 				return String.compare(
-					this.getOptionValue(chartOptions, property, globalOptions, parsedValue == undefined ? defaultCompare : getCompareValue(parsedValue)),
+					this.getOptionValue(chartOptions, property, globalOptions, ((parsedValue ?? defaultValue) ? "true" : "false")),
 					"true",
 					true
 				) === 0;
 			}
 
+			const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", globalOptions) ?? "{}") as IRblChartConfigurationDataLabels;
+			dataLabels.show = getBooleanProperty("dataLabels.show", dataLabels.show, false);
+			dataLabels.format = this.getOptionValue<IRblChartFormatStyle>(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat)!;
+
 			const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", globalOptions) ?? "{}") as IRblChartConfigurationTip;
 			tip.padding = { top: 5, left: 5 }; // Param?
 			tip.show = this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.show", globalOptions, tip.show ?? "category")!;
 			tip.headerFormat = this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
-			tip.headerFormat = this.getOptionValue<IRblChartConfigurationTipShowOption>(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
-			tip.includeShape = getBooleanProperty("tip.includeShape", tip.includeShape, "true");
-
-			const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", globalOptions) ?? "{}") as IRblChartConfigurationDataLabels;
-			dataLabels.show = getBooleanProperty("dataLabels.show", dataLabels.show, "false");
-			dataLabels.format = this.getOptionValue<IRblChartFormatStyle>(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat)!;
+			tip.includeShape = getBooleanProperty("tip.includeShape", tip.includeShape, true);
+			tip.includeTotal = getBooleanProperty("tip.includeTotal", tip.includeTotal, chartIsStacked && !dataLabels.show);
 
 			const aspectRatioValue = this.getOptionValue(chartOptions, "aspectRatio", globalOptions, "1:1")!;
 			const aspectRatioConfig = JSON.parse(aspectRatioValue.startsWith("{") ? aspectRatioValue : `{ "value": "${aspectRatioValue}" }`);
@@ -243,6 +235,13 @@
 			const config: IRblChartConfiguration<IRblChartConfigurationDataType> = {
 				data: data,
 
+				css: {
+					chart: `ka-chart-${model.data.toLowerCase()}`,
+					chartType: `ka-chart-${chartType.toLowerCase()}`,
+					legend: `ka-chart-legend-${model.data.toLowerCase()}`,
+					legendType: `ka-chart-legend-${chartType.toLowerCase()}`
+				},
+
 				plotOptions: {
 					name: model.data,
 					type: chartType,
@@ -282,7 +281,7 @@
 						get bottom() {
 							const labelLines = !hasAxis ? 0 : Math.max(
 								// Add 1 just to get a little padding to use when xaxis tick labels
-								...config.data.map(item => directive.getWrappedColumnLabels(item.name).length + 1)
+								...config.data.map(item => directive.getWrappedColumnLabels(this._parent, item.name).length + 1)
 							);
 
 							return 5 +
@@ -317,16 +316,22 @@
 					xAxis: xAxisConfig,
 					yAxis: yAxisConfig,
 
-					highlightSeries: {
-						hoverItem: getBooleanProperty("highlightSeries.hoverItem", undefined, ["column", "donut"].includes(chartType) ? "true" : "false"),
-						hoverLegend: true
+					highlight: {
+						series: {
+							hoverItem: getBooleanProperty("highlight.series.hoverItem", undefined, !chartIsStacked),
+							hoverLegend: true
+						},
+						legend: {
+							hoverItem: true,
+							hoverSeries: true
+						}
 					},
 
 					legend: {
-						show: model.legendTextSelector == undefined &&
+						show: model.legendItemSelector == undefined &&
 							(
 								model.mode == "legend" ||
-								(model.mode != "chart" && getBooleanProperty("legend.show", undefined, "false"))
+								(model.mode != "chart" && getBooleanProperty("legend.show", undefined, false))
 							)
 					}
 				},
@@ -341,24 +346,23 @@
 
 			console.log(config);
 
-			this.configuration = config
+			return config;
 		}
 
-		private generateStackedArea(container: HTMLElement) {
-			const config = this.configuration as IRblChartConfiguration<IRblChartConfigurationDataType>;
-			const paddingConfig = config.plotOptions.padding;
-			const svg = this.getChartSvgElement();
-			const data = config.data as Array<{ name: string, data: Array<number> }>;
+		private generateStackedArea(configuration: IRblChartConfiguration<IRblChartConfigurationDataType>, container: HTMLElement) {
+			const paddingConfig = configuration.plotOptions.padding;
+			const svg = this.getChartSvgElement(configuration.plotOptions);
+			const data = configuration.data as Array<{ name: string, data: Array<number> }>;
 
-			this.addPlotBands(svg, config);
+			this.addPlotBands(svg, configuration);
 
-			this.addYAxis(svg, config);
+			this.addYAxis(svg, configuration);
 
 			// Data
 			const dataPoints = data.map((item, i) => {
-				const pointX = paddingConfig.left + config.plotOptions.xAxis.plotBandSegmentWidth + i * config.plotOptions.xAxis.plotBandSegmentWidth * 2;
+				const pointX = paddingConfig.left + configuration.plotOptions.xAxis.plotBandSegmentWidth + i * configuration.plotOptions.xAxis.plotBandSegmentWidth * 2;
 				const point = { name: item.name, x: pointX, total: item.data.reduce((sum, v) => sum + v, 0) } as { name: string, x: number, total: number } & Record<string, number>;
-				config.series.forEach((s, j) => {
+				configuration.series.forEach((s, j) => {
 					point[ s.text ] = +item.data[j];
 				});
 				return point;
@@ -368,30 +372,27 @@
 
 			const getSeriesY = (pointIndex: number, seriesName: string, lowerSeries: string | undefined) => {
 				const seriesY = lowerSeries
-					? config.plotOptions.yAxis.getY(dataPoints[pointIndex][lowerSeries] + dataPoints[pointIndex][seriesName])
-					: config.plotOptions.yAxis.getY(dataPoints[pointIndex][seriesName]);
+					? configuration.plotOptions.yAxis.getY(dataPoints[pointIndex][lowerSeries] + dataPoints[pointIndex][seriesName])
+					: configuration.plotOptions.yAxis.getY(dataPoints[pointIndex][seriesName]);
 				
 				return seriesY;
 			};
 
 			// Draw area for each series
-			const seriesElements = config.series.map((seriesConfig, seriesIndex) => {
+			const seriesElements = configuration.series.map((seriesConfig, seriesIndex) => {
 				const seriesName = seriesConfig.text;
 				const color = seriesConfig.color;
 
-				const seriesItem = document.createElementNS(this.ns, 'g');
-				seriesItem.setAttribute('class', 'ka-chart-series-item');
-
-				const isBottomSeries = seriesIndex == config.series.length - 1;
+				const isBottomSeries = seriesIndex == configuration.series.length - 1;
 
 				const lowerSeries = isBottomSeries
 					? undefined // This is the last (bottom) series
-					: config.series[seriesIndex + 1].text; // For stacked series, we need to draw on top of the series underneath
+					: configuration.series[seriesIndex + 1].text; // For stacked series, we need to draw on top of the series underneath
 
 				let seriesX = dataPoints[0].x;
 				let seriesY = getSeriesY(0, seriesName, lowerSeries);
 				// Create path for the current series
-				let seriesPath = `M ${seriesX} ${config.plotOptions.yAxis.getY(0)} L ${seriesX} ${seriesY}`; // Draw up to first point
+				let seriesPath = `M ${seriesX} ${configuration.plotOptions.yAxis.getY(0)} L ${seriesX} ${seriesY}`; // Draw up to first point
 				let borderPath = `M ${seriesX} ${seriesY}`;
 
 				const markerPoints: Array<IRblChartPoint> = [{
@@ -425,75 +426,83 @@
 				// If this is the last (bottom) series
 				if (isBottomSeries) {
 					// Draw down to x-axis and close
-					seriesPath += ` L ${dataPoints[dataPoints.length - 1].x} ${config.plotOptions.yAxis.getY(0)} Z`;
+					seriesPath += ` L ${dataPoints[dataPoints.length - 1].x} ${configuration.plotOptions.yAxis.getY(0)} Z`;
 				} else {
 					// Draw back along bottom edge (which is the top of the previous series)
 					for (let i = dataPoints.length - 1; i >= 0; i--) {
-						seriesPath += ` L ${dataPoints[i].x} ${config.plotOptions.yAxis.getY(dataPoints[i][lowerSeries!])}`;
+						seriesPath += ` L ${dataPoints[i].x} ${configuration.plotOptions.yAxis.getY(dataPoints[i][lowerSeries!])}`;
 					}
 
 					// Close the path
 					seriesPath += ' Z';
 				}
 
+				const seriesPaths = document.createElementNS(this.ns, 'g');
+				seriesPaths.setAttribute("class", "ka-chart-series-path");
 				const series = this.createPath(seriesPath, "none", 0, color, 0.75);
+				series.setAttribute("ka-chart-highlight-key", seriesConfig.text); // Make sure I can do 'opacity hover legend'
 				const border = this.createPath(borderPath, color, 2);
-				const seriesMarkerGroup = this.addMarkerPoints(markerPoints);
+				border.setAttribute("ka-chart-highlight-key", seriesConfig.text); // Make sure I can do 'opacity hover legend'
+				seriesPaths.append(series, border);
 
-				seriesItem.append(series, border, seriesMarkerGroup);
+				const seriesMarkerGroup = this.addMarkerPoints(configuration, markerPoints);
+
+				const seriesItem = document.createElementNS(this.ns, 'g');
+				seriesItem.setAttribute("class", "ka-chart-series-item");
+				seriesItem.append(seriesPaths, seriesMarkerGroup);
 
 				return seriesItem;
 			});
 
-			const seriesGroup = document.createElementNS(this.ns, 'g');
-			seriesGroup.setAttribute('class', 'ka-chart-series-group');
+			const seriesGroup = document.createElementNS(this.ns, "g");
+			seriesGroup.setAttribute("class", "ka-chart-series-group");
+
 			seriesGroup.append(...seriesElements);
 			svg.appendChild(seriesGroup);
 
-			this.addPlotLines(svg, config );
+			this.addPlotLines(svg, configuration );
 
-			this.addXAxis(svg, config, config.data);
+			this.addXAxis(svg, configuration, configuration.data);
 
 			container.appendChild(svg);
 		}
 
-		private generateColumnChart(container: HTMLElement, breakpointConfig?: { plotOffset: number, plotLabelColumn: "textXs", data: Array<{ name: string, data: IRblChartConfigurationDataType }>, containerClass?: string }) {
-			const config = this.configuration as IRblChartConfiguration<IRblChartConfigurationDataType>;
-			const svg = this.getChartSvgElement();
+		private generateColumnChart(configuration: IRblChartConfiguration<IRblChartConfigurationDataType>, container: HTMLElement, breakpointConfig?: { plotOffset: number, plotLabelColumn: "textXs", data: Array<{ name: string, data: IRblChartConfigurationDataType }>, containerClass?: string }) {
+			const svg = this.getChartSvgElement(configuration.plotOptions);
 
-			const data = breakpointConfig?.data ?? config.data;
-			const columnConfig = config.plotOptions.column!;
-			const paddingConfig = config.plotOptions.padding;
+			const data = breakpointConfig?.data ?? configuration.data;
+			const columnConfig = configuration.plotOptions.column!;
 
-			const plotHeight = config.plotOptions.plotHeight;
+			const plotHeight = configuration.plotOptions.plotHeight;
 			const plotOffset = breakpointConfig?.plotOffset ?? 0;
 
-			this.addPlotBands(svg, config, plotOffset, breakpointConfig?.plotLabelColumn);
+			this.addPlotBands(svg, configuration, plotOffset, breakpointConfig?.plotLabelColumn);
 
-			this.addYAxis(svg, config);
+			this.addYAxis(svg, configuration);
 
-			this.addPlotLines(svg, config, plotOffset );
+			this.addPlotLines(svg, configuration, plotOffset );
 			
-			const yAxisMax = config.plotOptions.yAxis.maxValue;
+			const yAxisMax = configuration.plotOptions.yAxis.maxValue;
 
 			const getColumnElement = (elementX: number, elementY: number, value: number, elementConfig: IRblChartConfigurationSeries, tipKey?: string, headerName?: string) => {
 				const columnHeight = (value / yAxisMax) * plotHeight;
 				const element = this.createRect(elementX, elementY, columnConfig.width, columnHeight, elementConfig.color, "#ffffff", 1);
 
+				// This element is never 'shown', it is simply an additional series to show in the tooltip (i.e. 'short fall' in an retirement income chart)
 				if (elementConfig.type == "tooltip") {
-					element.setAttribute("data-is-tooltip", "1");
+					element.setAttribute("data-is-tooltip", "1"); // so hover doesn't change opacity
 					element.setAttribute("opacity", "0");
 				}
 
-				const valueFormatted = this.formatNumber(value, config.plotOptions.dataLabels.format);
-				element.setAttribute("ka-chart-series-item", elementConfig.text);
-				element.setAttribute("aria-label", `${elementConfig.text}, ${valueFormatted}.${headerName ? ` ${this.encodeHtmlAttributeValue(headerName)}.` : ""}`);
+				const valueFormatted = this.formatNumber(value, configuration.plotOptions.dataLabels.format);
+				element.setAttribute("ka-chart-highlight-key", elementConfig.text);
+				element.setAttribute("aria-label", this.encodeHtmlAttributeValue(`${elementConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`));
+
+				if (tipKey) {
+					element.setAttribute("ka-tip-key", tipKey);
+				}
 				
-				const tooltipContent = tipKey
-					? this.createTooltip(tipKey, element, [{ name: elementConfig.text, value: valueFormatted, color: elementConfig.color, shape: elementConfig.shape }], headerName, breakpointConfig?.containerClass)
-					: undefined;
-				
-				return { element: element, tooltipContent };
+				return element;
 			};
 
 			const columns = data.map((item, i) => {
@@ -503,12 +512,12 @@
 				const columnElements = (item.data instanceof Array
 					// Stacked ...
 					? item.data.map((v, j) => {
-						const elementConfig = config.series[j];
-						const tipKey = config.plotOptions.tip.show == "series" ? `${i + (breakpointConfig?.plotOffset ?? 0)}-${j}` : undefined;
+						const elementConfig = configuration.series[j];
+						const tipKey = configuration.plotOptions.tip.show == "series" ? `${i + (breakpointConfig?.plotOffset ?? 0)}-${j}` : undefined;
 
 						if (elementConfig.shape == "line") {
 							const lineX = columnX + columnConfig.width / 2;
-							const lineY = config.plotOptions.yAxis.getY(v);
+							const lineY = configuration.plotOptions.yAxis.getY(v);
 							// console.log(`Line x: ${lineX}, y: ${lineY}`);
 							const linePoint: IRblChartPoint = {
 								x: lineX,
@@ -523,7 +532,7 @@
 						else {
 							const element = getColumnElement(
 								columnX,
-								config.plotOptions.yAxis.getY(stackBase + v),
+								configuration.plotOptions.yAxis.getY(stackBase + v),
 								v,
 								elementConfig,
 								tipKey,
@@ -533,76 +542,42 @@
 							return element;
 						}
 					})
-					: [getColumnElement(columnX, config.plotOptions.yAxis.getY(item.data), item.data, config.series[i])]
+					: [getColumnElement(columnX, configuration.plotOptions.yAxis.getY(item.data), item.data, configuration.series[i])]
 				);
 
 				const columnGroup = document.createElementNS(this.ns, "g");
 				columnGroup.classList.add("ka-chart-category");
-				columnGroup.setAttribute("ka-chart-marker-item", String(i));
 
-				let tooltip: Element | undefined = undefined;
-				
-				// Show tip for entire category, so get summary of every series/data
-				if (config.plotOptions.tip.show == "category") {
-					const seriesTipInfo = (item.data instanceof Array
-						? item.data.map((v, j) => {
-							return v > 0
-								? {
-									name: config.series[j].text,
-									value: this.formatNumber(v, config.plotOptions.dataLabels.format),
-									config: config.series[j]
-								}
-								: undefined;
-						}).filter(v => v != undefined)
-						: [{
-							name: item.name,
-							value: this.formatNumber(item.data, config.plotOptions.dataLabels.format),
-							config: config.series[i]
-						}]
-					).map(item => {
-						return {
-							name: item!.name,
-							value: item!.value,
-							color: item!.config.color,
-							shape: item!.config.shape
-						};
-					});
-
-					tooltip = seriesTipInfo.length > 0
-						? this.createTooltip(String(i + (breakpointConfig?.plotOffset ?? 0)), columnGroup, seriesTipInfo.reverse(), item.name, breakpointConfig?.containerClass)
-						: undefined;
+				if (configuration.plotOptions.tip.show == "category") {
+					columnGroup.setAttribute("ka-tip-key", String(i + (breakpointConfig?.plotOffset ?? 0)));
 				}
 
-				// Render all the series/rect elements first...
-				const rectElements = columnElements.filter(e => "element" in e) as { element: Element; tooltipContent: Element | undefined; }[];
-				columnGroup.append(...rectElements.map(e => e.element));
+				const rectElements = columnElements.filter(e => e instanceof Element) as Element[];
+				columnGroup.append(...rectElements);
 				
 				// Add data labels above columns if enabled
-				if (config.plotOptions.dataLabels.show) {
+				if (configuration.plotOptions.dataLabels.show) {
 					const totalValue = item.data instanceof Array
 						? item.data.reduce((sum, v) => sum + v, 0)
 						: item.data;
 
-					const labelY = config.plotOptions.yAxis.getY(totalValue) - 10; // Position above the column
+					const labelY = configuration.plotOptions.yAxis.getY(totalValue) - 10; // Position above the column
 					const dataLabel = this.createText(
+						configuration.plotOptions,
 						columnX + columnConfig.width / 2, // Centered above the column
 						labelY,
-						this.formatNumber(totalValue, config.plotOptions.dataLabels.format),
-						{ "text-anchor": "middle", "font-size": `${config.plotOptions.font.size.dataLabel}px`, "font-weight": "bold" }
+						this.formatNumber(totalValue, configuration.plotOptions.dataLabels.format),
+						{ "text-anchor": "middle", "font-size": `${configuration.plotOptions.font.size.dataLabel}px`, "font-weight": "bold" }
 					);
 
 					columnGroup.appendChild(dataLabel);
 				}
 
-				const linePoints = columnElements.filter(e => "x" in e) as IRblChartPoint[];
+				const linePoints = columnElements.filter(e => !(e instanceof Element)) as IRblChartPoint[];
 
 				return {
 					g: columnGroup,
-					linePoints,
-					tooltips:
-						rectElements
-							.filter(e => e.tooltipContent != undefined).map(e => e.tooltipContent!) // Each element/series tip (if option set)
-							.concat(tooltip ? [tooltip] : []) // Entire category tip
+					linePoints
 				};
 			});
 			
@@ -618,12 +593,11 @@
 				lines.setAttribute("class", "ka-chart-series-group");
 
 				for (let i = 0; i < totalLines; i++) {
-					const lineGroup = document.createElementNS(this.ns, "g");
-					lineGroup.setAttribute("class", "ka-chart-series-item-group");
+					const lineSeries = document.createElementNS(this.ns, "g");
+					lineSeries.setAttribute("class", "ka-chart-series-item");
 
 					const linePoints = columns.map(c => c.linePoints[i]);
-
-					const lineMarkerGroup = this.addMarkerPoints(linePoints);
+					const markerPoints = this.addMarkerPoints(configuration, linePoints);
 
 					// Generate the path `d` attribute using cubic Bézier curves
 					const pathD = linePoints.map((point, index) => {
@@ -646,41 +620,34 @@
 					const lineConfig = linePoints[0].seriesConfig;
 					
 					const path = this.createPath(pathD, lineConfig.color, 2);
-					path.setAttribute("ka-chart-series-item", lineConfig.text); // Make sure I can do 'opacity hover'
+					path.setAttribute("ka-chart-highlight-key", lineConfig.text); // Make sure I can do 'opacity hover legend'
 
-					lineGroup.append(path, lineMarkerGroup);					
-					lines.appendChild(lineGroup);
+					lineSeries.append(path, markerPoints);					
+					lines.appendChild(lineSeries);
 					svg.appendChild(lines);
 				}
 			}
 
-			this.addXAxis(svg, config, data);
+			this.addXAxis(svg, configuration, data);
 
 			container.appendChild(svg);
-
-			if (columns.some(c => c.tooltips.length > 0)) {
-				const tips = document.createElement("div");
-				tips.style.display = "none";
-				tips.append(...columns.filter(c => c.tooltips.length > 0).flatMap(c => c.tooltips!));
-				container.appendChild(tips);
-			}
 		}
 		
-		private generateBreakpointColumnCharts(chartContainer: Element, model: IKaChartModel) {
+		private generateBreakpointColumnCharts(el: KaChartElement<IRblChartConfigurationDataType>, model: IKaChartModel) {
 			const categories = model.categories;
 
 			if (categories?.xs) {
-				this.configuration.plotOptions.aspectRadio.current = "xs";
-				this.configuration.plotOptions.column.count = categories.xs;
+				el.kaChart.plotOptions.aspectRadio.current = "xs";
+				el.kaChart.plotOptions.column.count = categories.xs;
 				
 				const xsContainer = document.createElement("div");
-				xsContainer.className = `d-block d-sm-none ka-chart-xs ${this.chartTypeClass}`;
+				xsContainer.className = `d-block d-sm-none ka-chart-xs ${el.kaChart.css.chartType}`;
 
-				chartContainer.appendChild(xsContainer);
+				el.appendChild(xsContainer);
 
 				const maxHeight = categories.maxHeight ?? model.maxHeight;
 
-				for (let index = 0; index < Math.ceil(this.configuration.data.length / categories.xs); index++) {
+				for (let index = 0; index < Math.ceil(el.kaChart.data.length / categories.xs); index++) {
 					const plotStart = index * categories.xs;
 					const plotEnd = plotStart + categories.xs;
 
@@ -692,11 +659,11 @@
 						xsContainer.appendChild(xsContainerMaxHeight);
 					}
 
-					this.configuration.plotOptions.xAxis.minCategory = plotStart - 0.5;
-					this.configuration.plotOptions.xAxis.maxCategory = plotEnd - 0.5;
+					el.kaChart.plotOptions.xAxis.minCategory = plotStart - 0.5;
+					el.kaChart.plotOptions.xAxis.maxCategory = plotEnd - 0.5;
 
-					const partialData = this.configuration.data.slice(plotStart, plotEnd);
-					this.generateColumnChart(xsContainerMaxHeight ?? xsContainer, { plotOffset: plotStart, plotLabelColumn: "textXs", data: partialData, containerClass: ".ka-chart-xs" });
+					const partialData = el.kaChart.data.slice(plotStart, plotEnd);
+					this.generateColumnChart(el.kaChart, xsContainerMaxHeight ?? xsContainer, { plotOffset: plotStart, plotLabelColumn: "textXs", data: partialData, containerClass: ".ka-chart-xs" });
 				}
 
 				if (maxHeight) {
@@ -705,17 +672,17 @@
 			}
 		}
 
-		private generateDonutChart(container: HTMLElement) {
-			const config = this.configuration as IRblChartConfiguration<number>;
-			const total = config.data.reduce((sum, item) => sum + item.data, 0);
+		private generateDonutChart(configuration: IRblChartConfiguration<IRblChartConfigurationDataType>, container: HTMLElement) {
+			const data = configuration.data as Array<{ name: string, data: number }>;
+			const total = data.reduce((sum, item) => sum + item.data, 0);
 
-			const radius = config.plotOptions.height / 2;
+			const radius = configuration.plotOptions.height / 2;
 			const strokeWidth = radius * 0.4375;
 			const normalizedRadius = radius - strokeWidth / 2;
 
 			// Create segments
 			let currentAngle = 0;
-			const segments = config.data.map((item, index) => {
+			const segments = data.map((item, index) => {
 				// Calculate the angles
 				const angle = (item.data / total) * 360;
 				const startAngle = currentAngle;
@@ -730,63 +697,53 @@
 				// Determine if the arc should take the long path or short path
 				const largeArcFlag = angle > 180 ? 1 : 0;
 
-				const valueFormatted = this.formatNumber(item.data, config.plotOptions.dataLabels.format);
+				const valueFormatted = this.formatNumber(item.data, configuration.plotOptions.dataLabels.format);
 
-				const path = document.createElementNS(this.ns, "path");
-				path.setAttribute("key", String(index));
-				path.setAttribute("d", `M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`);
-				path.setAttribute("fill", config.series[index].color);
-				path.setAttribute("aria-label", `${item.name}, ${valueFormatted}.`);
-				path.setAttribute("ka-chart-series-item", item.name);
+				const path = this.createPath(`M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`, "none", 0, configuration.series[index].color);
 
-				const tooltipContent = config.plotOptions.tip.show != "off"
-					? this.createTooltip(String(index), path, [{ name: item.name, value: valueFormatted, color: config.series[index].color, shape: config.series[index].shape }])
-					: undefined;
+				path.setAttribute("aria-label", this.encodeHtmlAttributeValue(`${item.name}, ${valueFormatted}.`));
+				path.setAttribute("ka-chart-highlight-key", item.name);
+				path.setAttribute("ka-tip-key", String(index));
 
-				return { path, tooltipContent };
+				return path;
 			});
 
-			const svg = this.getChartSvgElement();
+			const svg = this.getChartSvgElement(configuration.plotOptions);
 			
-			svg.append(...segments.map(segment => segment.path));
+			svg.append(...segments);
 
 			svg.appendChild(this.createCircle(radius, radius, radius - strokeWidth, "white"));
 
 			svg.appendChild(this.createText(
-				radius, radius, this.formatNumber(total, config.plotOptions.dataLabels.format),
-				{ "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": `${config.plotOptions.font.size.donutLabel}px`, "font-weight": "bold" },
+				configuration.plotOptions,
+				radius, radius, this.formatNumber(total, configuration.plotOptions.dataLabels.format),
+				{ "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": `${configuration.plotOptions.font.size.donutLabel}px`, "font-weight": "bold" },
 			));
 
 			container.appendChild(svg);
-
-			if (segments.some(s => s.tooltipContent)) {
-				const tips = document.createElement("div");
-				tips.style.display = "none";
-				tips.append(...segments.filter(s => s.tooltipContent != undefined).map(s => s.tooltipContent!));
-				container.appendChild(tips);
-			}
 		}
 
-		private addLegend(container: Element): void {
-			if (!this.configuration.plotOptions.legend.show) return;
+		private addLegend(el: KaChartElement<IRblChartConfigurationDataType>): void {
+			const configuration = el.kaChart;
+			if (!configuration.plotOptions.legend.show) return;
 
 			const legendContainer = document.createElement("div");
-			legendContainer.className = `ka-chart-legend ${this.legendTypeClass} ${this.legendClass}`;
-			container.appendChild(legendContainer);
+			legendContainer.className = `ka-chart-legend ${configuration.css.legendType} ${configuration.css.legend}`;
+			el.appendChild(legendContainer);
 
 			const legend = document.createElement("div");
 			legend.className = "ka-chart-legend-item-wrapper";
 
-			const series = this.configuration.plotOptions.type == "sharkfin"
-				? this.configuration.series
-				: this.configuration.series.toReversed();
+			const series = configuration.plotOptions.type == "sharkfin"
+				? configuration.series
+				: configuration.series.toReversed();
 			
 			series
 				.filter(s => s.legend)
 				.forEach(s => {
 					const item = document.createElement("div");
 					item.className = "ka-chart-legend-item";
-					item.setAttribute("ka-chart-series-item", s.text);
+					item.setAttribute("ka-chart-highlight-key", s.text);
 					
 					const svg = document.createElementNS(this.ns, "svg");
 					svg.setAttribute("width", "12px");
@@ -805,7 +762,7 @@
 			legendContainer.appendChild(legend);
 		}
 
-		private addTipContent(model: IKaChartModel, el: HTMLElement): void {
+		private addTooltips(model: IKaChartModel, el: KaChartElement<IRblChartConfigurationDataType>): void {
 			if (model.mode == "legend") return;
 
 			const tipContainer = document.createElement("div");
@@ -814,98 +771,202 @@
 			el.appendChild(tipContainer);
 		}
 		
-		private resetContextElement(el: HTMLElement): void {
+		private createTooltip(configuration: IRblChartConfiguration<IRblChartConfigurationDataType>, targetKey: string, tipLines: Array<{ name: string, value: string, color: string, shape: IRblChartConfigurationShape }>, header: string | undefined = undefined): Element | undefined {
+			// , tipContainerClass: string = ".ka-chart"
+			const tipContainerClass: string = ".ka-chart"; // when breakpoint chart passed in, it doesn't create all new tips
+
+			// Going to do tip shows on my own with mouse events...
+			/*
+			target: Element, 
+			target.setAttribute("data-bs-toggle", "tooltip");
+			target.setAttribute("data-bs-placement", "auto");
+			target.setAttribute("data-bs-container", `.${this.idClass} ${tipContainerClass}`);
+			target.setAttribute("data-bs-class", "ka-chart-tip");
+			target.setAttribute("data-bs-width", "auto");
+			target.setAttribute("data-bs-content-selector", `.${this.idClass} .ka-chart .tooltip-${targetKey}`);
+			*/
+
+			if (tipContainerClass != ".ka-chart") return undefined;
+
+			const tipConfig = configuration.plotOptions.tip;
+			const tooltipContent = document.createElement("div");
+			tooltipContent.className = `tooltip-${targetKey}`;
+
+			const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipLines.map(item => `${item.name}: ${item.value}`.length))) * 7; // Approximate width of each character			
+			const svgWidth = maxTextWidth + tipConfig.padding.left * 2; // Add padding to the width
+
+			const tooltipSvg = document.createElementNS(this.ns, "svg");
+			tooltipSvg.setAttribute("viewBox", `0 0 ${svgWidth} ${(tipLines.length + (header ? 1 : 0)) * 20 + tipConfig.padding.top * 2}`);
+			tooltipSvg.setAttribute("width", String(svgWidth));
+
+			const tipLineBaseY = header ? 17 : 0;
+			if (header) {
+				const categoryHeader = configuration.plotOptions.tip.headerFormat?.replace("{x}", header) ?? header;
+				const categoryText = this.createText(configuration.plotOptions, 0, tipLineBaseY, categoryHeader, { "font-size": `${configuration.plotOptions.font.size.tipHeader}px`, "font-weight": "bold" });
+				tooltipSvg.appendChild(categoryText);
+			}
+
+			const shapeXPadding = tipConfig.includeShape ? 15 : 0;
+
+			tipLines.forEach((item, i) => {
+				const y = tipLineBaseY + (i + 1) * 20;
+				if (tipConfig.includeShape) {
+					tooltipSvg.appendChild(this.getSeriesShape(y, item.shape, item.color));
+				}
+				const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${item.name}: `, { "font-size": `${configuration.plotOptions.font.size.tipBody}px` });
+				const tspan = document.createElementNS(this.ns, "tspan");
+				tspan.setAttribute("font-weight", "bold");
+				tspan.innerHTML = item.value;
+				text.appendChild(tspan);
+				tooltipSvg.appendChild(text);
+			});
+
+			tooltipContent.appendChild(tooltipSvg);
+			return tooltipContent;
+		}
+
+		private resetContextElement(el: KaChartElement<IRblChartConfigurationDataType>, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>): void {
 			// empty the element
 			el.replaceChildren();
+			
 			Array.from(el.classList).forEach(cls => {
 				if (cls.startsWith('ka-chart-')) {
 					el.classList.remove(cls);
 				}
 			});
-			el.classList.add(this.idClass);
+			
+			el.classList.add(configuration.css.chart);
+
+			el.setAttribute("ka-chart-id", Utils.generateId());
+
+			el.kaChart = configuration;
 		}
 		
-		private addHoverEvents(scope: IKaChartModel, el: Element) {
-
-			const toggleItems = (seriesItems: Array<{textSelector: string, highlightOnHover: boolean, items: Array<Element>}>, currentHoverItem?: string) => {
-				seriesItems.forEach(tooltip => {
-					// If data is a tooltip, its opacity is always 0, so just skip it and never modify it
-					tooltip.items.filter(e => e.getAttribute("data-is-tooltip") != "1").forEach(i => {
-						const opacity = !currentHoverItem || currentHoverItem == i.getAttribute("ka-chart-series-item") ? "1" : "0.2";
-						if (i instanceof SVGElement) {
-							i.setAttribute("opacity", opacity);
-						}
-						else {
-							i.querySelector("svg")!.setAttribute("opacity", opacity);
-							i.querySelectorAll<HTMLElement>(tooltip.textSelector).forEach(t => t.style.opacity = opacity);
+		private addHoverEvents(scope: IKaChartModel, el: KaChartElement<IRblChartConfigurationDataType>) {
+			const pointMarkers =
+				[...el.querySelectorAll(".ka-chart-marker-points")]
+					.map(points => {
+						return {
+							points: [...points.querySelectorAll(".ka-chart-point")],
+							glow: points.querySelector(".ka-chart-point-glow")!
 						}
 					});
+				
+
+			const registerEvents = () => {
+				const seriesItems = [
+					{ textSelector: "span", highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverItem, elements: [...el.querySelectorAll(".ka-chart [ka-chart-highlight-key]")] },
+					{ textSelector: "span", highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverLegend, elements: [...el.querySelectorAll(".ka-chart-legend [ka-chart-highlight-key]")] }
+				];
+			
+				if (scope.legendItemSelector) {
+					const legend = this.application.selectElement(`.${el.kaChart.css.legend}`);
+					if (legend) {
+						seriesItems.push({ textSelector: scope.legendItemSelector, highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverLegend, elements: [...legend!.querySelectorAll("[ka-chart-highlight-key]")] });
+					}
+				}
+
+				const highlightSeries = (event: Event) => {
+					// console.log(`${event.type}: ${(event as MouseEvent).x}, ${(event as MouseEvent).y} ${(event.target as HTMLElement).className}`);
+					const currentKey = (event.target as HTMLElement)!.getAttribute("ka-chart-highlight-key");
+
+					seriesItems.forEach(item => {
+						// If data is a tooltip, its opacity is always 0, so just skip it and never change opacity
+						item.elements.filter(e => e.getAttribute("data-is-tooltip") != "1").forEach(i => {
+							const opacity = event.type == "mouseleave" || currentKey == i.getAttribute("ka-chart-highlight-key") ? "1" : "0.2";
+							if (i instanceof SVGElement) {
+								i.setAttribute("opacity", opacity);
+							}
+							else {
+								i.querySelector("svg")!.setAttribute("opacity", opacity);
+								i.querySelectorAll<HTMLElement>(item.textSelector).forEach(t => t.style.opacity = opacity);
+							}
+						});
+					});
+				};
+	
+				seriesItems.forEach(item => {
+					if (item.highlightOnHover) {
+						item.elements.forEach(item => this.application.off(item, "mouseenter.ka.chart mouseleave.ka.chart").on("mouseenter.ka.chart mouseleave.ka.chart", highlightSeries));
+					}
 				});
+
+				if (el.querySelector(".ka-chart-marker-points")) {
+					const chartSvg = el.querySelector("svg")!;
+					const pt = chartSvg.createSVGPoint();
+					let matrix: DOMMatrix | undefined;
+					const columnCount = el.kaChart.plotOptions.column.count;
+					const columnWidth = el.kaChart.plotOptions.plotWidth / columnCount;
+					const plotLeft = el.kaChart.plotOptions.padding.left
+					const plotRight = el.kaChart.plotOptions.width - el.kaChart.plotOptions.padding.right;
+					const plotBottom = el.kaChart.plotOptions.yAxis.baseY;
+					const plotTop = el.kaChart.plotOptions.padding.top;
+		
+					this.application.off(chartSvg, "mousemove.ka.chart mouseleave.ka.chart").on("mousemove.ka.chart mouseleave.ka.chart", (event: Event) => {
+						const me = event as MouseEvent;
+						
+						if (event.type == "mouseleave") {
+							pointMarkers.forEach(g => {
+								g.points.forEach(p => p.setAttribute("opacity", "0"));
+								g.glow.setAttribute("opacity", "0");
+							});
+							return;
+						}
+
+						if (matrix == undefined) {
+							matrix = chartSvg.getScreenCTM()!.inverse();
+						}
+						
+						// map window coords into SVG coords
+						pt.x = me.clientX;
+						pt.y = me.clientY;
+						const loc = pt.matrixTransform(matrix);
+
+						const isInsideX = loc.x >= plotLeft && loc.x <= plotRight;
+						const isInsideY = loc.y >= plotTop && loc.y <= plotBottom;
+
+						if (!(isInsideX && isInsideY)) {
+							pointMarkers.forEach(g => {
+								g.points.forEach(p => p.setAttribute("opacity", "0"));
+								g.glow.setAttribute("opacity", "0");
+							});
+							return;
+						}
+						
+
+						// zero‑based column index under the pointer
+						const relativeX = loc.x - plotLeft;
+						const hoverColumn = Math.max(0, Math.min(columnCount - 1, Math.floor(relativeX / columnWidth)));
+						
+						pointMarkers.forEach(g => {
+							g.points.forEach((p, i) => {
+								const isActive = hoverColumn == i;
+								p.setAttribute("opacity", isActive ? "1" : "0");
+								if (isActive) {
+									const point = p.getAttribute("ka-chart-point")!.split(",");
+									g.glow.setAttribute("cx", point[0]);
+									g.glow.setAttribute("cy", point[1]);
+								}
+							});
+							g.glow.setAttribute("opacity", "0.2");
+						});
+					});
+				}
 			};
 
 			// If external legends are used, the legend isn't guaranteed to be rendered before chart is, so need to wait
 			// for domUpdated event to do all the DOM selections for events.
-			if (!el.getAttribute("ka-events-handled")) {
-				el.setAttribute("ka-events-handled", "true");
-				this.application.handleEvents(events => {
-					let domUpdated = false;
-					events.domUpdated = () => {
-						if (domUpdated) return;
+			this.application.handleEvents(events => {
+				events.calculation = () => registerEvents();
 
-						domUpdated = true;
-						const seriesItems = [
-							{ textSelector: "span", highlightOnHover: this.configuration.plotOptions.highlightSeries.hoverItem, items: [...el.querySelectorAll(".ka-chart [ka-chart-series-item]")] },
-							{ textSelector: "span", highlightOnHover: this.configuration.plotOptions.highlightSeries.hoverLegend, items: [...el.querySelectorAll(".ka-chart-legend [ka-chart-series-item]")] }
-						];
-						
-						if (scope.legendTextSelector) {
-							const legend = this.application.selectElement(`.${this.legendClass}`);
-							if (legend) {
-								seriesItems.push({ textSelector: scope.legendTextSelector, highlightOnHover: true, items: [...legend!.querySelectorAll("[ka-chart-series-item]")] });
-							}
-						}
-
-						seriesItems.forEach(tooltip => {
-							if (tooltip.highlightOnHover) {
-								tooltip.items.forEach(item => {
-									item.addEventListener("mouseover", () => toggleItems(seriesItems, item.getAttribute("ka-chart-series-item")!));
-									item.addEventListener("mouseout", () => toggleItems(seriesItems));
-								});
-							}
-						});
-
-						if (el.querySelector(".ka-chart-line-markers")) {
-							const lineMarkers = [...el.querySelectorAll(".ka-chart-line-markers .ka-chart-point")];
-
-							const toggleLineMarkers = (markerItem?: string) => {
-								lineMarkers.forEach(marker => {
-									const isActive = markerItem == marker.getAttribute("ka-chart-marker-item");
-									const opacity = isActive ? "1" : "0";
-									marker.setAttribute("opacity", opacity);
-									
-									const glow = marker.parentElement!.firstElementChild!;
-									glow.setAttribute("opacity", markerItem ? "0.2" : "0");
-									if (isActive) {
-										const point = marker.getAttribute("ka-chart-marker-item-point")!.split(",");
-										glow.setAttribute("cx", point[0]);
-										glow.setAttribute("cy", point[1]);
-									}
-								});
-							};
-
-							// ka-chart-marker-item
-							const categoryItems = [...el.querySelectorAll(".ka-chart-category")];
-							categoryItems.forEach(category => {
-								category.addEventListener("mouseover", () => toggleLineMarkers(category.getAttribute("ka-chart-marker-item")!));
-								category.addEventListener("mouseout", () => toggleLineMarkers());
-							});
-						}
-					};
-				});
-			}
+				events.domUpdated = elements => {
+					if (!elements.some(e => e === el || e.contains(el))) return;
+					registerEvents();
+				};
+			});
 		}
 
-		private addMarkerPoints(points: IRblChartPoint[]) {
+		private addMarkerPoints(configuration: IRblChartConfiguration<IRblChartConfigurationDataType>, points: IRblChartPoint[]) {
 			const markerGroup = document.createElementNS(this.ns, "g");
 			markerGroup.setAttribute("class", "ka-chart-marker-points");
 
@@ -917,10 +978,9 @@
 			markerGroup.append(...points.map((point, index) => {
 				const diamond = this.createPointMarker(point.x, point.y, point.seriesConfig.color);
 
-				const valueFormatted = this.formatNumber(point.value, this.configuration.plotOptions.dataLabels.format);
-				diamond.setAttribute("ka-chart-marker-item", String(index));
+				const valueFormatted = this.formatNumber(point.value, configuration.plotOptions.dataLabels.format);
 				diamond.setAttribute("aria-label", `${point.seriesConfig.text}, ${valueFormatted}. ${this.encodeHtmlAttributeValue(point.name!)}.`);
-				diamond.setAttribute("ka-chart-marker-item-point", `${point.x},${point.y}`);
+				diamond.setAttribute("ka-chart-point", `${point.x},${point.y}`);
 				return diamond;
 			}));
 
@@ -942,6 +1002,7 @@
 				// NOT TESTED/USED
 				const label = line.label?.text
 					? this.createText(
+						config.plotOptions,
 						value, paddingConfig.top - 3,
 						line.label.text,
 						{ "text-anchor": "start", "font-size": `${config.plotOptions.font.size.plotBandLine}px`, "dominant-baseline": "baseline" })
@@ -952,28 +1013,29 @@
 			svg.appendChild(g);
 		}
 
-		private addPlotBands(svg: Element, config: IRblChartConfiguration<IRblChartConfigurationDataType>, plotOffset: number = 0, labelColumn?: IRblPlotColumnName): void {
-			if (config.plotOptions.xAxis.plotBands.length == 0) return;
+		private addPlotBands(svg: Element, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>, plotOffset: number = 0, labelColumn?: IRblPlotColumnName): void {
+			if (configuration.plotOptions.xAxis.plotBands.length == 0) return;
 
-			const paddingConfig = config.plotOptions.padding;
-			const plotHeight = config.plotOptions.plotHeight;
+			const paddingConfig = configuration.plotOptions.padding;
+			const plotHeight = configuration.plotOptions.plotHeight;
 
 			const g = document.createElementNS(this.ns, "g");
 			g.setAttribute("class", "ka-chart-plot-bands");
 
-			const plotBands = config.plotOptions.xAxis.plotBands
-				.filter(b => b.from < config.plotOptions.xAxis.maxCategory && b.to > config.plotOptions.xAxis.minCategory)
+			const plotBands = configuration.plotOptions.xAxis.plotBands
+				.filter(b => b.from < configuration.plotOptions.xAxis.maxCategory && b.to > configuration.plotOptions.xAxis.minCategory)
 				.map(band => {
-					const from = paddingConfig.left + config.plotOptions.xAxis.plotBandSegmentWidth + (Math.max(-0.5, band.from - plotOffset) / 0.5) * config.plotOptions.xAxis.plotBandSegmentWidth;
-					const to = paddingConfig.left + config.plotOptions.xAxis.plotBandSegmentWidth + (Math.min(band.to - plotOffset, config.data.length - 0.5) / 0.5) * config.plotOptions.xAxis.plotBandSegmentWidth;
+					const from = paddingConfig.left + configuration.plotOptions.xAxis.plotBandSegmentWidth + (Math.max(-0.5, band.from - plotOffset) / 0.5) * configuration.plotOptions.xAxis.plotBandSegmentWidth;
+					const to = paddingConfig.left + configuration.plotOptions.xAxis.plotBandSegmentWidth + (Math.min(band.to - plotOffset, configuration.data.length - 0.5) / 0.5) * configuration.plotOptions.xAxis.plotBandSegmentWidth;
 					const rect = this.createRect(from, paddingConfig.top, to - from, plotHeight, band.color);
 
 					const plotLabel = band.label?.[labelColumn ?? "text"] ?? band.label?.text;
 					const label = plotLabel
 						? this.createText(
+							configuration.plotOptions,
 							from, paddingConfig.top - 3,
 							plotLabel,
-							{ "text-anchor": "start", "font-size": `${config.plotOptions.font.size.plotBandLabel}px`, "dominant-baseline": "baseline" })
+							{ "text-anchor": "start", "font-size": `${configuration.plotOptions.font.size.plotBandLabel}px`, "dominant-baseline": "baseline" })
 						: undefined;
 					return label ? [label, rect] : [rect];
 				});
@@ -982,25 +1044,26 @@
 			svg.appendChild(g);
 		}
 
-		private addXAxis(svg: Element, config: IRblChartConfiguration<IRblChartConfigurationDataType>, data: Array<{ name: string, data: IRblChartConfigurationDataType }>): void {
-			const paddingConfig = config.plotOptions.padding;
-			const columnConfig = config.plotOptions.column!;
+		private addXAxis(svg: Element, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>, data: Array<{ name: string, data: IRblChartConfigurationDataType }>): void {
+			const paddingConfig = configuration.plotOptions.padding;
+			const columnConfig = configuration.plotOptions.column!;
 
 			const xAxis = document.createElementNS(this.ns, "g");
 			xAxis.setAttribute("class", "ka-chart-x-axis");
 
 			// Add xAxis line last so first column isn't rendered on top of it
-			const xAxisLine = this.createLine(paddingConfig.left, config.plotOptions.yAxis.baseY, config.plotOptions.width - paddingConfig.right, config.plotOptions.yAxis.baseY);
+			const xAxisLine = this.createLine(paddingConfig.left, configuration.plotOptions.yAxis.baseY, configuration.plotOptions.width - paddingConfig.right, configuration.plotOptions.yAxis.baseY);
 			xAxis.appendChild(xAxisLine);
 
 			const xAxisTicks = data.map((item, i) => {
 				const columnX = columnConfig.getX(i);
-				if (i % config.plotOptions.xAxis.skipInterval == 0) {
+				if (i % configuration.plotOptions.xAxis.skipInterval == 0) {
 					const xAxisTickLabel = this.createText(
+						configuration.plotOptions,
 						columnX + columnConfig.width / 2, // center...
-						config.plotOptions.yAxis.baseY + 2,
+						configuration.plotOptions.yAxis.baseY + 2,
 						item.name,
-						{ "text-anchor": "middle", "font-size": `${config.plotOptions.font.size.xAxisTickLabels}px`, "dominant-baseline": "text-before-edge" }, // top of text aligns with Y
+						{ "text-anchor": "middle", "font-size": `${configuration.plotOptions.font.size.xAxisTickLabels}px`, "dominant-baseline": "text-before-edge" }, // top of text aligns with Y
 						true
 					);
 					return xAxisTickLabel;
@@ -1009,32 +1072,32 @@
 
 			xAxis.append(...xAxisTicks.filter(t => t != undefined) as Element[]);
 
-			if (config.plotOptions.xAxis.label) {
-				const xAxisLabelX = config.plotOptions.padding.left + config.plotOptions.plotWidth / 2;
-				const xAxisLabelY = config.plotOptions.height - config.plotOptions.font.size.xAxisLabel * 1.5;
-				const xAxisLabel = this.createText(xAxisLabelX, xAxisLabelY, config.plotOptions.xAxis.label, { "text-anchor": "middle", "font-size": `${config.plotOptions.font.size.xAxisLabel}px`, "dominant-baseline": "middle" });
+			if (configuration.plotOptions.xAxis.label) {
+				const xAxisLabelX = configuration.plotOptions.padding.left + configuration.plotOptions.plotWidth / 2;
+				const xAxisLabelY = configuration.plotOptions.height - configuration.plotOptions.font.size.xAxisLabel * 1.5;
+				const xAxisLabel = this.createText(configuration.plotOptions, xAxisLabelX, xAxisLabelY, configuration.plotOptions.xAxis.label, { "text-anchor": "middle", "font-size": `${configuration.plotOptions.font.size.xAxisLabel}px`, "dominant-baseline": "middle" });
 				xAxis.appendChild(xAxisLabel);
 			}
 
 			svg.appendChild(xAxis);
 		}
 
-		private addYAxis(svg: Element, config: IRblChartConfiguration<IRblChartConfigurationDataType>): void {
-			const paddingConfig = config.plotOptions.padding;
-			const plotHeight = config.plotOptions.plotHeight;
+		private addYAxis(svg: Element, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>): void {
+			const paddingConfig = configuration.plotOptions.padding;
+			const plotHeight = configuration.plotOptions.plotHeight;
 
 			const yAxis = document.createElementNS(this.ns, "g");
 			yAxis.setAttribute("class", "ka-chart-y-axis");
 
 			// const yAxisLine = this.createLine(paddingConfig.left, paddingConfig.top, paddingConfig.left, config.plotOptions.yAxis.baseY);
-			const yAxisLabelX = config.plotOptions.font.size.yAxisLabel;
+			const yAxisLabelX = configuration.plotOptions.font.size.yAxisLabel;
 			const yAxisLabelY = plotHeight / 2;
-			const yAxisLabel = config.plotOptions.yAxis.label
-				? this.createText(yAxisLabelX, yAxisLabelY, config.plotOptions.yAxis.label, { "font-size": `${config.plotOptions.font.size.yAxisLabel}px`, fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
+			const yAxisLabel = configuration.plotOptions.yAxis.label
+				? this.createText(configuration.plotOptions, yAxisLabelX, yAxisLabelY, configuration.plotOptions.yAxis.label, { "font-size": `${configuration.plotOptions.font.size.yAxisLabel}px`, fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
 				: undefined;
 			
-			const yAxisMax = config.plotOptions.yAxis.maxValue;
-			const yAxisInterval = config.plotOptions.yAxis.intervalSize;
+			const yAxisMax = configuration.plotOptions.yAxis.maxValue;
+			const yAxisInterval = configuration.plotOptions.yAxis.intervalSize;
 
 			const yAxisTicks =
 				Array.from({ length: Math.ceil(yAxisMax / yAxisInterval) + 1 }, (_, i) => i * yAxisInterval)
@@ -1042,10 +1105,10 @@
 						const y = paddingConfig.top + plotHeight - (value / yAxisMax) * plotHeight;
 						
 						const tickLine = i != 0
-							? this.createLine(paddingConfig.left, y, config.plotOptions.width - paddingConfig.right, y, "#e6e6e6")
+							? this.createLine(paddingConfig.left, y, configuration.plotOptions.width - paddingConfig.right, y, "#e6e6e6")
 							: undefined;
 
-						const tickLabel = this.createText(paddingConfig.left - 7, y, this.formatNumber(value, config.plotOptions.yAxis.format), { "text-anchor": "end", "font-size": `${config.plotOptions.font.size.yAxisTickLabels}px`, "dominant-baseline": "middle" })
+						const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, this.formatNumber(value, configuration.plotOptions.yAxis.format), { "text-anchor": "end", "font-size": `${configuration.plotOptions.font.size.yAxisTickLabels}px`, "dominant-baseline": "middle" })
 						return tickLine ? [tickLine!, tickLabel] : [tickLabel];
 					});
 
@@ -1057,16 +1120,16 @@
 			svg.appendChild(yAxis);
 		}
 
-		private getWrappedColumnLabels(label: string): string[] {
+		private getWrappedColumnLabels(plotOptions: IRblChartConfigurationPlotOptions, label: string): string[] {
 			const words = label.split(" ");
 			const lines = [];
 			let currentLine = "";
 	
 			words.forEach(word => {
 				const testLine = currentLine ? `${currentLine} ${word}` : word;
-				const testLineWidth = testLine.length * this.configuration.plotOptions.font.size.xAxisTickLabels * this.configuration.plotOptions.font.size.heuristic;
+				const testLineWidth = testLine.length * plotOptions.font.size.xAxisTickLabels * plotOptions.font.size.heuristic;
 				
-				if (testLineWidth <= this.configuration.plotOptions.column.maxLabelWidth) {
+				if (testLineWidth <= plotOptions.column.maxLabelWidth) {
 					currentLine = testLine;
 				} else {
 					if (currentLine) {
@@ -1081,9 +1144,9 @@
 			return lines;
 		};
 
-		private getChartSvgElement(): Element {
+		private getChartSvgElement(plotOptions: IRblChartConfigurationPlotOptions): Element {
 			const svg = document.createElementNS(this.ns, "svg");
-			svg.setAttribute("viewBox", `0 0 ${this.configuration.plotOptions.width} ${this.configuration.plotOptions.height}`);
+			svg.setAttribute("viewBox", `0 0 ${plotOptions.width} ${plotOptions.height}`);
 			svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 			return svg;
 		}
@@ -1102,7 +1165,7 @@
 			}
 		}
 
-		private createText(x: number, y: number, text: string, properties: {} = {}, isxAxisLabel?: boolean): Element {
+		private createText(plotOptions: IRblChartConfigurationPlotOptions, x: number, y: number, text: string, properties: {} = {}, isxAxisLabel?: boolean): Element {
 			const textSvg = document.createElementNS(this.ns, "text");
 			textSvg.setAttribute("x", String(x));
 			textSvg.setAttribute("y", String(y));
@@ -1114,12 +1177,12 @@
 			}
 
 			if (isxAxisLabel) {
-				const lines = this.getWrappedColumnLabels(text)
+				const lines = this.getWrappedColumnLabels(plotOptions, text)
 
 				lines.forEach((line, index) => {
 					const tspan = document.createElementNS(this.ns, "tspan");
 					tspan.setAttribute("x", String(x));
-					tspan.setAttribute("dy", String(index === 0 ? 0 : this.configuration.plotOptions.font.size.xAxisTickLabels + 5));
+					tspan.setAttribute("dy", String(index === 0 ? 0 : plotOptions.font.size.xAxisTickLabels + 5));
 					tspan.innerHTML = line;
 					textSvg.appendChild(tspan);
 				});
@@ -1201,53 +1264,6 @@
 			}
 
 			return rect;
-		}
-
-		private createTooltip(targetKey: string, target: Element, tipLines: Array<{ name: string, value: string, color: string, shape: IRblChartConfigurationShape }>, header: string | undefined = undefined, tipContainerClass: string = ".ka-chart"): Element | undefined {
-			target.setAttribute("data-bs-toggle", "tooltip");
-			target.setAttribute("data-bs-placement", "auto");
-			target.setAttribute("data-bs-container", `.${this.idClass} ${tipContainerClass}`);
-			target.setAttribute("data-bs-class", "ka-chart-tip");
-			target.setAttribute("data-bs-width", "auto");
-			target.setAttribute("data-bs-content-selector", `.${this.idClass} .ka-chart .tooltip-${targetKey}`);
-
-			if (tipContainerClass != ".ka-chart") return undefined;
-
-			const tipConfig = this.configuration.plotOptions.tip;
-			const tooltipContent = document.createElement("div");
-			tooltipContent.className = `tooltip-${targetKey}`;
-
-			const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipLines.map(item => `${item.name}: ${item.value}`.length))) * 7; // Approximate width of each character			
-			const svgWidth = maxTextWidth + tipConfig.padding.left * 2; // Add padding to the width
-
-			const tooltipSvg = document.createElementNS(this.ns, "svg");
-			tooltipSvg.setAttribute("viewBox", `0 0 ${svgWidth} ${(tipLines.length + (header ? 1 : 0)) * 20 + tipConfig.padding.top * 2}`);
-			tooltipSvg.setAttribute("width", String(svgWidth));
-
-			const tipLineBaseY = header ? 17 : 0;
-			if (header) {
-				const categoryHeader = this.configuration.plotOptions.tip.headerFormat?.replace("{x}", header) ?? header;
-				const categoryText = this.createText(0, tipLineBaseY, categoryHeader, { "font-size": `${this.configuration.plotOptions.font.size.tipHeader}px`, "font-weight": "bold" });
-				tooltipSvg.appendChild(categoryText);
-			}
-
-			const shapeXPadding = tipConfig.includeShape ? 15 : 0;
-
-			tipLines.forEach((item, i) => {
-				const y = tipLineBaseY + (i + 1) * 20;
-				if (tipConfig.includeShape) {
-					tooltipSvg.appendChild(this.getSeriesShape(y, item.shape, item.color));
-				}
-				const text = this.createText(shapeXPadding, y, `${item.name}: `, { "font-size": `${this.configuration.plotOptions.font.size.tipBody}px` });
-				const tspan = document.createElementNS(this.ns, "tspan");
-				tspan.setAttribute("font-weight", "bold");
-				tspan.innerHTML = item.value;
-				text.appendChild(tspan);
-				tooltipSvg.appendChild(text);
-			});
-
-			tooltipContent.appendChild(tooltipSvg);
-			return tooltipContent;
 		}
 
 		private getOptionJson<T>(configRows: Array<IRblChartDataRow>, name: string, globalOptions?: IRblChartOptionRow[]): T | undefined {

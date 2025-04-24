@@ -11,7 +11,7 @@
 //		- look at v-ka-inline to get idea on how to handle
 
 // TODO: Decide on modules vs iife? Modules seems better/recommended practices, but iife and static methods support console debugging better
-class KatAppEventFluentApi<T extends HTMLElement> implements IKatAppEventFluentApi<T> {
+class KatAppEventFluentApi<T extends Element> implements IKatAppEventFluentApi<T> {
 	constructor(public elements: Array<T>) { }
 	
 	public on(events: string, handler: (e: Event) => void): KatAppEventFluentApi<T> {
@@ -1208,7 +1208,7 @@ Type 'help' to see available options displayed in the console.`;
 						options.cancelled!();
 					}
 					else if (options.closeButtonTrigger != undefined) {
-						that.selectElement(options.closeButtonTrigger)!.click();
+						that.selectElement<HTMLElement>(options.closeButtonTrigger)!.click();
 					}
 					else if (tryCancelClickOnClose) {
 						const cancelButton = that.selectElement<HTMLButtonElement>(".modal-footer-buttons .cancelButton");
@@ -1696,7 +1696,7 @@ Type 'help' to see available options displayed in the console.`;
 			// it was injected in the dom and would correctly work.
 			const reflowTabCharts = (e: Event) => {
 				var tab = e.target as HTMLElement;
-				var pane = this.selectElement(tab.getAttribute("data-bs-target")!)!;
+				var pane = this.selectElement<HTMLElement>(tab.getAttribute("data-bs-target")!)!;
 				reflowElementCharts(pane);
 			};
 			
@@ -1721,6 +1721,7 @@ Type 'help' to see available options displayed in the console.`;
 		const elementsProcessed = [...this.domElementQueue];
 		this.domElementQueue.length = 0;
 		this.domElementQueued = false;
+		
 		await this.triggerEventAsync("domUpdated", elementsProcessed);
 	}
 
@@ -1823,10 +1824,10 @@ Type 'help' to see available options displayed in the console.`;
 		return inputs;
 	}
 
-	private getKatAppId<T extends HTMLElement>(el: T): string | undefined {
+	private getKatAppId<T extends Element>(el: T): string | undefined {
 		if (el.hasAttribute("ka-id")) return el.getAttribute("ka-id") ?? undefined;
 
-		let p: HTMLElement | null = el;
+		let p: Element | null = el;
 		while ((p = p.parentElement) && (p as Node) !== document) {
 			if (p.hasAttribute("ka-id")) {
 				return p.getAttribute("ka-id")!;
@@ -1836,21 +1837,21 @@ Type 'help' to see available options displayed in the console.`;
 		return undefined;
 	}
 
-	private getTargetItems<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement> | undefined, context?: HTMLElement) : Array<T> {
+	private getTargetItems<T extends Element>(target: string | T | Array<T> | undefined, context?: Element) : Array<T> {
 		return target == undefined ? [] :
 			typeof target === 'string' ? this.selectElements<T>(target, context) :
-			target instanceof HTMLElement || target instanceof Document ? [target] as Array<T> :
+			target instanceof Element || target instanceof Document ? [target] as Array<T> :
 			target instanceof NodeList ? [...target] as Array<T> :
 			target as Array<T>;
 	}
 
-	public on<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatAppEventFluentApi<T> {
+	public on<T extends Element>(target: string | T | Array<T>, events: string, handler: (e: Event) => void, context?: Element): IKatAppEventFluentApi<T> {
 		const eventFluentApi = new KatAppEventFluentApi<T>(this.getTargetItems<T>(target, context));
 		eventFluentApi.on(events, handler);
 		return eventFluentApi;
 	}
 
- 	public off<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, context?: HTMLElement): IKatAppEventFluentApi<T> {
+ 	public off<T extends Element>(target: string | T | Array<T>, events: string, context?: Element): IKatAppEventFluentApi<T> {
 		const eventFluentApi = new KatAppEventFluentApi<T>(this.getTargetItems<T>(target, context));
 		eventFluentApi.off(events);
 		return eventFluentApi;
@@ -1880,7 +1881,7 @@ Type 'help' to see available options displayed in the console.`;
 		return selector;
 	}
 
-	public selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined {
+	public selectElement<T extends Element>(selector: string, context?: Element): T | undefined {
 		const container = context ?? this.el;	
 		const result = container.querySelector<T>(this.replaceInputSelector(selector)) ?? undefined;
 
@@ -1890,7 +1891,7 @@ Type 'help' to see available options displayed in the console.`;
 		return this.getKatAppId(result) == appId ? result : undefined;
 	}
 
-	public selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T> {
+	public selectElements<T extends Element>(selector: string, context?: Element): Array<T> {
 		const container = context ?? this.el;	
 		const result = [...container.querySelectorAll<T>(this.replaceInputSelector(selector))];
 
@@ -1900,7 +1901,7 @@ Type 'help' to see available options displayed in the console.`;
 		return result.filter(e => this.getKatAppId(e) == appId);
 	}
 
-	public closestElement<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined {
+	public closestElement<T extends Element>(element: Element, selector: string): T | undefined {
 		const c = element.closest<T>(selector) ?? undefined;
 		const cAppId = c != undefined ? this.getKatAppId(c) : undefined;
 		return cAppId == this.id ? c : undefined;
@@ -2120,7 +2121,7 @@ Type 'help' to see available options displayed in the console.`;
 		if (options.contentSelector != undefined) {
 			await PetiteVue.nextTick(); // Just in case kaml js set property that would trigger updating this content
 
-			const selectContent = this.selectElement(options.contentSelector); // .not("template " + options.contentSelector);
+			const selectContent = this.selectElement<HTMLElement>(options.contentSelector); // .not("template " + options.contentSelector);
 
 			if (selectContent == undefined) {
 				throw new Error(`The content selector (${options.contentSelector}) did not return any content.`);

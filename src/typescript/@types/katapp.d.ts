@@ -1,4 +1,4 @@
-declare class KatAppEventFluentApi<T extends HTMLElement> implements IKatAppEventFluentApi<T> {
+declare class KatAppEventFluentApi<T extends Element> implements IKatAppEventFluentApi<T> {
     elements: Array<T>;
     constructor(elements: Array<T>);
     on(events: string, handler: (e: Event) => void): KatAppEventFluentApi<T>;
@@ -60,15 +60,15 @@ declare class KatApp implements IKatApp {
     getInputs(customInputs?: ICalculationInputs): ICalculationInputs;
     private getKatAppId;
     private getTargetItems;
-    on<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatAppEventFluentApi<T>;
-    off<T extends HTMLElement>(target: string | HTMLElement | Array<HTMLElement>, events: string, context?: HTMLElement): IKatAppEventFluentApi<T>;
+    on<T extends Element>(target: string | T | Array<T>, events: string, handler: (e: Event) => void, context?: Element): IKatAppEventFluentApi<T>;
+    off<T extends Element>(target: string | T | Array<T>, events: string, context?: Element): IKatAppEventFluentApi<T>;
     private selectorSplitter;
     private inputSelectorRegex;
     private psuedoInputTypes;
     private replaceInputSelector;
-    selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
-    selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;
-    closestElement<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined;
+    selectElement<T extends Element>(selector: string, context?: Element): T | undefined;
+    selectElements<T extends Element>(selector: string, context?: Element): Array<T>;
+    closestElement<T extends Element>(element: Element, selector: string): T | undefined;
     private getResourceString;
     getLocalizedString(key: string | undefined, formatObject?: IStringIndexer<string>, defaultValue?: string): string | undefined;
     getTemplateContent(name: string): DocumentFragment;
@@ -193,26 +193,23 @@ declare namespace KatApps {
         name: string;
         private ns;
         private application;
-        private configuration;
-        private idClass;
-        private chartTypeClass;
-        private legendClass;
-        private legendTypeClass;
         getDefinition(application: KatApp): Directive<Element>;
-        private resetContextElement;
         private addChart;
         private buildChartConfiguration;
         private generateStackedArea;
         private generateColumnChart;
         private generateBreakpointColumnCharts;
         private generateDonutChart;
+        private addLegend;
+        private addTooltips;
+        private createTooltip;
+        private resetContextElement;
         private addHoverEvents;
         private addMarkerPoints;
         private addPlotLines;
         private addPlotBands;
         private addXAxis;
         private addYAxis;
-        private addLegend;
         private getWrappedColumnLabels;
         private getChartSvgElement;
         private getSeriesShape;
@@ -222,7 +219,6 @@ declare namespace KatApps {
         private createPointMarker;
         private createPath;
         private createRect;
-        private createTooltip;
         private getOptionJson;
         private getOptionValue;
         private formatNumber;
@@ -317,13 +313,70 @@ type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
 type IRblChartFormatStyle = 'decimal' | 'currency' | 'c0' | 'c2' | 'percent' | 'unit';
 type IRblChartColumnName = "value" | `data${number}`;
 type IRblPlotColumnName = "text" | "textXs";
+interface KaChartElement<T extends IRblChartConfigurationDataType> extends HTMLElement {
+    kaChart: IRblChartConfiguration<T>;
+}
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
     data: Array<{
         name: string;
         data: T;
     }>;
+    css: {
+        chart: string;
+        chartType: string;
+        legend: string;
+        legendType: string;
+    };
     plotOptions: IRblChartConfigurationPlotOptions;
     series: Array<IRblChartConfigurationSeries>;
+}
+interface IRblChartConfigurationPlotOptions {
+    name: string;
+    type: IRblChartConfigurationType;
+    font: {
+        size: {
+            heuristic: number;
+            default: number;
+            yAxisLabel: number;
+            yAxisTickLabels: number;
+            xAxisLabel: number;
+            xAxisTickLabels: number;
+            plotBandLabel: number;
+            plotBandLine: number;
+            dataLabel: number;
+            donutLabel: number;
+            tipHeader: number;
+            tipBody: number;
+        };
+    };
+    aspectRadio: {
+        current: "value" | "xs";
+        value: number;
+        xs?: number;
+    };
+    height: number;
+    width: number;
+    plotHeight: number;
+    plotWidth: number;
+    column: IRblChartConfigurationChartColumn;
+    padding: IRblChartConfigurationPadding;
+    legend: {
+        show: boolean;
+    };
+    highlight: {
+        series: {
+            hoverItem: boolean;
+            hoverLegend: boolean;
+        };
+        legend: {
+            hoverItem: boolean;
+            hoverSeries: boolean;
+        };
+    };
+    dataLabels: IRblChartConfigurationDataLabels;
+    tip: IRblChartConfigurationTip;
+    xAxis: IRblChartConfigurationXAxis;
+    yAxis: IRblChartConfigurationYAxis;
 }
 interface IRblChartConfigurationXAxis {
     label: string | undefined;
@@ -372,48 +425,6 @@ interface IRblChartPlotLine {
     color: string;
     value: number;
 }
-interface IRblChartConfigurationPlotOptions {
-    name: string;
-    type: IRblChartConfigurationType;
-    font: {
-        size: {
-            heuristic: number;
-            default: number;
-            yAxisLabel: number;
-            yAxisTickLabels: number;
-            xAxisLabel: number;
-            xAxisTickLabels: number;
-            plotBandLabel: number;
-            plotBandLine: number;
-            dataLabel: number;
-            donutLabel: number;
-            tipHeader: number;
-            tipBody: number;
-        };
-    };
-    aspectRadio: {
-        current: "value" | "xs";
-        value: number;
-        xs?: number;
-    };
-    height: number;
-    width: number;
-    plotHeight: number;
-    plotWidth: number;
-    column: IRblChartConfigurationChartColumn;
-    padding: IRblChartConfigurationPadding;
-    legend: {
-        show: boolean;
-    };
-    highlightSeries: {
-        hoverItem: boolean;
-        hoverLegend: boolean;
-    };
-    dataLabels: IRblChartConfigurationDataLabels;
-    tip: IRblChartConfigurationTip;
-    xAxis: IRblChartConfigurationXAxis;
-    yAxis: IRblChartConfigurationYAxis;
-}
 interface IRblChartConfigurationPadding {
     top: number;
     right: number;
@@ -433,6 +444,7 @@ interface IRblChartConfigurationSharkfin {
 interface IRblChartConfigurationTip {
     show: IRblChartConfigurationTipShowOption;
     includeShape: boolean;
+    includeTotal: boolean;
     headerFormat: string | undefined;
     padding: {
         top: number;
@@ -650,17 +662,17 @@ interface IKatApp {
     getInputs(customInputs?: ICalculationInputs): ICalculationInputs;
     getInputValue(name: string, allowDisabled?: boolean): string | undefined;
     setInputValue(name: string, value: string | undefined, calculate?: boolean): Array<HTMLInputElement> | undefined;
-    on<T extends HTMLElement>(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatAppEventFluentApi<T>;
-    off<T extends HTMLElement>(selector: string, events: string, context?: HTMLElement): IKatAppEventFluentApi<T>;
-    selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
-    selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;
-    closestElement<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined;
+    on<T extends Element>(target: string | T | Array<T>, events: string, handler: (e: Event) => void, context?: Element): IKatAppEventFluentApi<T>;
+    off<T extends Element>(target: string | T | Array<T>, events: string, context?: Element): IKatAppEventFluentApi<T>;
+    selectElement<T extends Element>(selector: string, context?: Element): T | undefined;
+    selectElements<T extends Element>(selector: string, context?: Element): Array<T>;
+    closestElement<T extends Element>(element: Element, selector: string): T | undefined;
     notifyAsync(from: IKatApp, name: string, information?: IStringAnyIndexer): Promise<void>;
     getTemplateContent(name: string): DocumentFragment;
     getLocalizedString(key: string | undefined, formatObject?: IStringIndexer<string>, defaultValue?: string): string | undefined;
     debugNext(saveLocations?: string | boolean, serverSideOnly?: boolean, trace?: boolean, expireCache?: boolean): void;
 }
-interface IKatAppEventFluentApi<T extends HTMLElement> {
+interface IKatAppEventFluentApi<T extends Element> {
     on(events: string, handler: (e: Event) => void): IKatAppEventFluentApi<T>;
     off(events: string): IKatAppEventFluentApi<T>;
     elements: Array<T>;
@@ -987,7 +999,7 @@ interface IKaChartModel {
     options?: string;
     mode?: "chart" | "legend";
     categories?: IKaChartModelCategories;
-    legendTextSelector?: string;
+    legendItemSelector?: string;
     maxHeight?: number;
     ce?: string;
     tab?: string;

@@ -7,13 +7,78 @@ type IRblChartFormatStyle = 'decimal' | 'currency' | 'c0' | 'c2' | 'percent' | '
 type IRblChartColumnName = "value" | `data${number}`;
 type IRblPlotColumnName = "text" | "textXs";
 
+interface KaChartElement<T extends IRblChartConfigurationDataType> extends HTMLElement {
+	kaChart: IRblChartConfiguration<T>
+}
+
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 	data: Array<{ name: string, data: T }>;
+
+	css: {
+		chart: string;
+		chartType: string;
+		legend: string;
+		legendType: string;
+	}
 
 	plotOptions: IRblChartConfigurationPlotOptions;
 
 	// Settings for each series or data point (when single series).
 	series: Array<IRblChartConfigurationSeries>;
+}
+
+interface IRblChartConfigurationPlotOptions {
+	name: string;
+	type: IRblChartConfigurationType;
+
+	font: {
+		size: {
+			heuristic: number;
+			default: number;
+			yAxisLabel: number;
+			yAxisTickLabels: number;
+			xAxisLabel: number;
+			xAxisTickLabels: number;
+			plotBandLabel: number;
+			plotBandLine: number;
+			dataLabel: number;
+			donutLabel: number;
+			tipHeader: number;
+			tipBody: number;
+		}
+	}
+
+	aspectRadio: { current: "value" | "xs", value: number, xs?: number };
+	height: number;
+	width: number;
+
+	plotHeight: number;
+	plotWidth: number;
+
+	column: IRblChartConfigurationChartColumn; // Only for column and columnStacked charts.
+
+	padding: IRblChartConfigurationPadding;
+	
+	legend: {
+		show: boolean; // Default: true, Show legend.
+	}
+
+	highlight: {
+		series: {
+			hoverItem: boolean; // Default: true when type is donut or column
+			hoverLegend: boolean; // Default: true
+		}
+		legend: {
+			hoverItem: boolean; // Default: true
+			hoverSeries: boolean; // Default: true
+		}
+	}
+
+	dataLabels: IRblChartConfigurationDataLabels;
+	tip: IRblChartConfigurationTip;
+	
+	xAxis: IRblChartConfigurationXAxis;
+	yAxis: IRblChartConfigurationYAxis;
 }
 
 interface IRblChartConfigurationXAxis {
@@ -66,54 +131,6 @@ interface IRblChartPlotLine {
 	value: number;
 }
 
-interface IRblChartConfigurationPlotOptions {
-	name: string;
-	type: IRblChartConfigurationType;
-
-	font: {
-		size: {
-			heuristic: number;
-			default: number;
-			yAxisLabel: number;
-			yAxisTickLabels: number;
-			xAxisLabel: number;
-			xAxisTickLabels: number;
-			plotBandLabel: number;
-			plotBandLine: number;
-			dataLabel: number;
-			donutLabel: number;
-			tipHeader: number;
-			tipBody: number;
-		}
-	}
-
-	aspectRadio: { current: "value" | "xs", value: number, xs?: number };
-	height: number;
-	width: number;
-
-	plotHeight: number;
-	plotWidth: number;
-
-	column: IRblChartConfigurationChartColumn; // Only for column and columnStacked charts.
-
-	padding: IRblChartConfigurationPadding;
-	
-	legend: {
-		show: boolean; // Default: true, Show legend.
-	}
-
-	highlightSeries: {
-		hoverItem: boolean; // Default: true when type is donut or column
-		hoverLegend: boolean; // Default: true
-	}
-
-	dataLabels: IRblChartConfigurationDataLabels;
-	tip: IRblChartConfigurationTip;
-	
-	xAxis: IRblChartConfigurationXAxis;
-	yAxis: IRblChartConfigurationYAxis;
-}
-
 interface IRblChartConfigurationPadding {
 	top: number;
 	right: number;
@@ -135,6 +152,7 @@ interface IRblChartConfigurationSharkfin {
 interface IRblChartConfigurationTip {
 	show: IRblChartConfigurationTipShowOption; // Default: true, Show tips on each xAxis entry or data point (when no xAxis).
 	includeShape: boolean; // Default: true, Include shape in the tip.
+	includeTotal: boolean; // Default: true if show == "category"
 	headerFormat: string | undefined; // Default: xAxis/category name
 	padding: { top: number; left: number; }
 }

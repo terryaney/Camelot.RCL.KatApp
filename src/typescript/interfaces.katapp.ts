@@ -96,11 +96,11 @@ interface IKatApp {
 	getInputValue(name: string, allowDisabled?: boolean): string | undefined;
 	setInputValue(name: string, value: string | undefined, calculate?: boolean): Array<HTMLInputElement> | undefined;
 
-	on<T extends HTMLElement>(selector: string, events: string, handler: (e: Event) => void, context?: HTMLElement): IKatAppEventFluentApi<T>;
-	off<T extends HTMLElement>(selector: string, events: string, context?: HTMLElement): IKatAppEventFluentApi<T>;
-	selectElement<T extends HTMLElement>(selector: string, context?: HTMLElement): T | undefined;
-	selectElements<T extends HTMLElement>(selector: string, context?: HTMLElement): Array<T>;
-	closestElement<T extends HTMLElement>(element: HTMLElement, selector: string): T | undefined;
+	on<T extends Element>(target: string | T | Array<T>, events: string, handler: (e: Event) => void, context?: Element): IKatAppEventFluentApi<T>;
+	off<T extends Element>(target: string | T | Array<T>, events: string, context?: Element): IKatAppEventFluentApi<T>;
+	selectElement<T extends Element>(selector: string, context?: Element): T | undefined;
+	selectElements<T extends Element>(selector: string, context?: Element): Array<T>;
+	closestElement<T extends Element>(element: Element, selector: string): T | undefined;
 
 	notifyAsync(from: IKatApp, name: string, information?: IStringAnyIndexer): Promise<void>;
 	getTemplateContent(name: string): DocumentFragment;
@@ -110,7 +110,7 @@ interface IKatApp {
 	debugNext(saveLocations?: string | boolean, serverSideOnly?: boolean, trace?: boolean, expireCache?: boolean): void;
 }
 
-interface IKatAppEventFluentApi<T extends HTMLElement> {
+interface IKatAppEventFluentApi<T extends Element> {
 	on(events: string, handler: (e: Event) => void): IKatAppEventFluentApi<T>;
 	off(events: string): IKatAppEventFluentApi<T>;
 	elements: Array<T>;
@@ -495,9 +495,9 @@ interface IKaChartModel {
 
 	categories?: IKaChartModelCategories;
 
-	// If provided, Legend needs to have .ka-chart-legend-{name.toLower()} class.  Then each item needs to have ka-chart-hover-item="series.name" attribute.
+	// If provided, Legend needs to have .ka-chart-legend-{name.toLower()} class.  Then each item needs to have ka-chart-highlight-key="series.name" attribute.
 	// Then each 'text' element containing info that should be opaque needs to be provided via selector (i.e. div.legend-hover)
-	legendTextSelector?: string;
+	legendItemSelector?: string;
 	maxHeight?: number;
 
 	ce?: string;
