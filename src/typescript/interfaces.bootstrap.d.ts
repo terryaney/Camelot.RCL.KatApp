@@ -12,7 +12,9 @@ interface BootstrapStatic {
 		getInstance(el: HTMLElement): BootstrapPopover
 	};
 	Tooltip: {
-		new(el: HTMLElement, options: BootstrapTooltipOptions): BootstrapTooltip;
+		new(el: Element, options: BootstrapTooltipOptions): BootstrapTooltip;
+		getInstance(el: Element): BootstrapTooltip
+		getOrCreateInstance(el: Element, options?: BootstrapTooltipOptions): BootstrapTooltip;
 	}
 }
 
@@ -29,6 +31,7 @@ interface BootstrapPopover {
 interface BootstrapTooltip {
 	hide: () => void;
 	show: () => void;
+	dispose: () => void;
 }
 
 type BootstrapTrigger = "click" | "hover" | "focus" | "manual" | "click hover" | "click focus" | "hover focus" | "click hover focus";
@@ -37,10 +40,16 @@ interface BootstrapTooltipOptions {
 	html: boolean;
 	sanitize: boolean;
 	trigger: BootstrapTrigger;
-	container: string | HTMLElement | false;
+	container: string | Element | false;
 	template: string;
 	placement: (tooltip: HTMLElement, trigger: HTMLElement) => BootstrapPlacement;
 	fallbackPlacements?: string[];
 	title: (this: HTMLElement) => string | HTMLElement | undefined;
 	content: (this: HTMLElement) => string | HTMLElement | undefined;
+	popperConfig?: (this: HTMLElement, defaultBsPopperConfig: PopperConfigOptions) => PopperConfigOptions;
+}
+
+interface PopperConfigOptions {
+	placement: 'auto' | 'auto-start' | 'auto-end' | 'top' | 'top-start' | 'top-end' | 'bottom' | 'bottom-start' | 'bottom-end' | 'right' | 'right-start' | 'right-end' | 'left' | 'left-start' | 'left-end';
+	strategy: 'absolute' | 'fixed';
 }

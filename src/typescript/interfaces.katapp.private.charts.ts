@@ -1,5 +1,4 @@
 ﻿type IRblChartConfigurationDataType = number | Array<number>;
-type IRblChartConfigurationTipShowOption = "off" | "category" | "series";
 type IRblChartConfigurationType = "column" | "columnStacked" | "donut" | "sharkfin";
 type IRblChartConfigurationShape = "square" | "circle" | "line";
 type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
@@ -9,9 +8,13 @@ type IRblPlotColumnName = "text" | "textXs";
 
 interface KaChartElement<T extends IRblChartConfigurationDataType> extends HTMLElement {
 	kaChart: IRblChartConfiguration<T>
+	kaDomUpdated?: boolean;
 }
 
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
+	name: string;
+	type: IRblChartConfigurationType;
+
 	data: Array<{ name: string, data: T }>;
 
 	css: {
@@ -28,9 +31,6 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 }
 
 interface IRblChartConfigurationPlotOptions {
-	name: string;
-	type: IRblChartConfigurationType;
-
 	font: {
 		size: {
 			heuristic: number;
@@ -150,7 +150,7 @@ interface IRblChartConfigurationSharkfin {
 }
 
 interface IRblChartConfigurationTip {
-	show: IRblChartConfigurationTipShowOption; // Default: true, Show tips on each xAxis entry or data point (when no xAxis).
+	show: boolean; // Default: true, Show tips on each xAxis entry or data point (when no xAxis).
 	includeShape: boolean; // Default: true, Include shape in the tip.
 	includeTotal: boolean; // Default: true if show == "category"
 	headerFormat: string | undefined; // Default: xAxis/category name

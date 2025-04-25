@@ -109,45 +109,7 @@
 					}, 200);
 				});
 			}
-	
-			const selectHelptipContent = (search: string, application: KatApp | undefined, context?: HTMLElement): HTMLElement | undefined =>
-				application?.selectElement(search, context) ?? document.querySelector<HTMLElement>(search) ?? undefined;
-	
-			const getTipContent = function (h: HTMLElement) {
-				const dataContentSelector = h.getAttribute('data-bs-content-selector');
-	
-				if (dataContentSelector != undefined) {
-					HelpTips.visiblePopupContentSource = selectHelptipContent(dataContentSelector, KatApp.get(h));
-
-					if (HelpTips.visiblePopupContentSource == undefined) return undefined;
-	
-					return HelpTips.visiblePopupContentSource.cloneWithEvents();
-				}
-	
-				// See if they specified data-content directly on trigger element.
-				const content = h.getAttribute('data-bs-content') ?? ( h.nextElementSibling as HTMLElement )?.innerHTML;
-				// Replace {Label} in content with the trigger provided...used in Error Messages
-				const labelFix = h.getAttribute("data-label-fix");
-	
-				return labelFix != undefined
-					? content.replace(/\{Label}/g, selectHelptipContent("." + labelFix, KatApp.get(h))!.innerHTML)
-					: content;
-			};
-	
-			const getTipTitle = function (h: HTMLElement) {
-				if (h.getAttribute('data-bs-toggle') == "tooltip") return getTipContent(h);
-					
-				const titleSelector = h.getAttribute('data-bs-content-selector');
-				if (titleSelector != undefined) {
-					const title = selectHelptipContent(titleSelector + "Title", KatApp.get(h));
-					if ((title?.innerHTML ?? "") != "") {
-						return title!.innerHTML;
-					}
-				}
-				
-				return "";
-			};
-	
+		
 			const selectHelptips = (search: string, application: KatApp | undefined, context?: HTMLElement): Array<HTMLElement> =>
 				application?.selectElements(search, context) ?? [...document.querySelectorAll<HTMLElement>(search)];
 
@@ -159,32 +121,6 @@
 						? container.parentElement as HTMLElement
 						: container
 				);
-			
-			const getTipContainer = function (tip: HTMLElement): string | false | HTMLElement {
-				// https://github.com/twbs/bootstrap/issues/22249#issuecomment-289069771
-				// There were some <a/> in popup from a kaModal that would not function properly until I changed the container.
-
-				// UPDATE: For 508 compliance, if they don't provide a container, default to the tip.parent/tip so it just appends it after the tip.
-				if (tip.hasAttribute('data-bs-container')) return tip.getAttribute('data-bs-container')!;
-
-				if (tip.parentElement != undefined) {
-					let el: HTMLElement | null = tip;
-					// When tip was inside a LABEL and it just returned tip.parentElement (LABEL) and the container, the actual
-					// bootstrap tip was created inside a <LABEL/>. After it opens, if a click occurred inside the popover-body, 
-					// two click events were dispatched.  First event was for the popover-body (correct), but then since it is inside a LABEL 
-					// with a 'for' attribute, a second click event was triggered as if user clicked on the INPUT (incorrect) and the tooltip
-					// would hide prematurely.
-					while ((el = el.parentElement) && (el as Node) !== document) {
-						if (el.tagName == "LABEL") {
-							return el.parentElement;
-						}
-					}
-
-					return tip.parentElement;
-				}
-				
-				return tip
-			};
 			
 			currentTips.forEach(tip => {
 				if (tip.getAttribute("ka-init-tip") == "true") return;
@@ -200,6 +136,70 @@
 					});
 				}
 
+				const selectHelptipContent = (search: string, application: KatApp | undefined, context?: HTMLElement): HTMLElement | undefined =>
+					application?.selectElement(search, context) ?? document.querySelector<HTMLElement>(search) ?? undefined;
+		
+				const getTipContent = function (h: HTMLElement) {
+					const dataContentSelector = h.getAttribute('data-bs-content-selector');
+		
+					if (dataContentSelector != undefined) {
+						HelpTips.visiblePopupContentSource = selectHelptipContent(dataContentSelector, KatApp.get(h));
+	
+						if (HelpTips.visiblePopupContentSource == undefined) return undefined;
+		
+						return HelpTips.visiblePopupContentSource.cloneWithEvents();
+					}
+		
+					// See if they specified data-content directly on trigger element.
+					const content = h.getAttribute('data-bs-content') ?? ( h.nextElementSibling as HTMLElement )?.innerHTML;
+					// Replace {Label} in content with the trigger provided...used in Error Messages
+					const labelFix = h.getAttribute("data-label-fix");
+		
+					return labelFix != undefined
+						? content.replace(/\{Label}/g, selectHelptipContent("." + labelFix, KatApp.get(h))!.innerHTML)
+						: content;
+				};
+		
+				const getTipTitle = function (h: HTMLElement) {
+					if (isTooltip) return getTipContent(h);
+						
+					const titleSelector = h.getAttribute('data-bs-content-selector');
+					if (titleSelector != undefined) {
+						const title = selectHelptipContent(titleSelector + "Title", KatApp.get(h));
+						if ((title?.innerHTML ?? "") != "") {
+							return title!.innerHTML;
+						}
+					}
+					
+					return "";
+				};
+	
+				const getTipContainer = function (tip: Element): string | false | HTMLElement {
+					// https://github.com/twbs/bootstrap/issues/22249#issuecomment-289069771
+					// There were some <a/> in popup from a kaModal that would not function properly until I changed the container.
+	
+					// UPDATE: For 508 compliance, if they don't provide a container, default to the tip.parent/tip so it just appends it after the tip.
+					if (tip.hasAttribute('data-bs-container')) return selectHelptipContent(tip.getAttribute('data-bs-container')!, KatApp.get(tip))!;
+	
+					if (tip.parentElement != undefined) {
+						let el: Element | null = tip;
+						// When tip was inside a LABEL and it just returned tip.parentElement (LABEL) and the container, the actual
+						// bootstrap tip was created inside a <LABEL/>. After it opens, if a click occurred inside the popover-body, 
+						// two click events were dispatched.  First event was for the popover-body (correct), but then since it is inside a LABEL 
+						// with a 'for' attribute, a second click event was triggered as if user clicked on the INPUT (incorrect) and the tooltip
+						// would hide prematurely.
+						while ((el = el.parentElement) && (el as Node) !== document) {
+							if (el.tagName == "LABEL") {
+								return el.parentElement;
+							}
+						}
+	
+						return tip.parentElement;
+					}
+					
+					return tip as HTMLElement
+				};
+	
 				const options: BootstrapTooltipOptions = {
 					html: true,
 					sanitize: false,
@@ -208,32 +208,32 @@
 					template: isTooltip
 						? '<div class="tooltip katapp-css" role="tooltip"><div class="tooltip-arrow arrow"></div><div class="tooltip-inner"></div></div>'
 						: '<div v-scope class="popover katapp-css" role="tooltip"><div class="popover-arrow arrow"></div><h3 class="popover-header"></h3><div class="popover-body"></div></div>',
-
+	
 					placement: (tooltip, trigger) => {
 						// Add a class to the .popover element
-
+	
 						// http://stackoverflow.com/a/19875813/166231
 						const dataClass = trigger.getAttribute('data-bs-class');
 						if (dataClass != undefined) {
 							tooltip.classList.add(dataClass);
 						}
-
+	
 						// Did they specify a data-width?
 						if (trigger.getAttribute('data-bs-width') != "auto") {
 							const dataWidth = `${trigger.getAttribute('data-bs-width') ?? "350"}px`;
-
+	
 							// context is for popups, tooltip-inner is for tooltips 
 							// (bootstrap css has max-width in css)
 							tooltip.style.width = dataWidth;
 							tooltip.style.maxWidth = dataWidth;
-
+	
 							const inner = tooltip.querySelector('.tooltip-inner') as HTMLElement;
 							if (inner != undefined) {
 								inner.style.width = dataWidth;
 								inner.style.maxWidth = dataWidth;
 							}
 						}
-
+	
 						return tip.getAttribute('data-bs-placement') as BootstrapPlacement ?? "auto";
 					},
 					fallbackPlacements: tip.getAttribute('data-bs-fallback-placements')?.split(",") ?? [ "top", "right", "bottom", "left" ],

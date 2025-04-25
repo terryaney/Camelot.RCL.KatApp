@@ -80,7 +80,8 @@ interface IKatApp {
 	selector: string;
 
 	configure(configAction: (config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
-	handleEvents(configAction: (events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
+	handleEvents(configAction: (events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void, directiveId?: string): IKatApp;
+	removeEvents(directiveId: string): IKatApp;
 	allowCalculation(ceKey: string, enabled: boolean): void;
 
 	checkValidity(): boolean;
@@ -96,8 +97,8 @@ interface IKatApp {
 	getInputValue(name: string, allowDisabled?: boolean): string | undefined;
 	setInputValue(name: string, value: string | undefined, calculate?: boolean): Array<HTMLInputElement> | undefined;
 
-	on<T extends Element>(target: string | T | Array<T>, events: string, handler: (e: Event) => void, context?: Element): IKatAppEventFluentApi<T>;
-	off<T extends Element>(target: string | T | Array<T>, events: string, context?: Element): IKatAppEventFluentApi<T>;
+	on<T extends EventTarget>(target: string | T | Array<T>, events: string, handler: (e: Event) => void, context?: Element): IKatAppEventFluentApi<T>;
+	off<T extends EventTarget>(target: string | T | Array<T>, events: string, context?: Element): IKatAppEventFluentApi<T>;
 	selectElement<T extends Element>(selector: string, context?: Element): T | undefined;
 	selectElements<T extends Element>(selector: string, context?: Element): Array<T>;
 	closestElement<T extends Element>(element: Element, selector: string): T | undefined;
@@ -110,7 +111,7 @@ interface IKatApp {
 	debugNext(saveLocations?: string | boolean, serverSideOnly?: boolean, trace?: boolean, expireCache?: boolean): void;
 }
 
-interface IKatAppEventFluentApi<T extends Element> {
+interface IKatAppEventFluentApi<T extends EventTarget> {
 	on(events: string, handler: (e: Event) => void): IKatAppEventFluentApi<T>;
 	off(events: string): IKatAppEventFluentApi<T>;
 	elements: Array<T>;
@@ -149,7 +150,8 @@ interface IConfigureOptions {
 	events: IKatAppEventsConfiguration;
 }
 interface IKatAppEventsConfiguration {
-	[key: string]: any;
+	[key: string]: any; // Enables event looping and copying from one config to another
+
 	initialized?: (application: IKatApp) => void;
 	modalAppInitialized?: (modalApplication: IKatApp, hostApplication: IKatApp) => void;
 	nestedAppInitialized?: (nestedApplication: IKatApp, hostApplication: IKatApp) => void;

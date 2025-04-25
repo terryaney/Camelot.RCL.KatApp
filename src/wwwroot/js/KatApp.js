@@ -425,9 +425,14 @@ class KatApp {
             }
             const isReturnable = (result) => result != undefined && typeof (result) == "boolean" && ["modalAppInitialized", "calculateStart", "apiStart"].indexOf(eventName) > -1 && !result;
             const eventArgs = [...args, this];
-            for (const eventConfiguration of this.eventConfigurations.concat(KatApp.globalEventConfigurations.filter(e => e.selector.split(",").map(s => s.trim()).indexOf(this.selector) > -1).map(e => e.events))) {
+            const eventConfigurations = this.eventConfigurations
+                .map(c => c.events)
+                .concat(KatApp.globalEventConfigurations
+                .filter(e => e.selector.split(",").map(s => s.trim()).indexOf(this.selector) > -1)
+                .map(e => e.events));
+            for (const ec of eventConfigurations) {
                 try {
-                    let delegateResult = eventConfiguration[eventName]?.apply(this.el, eventArgs);
+                    let delegateResult = ec[eventName]?.apply(this.el, eventArgs);
                     if (delegateResult instanceof Promise) {
                         delegateResult = await delegateResult;
                     }
@@ -462,15 +467,22 @@ class KatApp {
             break;
         }
         if (hasEventHandlers) {
-            this.eventConfigurations.push(config.events);
+            this.eventConfigurations.push({ directiveId: undefined, events: config.events });
         }
         this.configureOptions = config;
         return this;
     }
-    handleEvents(configAction) {
+    handleEvents(configAction, directiveId) {
         const config = {};
         configAction(config, this.state.rbl, this.state.model, this.state.inputs, this.state.handlers);
-        this.eventConfigurations.push(config);
+        if (directiveId) {
+            this.removeEvents(directiveId);
+        }
+        this.eventConfigurations.push({ directiveId, events: config });
+        return this;
+    }
+    removeEvents(directiveId) {
+        this.eventConfigurations = this.eventConfigurations.filter(e => e.directiveId != directiveId);
         return this;
     }
     appendAndExecuteScripts(target, viewElement) {
@@ -1350,7 +1362,7 @@ Type 'help' to see available options displayed in the console.`;
     getTargetItems(target, context) {
         return target == undefined ? [] :
             typeof target === 'string' ? this.selectElements(target, context) :
-                target instanceof Element || target instanceof Document ? [target] :
+                target instanceof EventTarget ? [target] :
                     target instanceof NodeList ? [...target] :
                         target;
     }
@@ -3166,6 +3178,7 @@ var KatApps;
             return ctx => {
                 this.application = application;
                 const el = ctx.el;
+                el.setAttribute("ka-chart-id", KatApps.Utils.generateId());
                 ctx.effect(() => {
                     const scope = ctx.get();
                     const configuration = this.buildChartConfiguration(scope);
@@ -3177,6 +3190,9 @@ var KatApps;
                         this.addHoverEvents(scope, el);
                     }
                 });
+                return () => {
+                    this.application.removeEvents(el.getAttribute("ka-chart-id"));
+                };
             };
         }
         addChart(model, el) {
@@ -3192,7 +3208,7 @@ var KatApps;
                 chartContainer.style.maxHeight = `${model.maxHeight}px`;
             }
             el.appendChild(chartContainer);
-            switch (configuration.plotOptions.type) {
+            switch (configuration.type) {
                 case "donut":
                     this.generateDonutChart(configuration, chartContainer);
                     break;
@@ -3205,7 +3221,7 @@ var KatApps;
                     this.generateBreakpointColumnCharts(el, model);
                     break;
                 default:
-                    chartContainer.innerHTML = `<b>${model.data} ${configuration.plotOptions.type} chart not supported</b>`;
+                    chartContainer.innerHTML = `<b>${model.data} ${configuration.type} chart not supported</b>`;
                     return;
             }
             if (model.maxHeight) {
@@ -3257,7 +3273,7 @@ var KatApps;
             dataLabels.format = this.getOptionValue(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat);
             const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", globalOptions) ?? "{}");
             tip.padding = { top: 5, left: 5 };
-            tip.show = this.getOptionValue(chartOptions, "tip.show", globalOptions, tip.show ?? "category");
+            tip.show = getBooleanProperty("tip.show", tip.show, true);
             tip.headerFormat = this.getOptionValue(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
             tip.includeShape = getBooleanProperty("tip.includeShape", tip.includeShape, true);
             tip.includeTotal = getBooleanProperty("tip.includeTotal", tip.includeTotal, chartIsStacked && !dataLabels.show);
@@ -3333,6 +3349,8 @@ var KatApps;
             const hasAxis = chartType != "donut";
             const directive = this;
             const config = {
+                name: model.data,
+                type: chartType,
                 data: data,
                 css: {
                     chart: `ka-chart-${model.data.toLowerCase()}`,
@@ -3341,8 +3359,6 @@ var KatApps;
                     legendType: `ka-chart-legend-${chartType.toLowerCase()}`
                 },
                 plotOptions: {
-                    name: model.data,
-                    type: chartType,
                     font: {
                         size: {
                             heuristic: 0.6,
@@ -3422,7 +3438,6 @@ var KatApps;
             config.plotOptions.column._parent = config.plotOptions;
             config.plotOptions.xAxis._parent = config.plotOptions;
             config.plotOptions.yAxis._parent = config.plotOptions;
-            console.log(config);
             return config;
         }
         generateStackedArea(configuration, container) {
@@ -3439,7 +3454,6 @@ var KatApps;
                 });
                 return point;
             });
-            console.log("datapoints", dataPoints);
             const getSeriesY = (pointIndex, seriesName, lowerSeries) => {
                 const seriesY = lowerSeries
                     ? configuration.plotOptions.yAxis.getY(dataPoints[pointIndex][lowerSeries] + dataPoints[pointIndex][seriesName])
@@ -3450,6 +3464,7 @@ var KatApps;
                 const seriesName = seriesConfig.text;
                 const color = seriesConfig.color;
                 const isBottomSeries = seriesIndex == configuration.series.length - 1;
+                const isTopSeries = seriesIndex == 0;
                 const lowerSeries = isBottomSeries
                     ? undefined
                     : configuration.series[seriesIndex + 1].text;
@@ -3499,6 +3514,9 @@ var KatApps;
                 const seriesMarkerGroup = this.addMarkerPoints(configuration, markerPoints);
                 const seriesItem = document.createElementNS(this.ns, 'g');
                 seriesItem.setAttribute("class", "ka-chart-series-item");
+                if (isTopSeries) {
+                    seriesItem.setAttribute("ka-stack-top", "1");
+                }
                 seriesItem.append(seriesPaths, seriesMarkerGroup);
                 return seriesItem;
             });
@@ -3520,7 +3538,7 @@ var KatApps;
             this.addYAxis(svg, configuration);
             this.addPlotLines(svg, configuration, plotOffset);
             const yAxisMax = configuration.plotOptions.yAxis.maxValue;
-            const getColumnElement = (elementX, elementY, value, elementConfig, tipKey, headerName) => {
+            const getColumnElement = (elementX, elementY, value, elementConfig, headerName) => {
                 const columnHeight = (value / yAxisMax) * plotHeight;
                 const element = this.createRect(elementX, elementY, columnConfig.width, columnHeight, elementConfig.color, "#ffffff", 1);
                 if (elementConfig.type == "tooltip") {
@@ -3529,42 +3547,33 @@ var KatApps;
                 }
                 const valueFormatted = this.formatNumber(value, configuration.plotOptions.dataLabels.format);
                 element.setAttribute("ka-chart-highlight-key", elementConfig.text);
-                element.setAttribute("aria-label", this.encodeHtmlAttributeValue(`${elementConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`));
-                if (tipKey) {
-                    element.setAttribute("ka-tip-key", tipKey);
-                }
+                element.setAttribute("aria-label", `${elementConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`);
                 return element;
             };
-            const columns = data.map((item, i) => {
-                const columnX = columnConfig.getX(i);
+            const columns = data.map((item, columnIndex) => {
+                const columnX = columnConfig.getX(columnIndex);
+                const columnTipKey = columnIndex + (breakpointConfig?.plotOffset ?? 0);
                 let stackBase = 0;
                 const columnElements = (item.data instanceof Array
-                    ? item.data.map((v, j) => {
-                        const elementConfig = configuration.series[j];
-                        const tipKey = configuration.plotOptions.tip.show == "series" ? `${i + (breakpointConfig?.plotOffset ?? 0)}-${j}` : undefined;
-                        if (elementConfig.shape == "line") {
-                            const lineX = columnX + columnConfig.width / 2;
-                            const lineY = configuration.plotOptions.yAxis.getY(v);
-                            const linePoint = {
-                                x: lineX,
-                                y: lineY,
-                                seriesConfig: elementConfig,
-                                value: v,
-                                name: item.name
-                            };
+                    ? item.data.map((value, seriesIndex) => {
+                        const seriesConfig = configuration.series[seriesIndex];
+                        if (seriesConfig.shape == "line") {
+                            const x = columnX + columnConfig.width / 2;
+                            const y = configuration.plotOptions.yAxis.getY(value);
+                            const linePoint = { x, y, seriesConfig, value, name: item.name };
                             return linePoint;
                         }
                         else {
-                            const element = getColumnElement(columnX, configuration.plotOptions.yAxis.getY(stackBase + v), v, elementConfig, tipKey, item.name);
-                            stackBase += v;
+                            const element = getColumnElement(columnX, configuration.plotOptions.yAxis.getY(stackBase + value), value, seriesConfig, this.getHeader(configuration.plotOptions, item.name));
+                            stackBase += value;
                             return element;
                         }
                     })
-                    : [getColumnElement(columnX, configuration.plotOptions.yAxis.getY(item.data), item.data, configuration.series[i])]);
+                    : [getColumnElement(columnX, configuration.plotOptions.yAxis.getY(item.data), item.data, configuration.series[columnIndex])]);
                 const columnGroup = document.createElementNS(this.ns, "g");
                 columnGroup.classList.add("ka-chart-category");
-                if (configuration.plotOptions.tip.show == "category") {
-                    columnGroup.setAttribute("ka-tip-key", String(i + (breakpointConfig?.plotOffset ?? 0)));
+                if (stackBase > 0 && configuration.plotOptions.tip.show) {
+                    columnGroup.setAttribute("ka-tip-key", String(columnTipKey));
                 }
                 const rectElements = columnElements.filter(e => e instanceof Element);
                 columnGroup.append(...rectElements);
@@ -3590,10 +3599,10 @@ var KatApps;
                 const totalLines = columns[0].linePoints.length;
                 const lines = document.createElementNS(this.ns, "g");
                 lines.setAttribute("class", "ka-chart-series-group");
-                for (let i = 0; i < totalLines; i++) {
+                for (let lineIndex = 0; lineIndex < totalLines; lineIndex++) {
                     const lineSeries = document.createElementNS(this.ns, "g");
                     lineSeries.setAttribute("class", "ka-chart-series-item");
-                    const linePoints = columns.map(c => c.linePoints[i]);
+                    const linePoints = columns.map(c => c.linePoints[lineIndex]);
                     const markerPoints = this.addMarkerPoints(configuration, linePoints);
                     const pathD = linePoints.map((point, index) => {
                         if (index === 0) {
@@ -3666,9 +3675,11 @@ var KatApps;
                 const largeArcFlag = angle > 180 ? 1 : 0;
                 const valueFormatted = this.formatNumber(item.data, configuration.plotOptions.dataLabels.format);
                 const path = this.createPath(`M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`, "none", 0, configuration.series[index].color);
-                path.setAttribute("aria-label", this.encodeHtmlAttributeValue(`${item.name}, ${valueFormatted}.`));
+                path.setAttribute("aria-label", `${item.name}, ${valueFormatted}.`);
                 path.setAttribute("ka-chart-highlight-key", item.name);
-                path.setAttribute("ka-tip-key", String(index));
+                if (configuration.plotOptions.tip.show) {
+                    path.setAttribute("ka-tip-key", String(index));
+                }
                 return path;
             });
             const svg = this.getChartSvgElement(configuration.plotOptions);
@@ -3686,7 +3697,7 @@ var KatApps;
             el.appendChild(legendContainer);
             const legend = document.createElement("div");
             legend.className = "ka-chart-legend-item-wrapper";
-            const series = configuration.plotOptions.type == "sharkfin"
+            const series = configuration.type == "sharkfin"
                 ? configuration.series
                 : configuration.series.toReversed();
             series
@@ -3708,47 +3719,6 @@ var KatApps;
             });
             legendContainer.appendChild(legend);
         }
-        addTooltips(model, el) {
-            if (model.mode == "legend")
-                return;
-            const tipContainer = document.createElement("div");
-            tipContainer.classList.add("ka-chart-tips");
-            el.appendChild(tipContainer);
-        }
-        createTooltip(configuration, targetKey, tipLines, header = undefined) {
-            const tipContainerClass = ".ka-chart";
-            if (tipContainerClass != ".ka-chart")
-                return undefined;
-            const tipConfig = configuration.plotOptions.tip;
-            const tooltipContent = document.createElement("div");
-            tooltipContent.className = `tooltip-${targetKey}`;
-            const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipLines.map(item => `${item.name}: ${item.value}`.length))) * 7;
-            const svgWidth = maxTextWidth + tipConfig.padding.left * 2;
-            const tooltipSvg = document.createElementNS(this.ns, "svg");
-            tooltipSvg.setAttribute("viewBox", `0 0 ${svgWidth} ${(tipLines.length + (header ? 1 : 0)) * 20 + tipConfig.padding.top * 2}`);
-            tooltipSvg.setAttribute("width", String(svgWidth));
-            const tipLineBaseY = header ? 17 : 0;
-            if (header) {
-                const categoryHeader = configuration.plotOptions.tip.headerFormat?.replace("{x}", header) ?? header;
-                const categoryText = this.createText(configuration.plotOptions, 0, tipLineBaseY, categoryHeader, { "font-size": `${configuration.plotOptions.font.size.tipHeader}px`, "font-weight": "bold" });
-                tooltipSvg.appendChild(categoryText);
-            }
-            const shapeXPadding = tipConfig.includeShape ? 15 : 0;
-            tipLines.forEach((item, i) => {
-                const y = tipLineBaseY + (i + 1) * 20;
-                if (tipConfig.includeShape) {
-                    tooltipSvg.appendChild(this.getSeriesShape(y, item.shape, item.color));
-                }
-                const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${item.name}: `, { "font-size": `${configuration.plotOptions.font.size.tipBody}px` });
-                const tspan = document.createElementNS(this.ns, "tspan");
-                tspan.setAttribute("font-weight", "bold");
-                tspan.innerHTML = item.value;
-                text.appendChild(tspan);
-                tooltipSvg.appendChild(text);
-            });
-            tooltipContent.appendChild(tooltipSvg);
-            return tooltipContent;
-        }
         resetContextElement(el, configuration) {
             el.replaceChildren();
             Array.from(el.classList).forEach(cls => {
@@ -3757,26 +3727,38 @@ var KatApps;
                 }
             });
             el.classList.add(configuration.css.chart);
-            el.setAttribute("ka-chart-id", KatApps.Utils.generateId());
             el.kaChart = configuration;
         }
-        addHoverEvents(scope, el) {
-            const pointMarkers = [...el.querySelectorAll(".ka-chart-marker-points")]
-                .map(points => {
-                return {
-                    points: [...points.querySelectorAll(".ka-chart-point")],
-                    glow: points.querySelector(".ka-chart-point-glow")
-                };
-            });
-            const registerEvents = () => {
+        addHoverEvents(model, el) {
+            const registerTipEvents = () => {
+                const tipItems = [...el.querySelectorAll(".ka-chart-donut [ka-tip-key], .ka-chart-category-group [ka-tip-key]")];
+                let currentTip = undefined;
+                this.application.off(tipItems, "mouseenter.ka.chart.tip mouseleave.ka.chart.tip")
+                    .on("mouseenter.ka.chart.tip mouseleave.ka.chart.tip", (event) => {
+                    const me = event;
+                    const tipTrigger = event.target;
+                    currentTip?.hide();
+                    if (me.type == "mouseleave")
+                        return;
+                    KatApps.HelpTips.hideVisiblePopover();
+                    currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
+                    if (!currentTip) {
+                        const tipKey = tipTrigger.getAttribute("ka-tip-key");
+                        const options = this.getTooltipOptions(el, tipKey);
+                        currentTip = new bootstrap.Tooltip(tipTrigger, options);
+                    }
+                    currentTip.show();
+                });
+            };
+            const registerHighlightEvents = () => {
                 const seriesItems = [
                     { textSelector: "span", highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverItem, elements: [...el.querySelectorAll(".ka-chart [ka-chart-highlight-key]")] },
                     { textSelector: "span", highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverLegend, elements: [...el.querySelectorAll(".ka-chart-legend [ka-chart-highlight-key]")] }
                 ];
-                if (scope.legendItemSelector) {
+                if (model.legendItemSelector) {
                     const legend = this.application.selectElement(`.${el.kaChart.css.legend}`);
                     if (legend) {
-                        seriesItems.push({ textSelector: scope.legendItemSelector, highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverLegend, elements: [...legend.querySelectorAll("[ka-chart-highlight-key]")] });
+                        seriesItems.push({ textSelector: model.legendItemSelector, highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverLegend, elements: [...legend.querySelectorAll("[ka-chart-highlight-key]")] });
                     }
                 }
                 const highlightSeries = (event) => {
@@ -3799,23 +3781,45 @@ var KatApps;
                         item.elements.forEach(item => this.application.off(item, "mouseenter.ka.chart mouseleave.ka.chart").on("mouseenter.ka.chart mouseleave.ka.chart", highlightSeries));
                     }
                 });
+            };
+            let matrix;
+            const registerMarkerEvents = () => {
                 if (el.querySelector(".ka-chart-marker-points")) {
+                    const pointMarkers = [...el.querySelectorAll(".ka-chart-marker-points")]
+                        .map(points => {
+                        return {
+                            points: [...points.querySelectorAll(".ka-chart-point")],
+                            glow: points.querySelector(".ka-chart-point-glow")
+                        };
+                    });
+                    const isStackedArea = el.kaChart.type == "sharkfin";
+                    const areaTooltipMarkers = isStackedArea
+                        ? [...el.querySelectorAll(`.ka-chart-series-item[ka-stack-top="1"] path`)]
+                        : [];
+                    let currentColumn = undefined;
+                    let currentTip = undefined;
                     const chartSvg = el.querySelector("svg");
                     const pt = chartSvg.createSVGPoint();
-                    let matrix;
                     const columnCount = el.kaChart.plotOptions.column.count;
                     const columnWidth = el.kaChart.plotOptions.plotWidth / columnCount;
                     const plotLeft = el.kaChart.plotOptions.padding.left;
                     const plotRight = el.kaChart.plotOptions.width - el.kaChart.plotOptions.padding.right;
                     const plotBottom = el.kaChart.plotOptions.yAxis.baseY;
                     const plotTop = el.kaChart.plotOptions.padding.top;
-                    this.application.off(chartSvg, "mousemove.ka.chart mouseleave.ka.chart").on("mousemove.ka.chart mouseleave.ka.chart", (event) => {
+                    const setNoHover = () => {
+                        if (currentColumn == undefined)
+                            return;
+                        pointMarkers.forEach(g => {
+                            g.points.forEach(p => p.setAttribute("opacity", "0"));
+                            g.glow.setAttribute("opacity", "0");
+                        });
+                        currentTip?.hide();
+                        currentColumn = undefined;
+                    };
+                    this.application.off(chartSvg, "mousemove.ka.chart.marker mouseleave.ka.chart.marker").on("mousemove.ka.chart.marker mouseleave.ka.chart.marker", (event) => {
                         const me = event;
                         if (event.type == "mouseleave") {
-                            pointMarkers.forEach(g => {
-                                g.points.forEach(p => p.setAttribute("opacity", "0"));
-                                g.glow.setAttribute("opacity", "0");
-                            });
+                            setNoHover();
                             return;
                         }
                         if (matrix == undefined) {
@@ -3827,37 +3831,145 @@ var KatApps;
                         const isInsideX = loc.x >= plotLeft && loc.x <= plotRight;
                         const isInsideY = loc.y >= plotTop && loc.y <= plotBottom;
                         if (!(isInsideX && isInsideY)) {
-                            pointMarkers.forEach(g => {
-                                g.points.forEach(p => p.setAttribute("opacity", "0"));
-                                g.glow.setAttribute("opacity", "0");
-                            });
+                            setNoHover();
                             return;
                         }
                         const relativeX = loc.x - plotLeft;
                         const hoverColumn = Math.max(0, Math.min(columnCount - 1, Math.floor(relativeX / columnWidth)));
-                        pointMarkers.forEach(g => {
-                            g.points.forEach((p, i) => {
-                                const isActive = hoverColumn == i;
-                                p.setAttribute("opacity", isActive ? "1" : "0");
-                                if (isActive) {
-                                    const point = p.getAttribute("ka-chart-point").split(",");
-                                    g.glow.setAttribute("cx", point[0]);
-                                    g.glow.setAttribute("cy", point[1]);
-                                }
+                        if (hoverColumn != currentColumn) {
+                            currentColumn = hoverColumn;
+                            pointMarkers.forEach(g => {
+                                g.points.forEach((p, i) => {
+                                    const isActive = hoverColumn == i;
+                                    p.setAttribute("opacity", isActive ? "1" : "0");
+                                    if (isActive) {
+                                        const point = p.getAttribute("ka-chart-point").split(",");
+                                        g.glow.setAttribute("cx", point[0]);
+                                        g.glow.setAttribute("cy", point[1]);
+                                    }
+                                });
+                                g.glow.setAttribute("opacity", "0.2");
                             });
-                            g.glow.setAttribute("opacity", "0.2");
-                        });
+                            if (isStackedArea) {
+                                currentTip?.hide();
+                                KatApps.HelpTips.hideVisiblePopover();
+                                const tipTrigger = areaTooltipMarkers[currentColumn];
+                                currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
+                                if (!currentTip) {
+                                    const options = this.getTooltipOptions(el, String(currentColumn));
+                                    currentTip = new bootstrap.Tooltip(tipTrigger, options);
+                                }
+                                currentTip.show();
+                            }
+                        }
                     });
                 }
             };
+            const registerEvents = () => {
+                registerTipEvents();
+                registerHighlightEvents();
+                registerMarkerEvents();
+                this.application.off(window, "resize scroll").on("resize scroll", () => matrix = undefined);
+            };
             this.application.handleEvents(events => {
-                events.calculation = () => registerEvents();
                 events.domUpdated = elements => {
-                    if (!elements.some(e => e === el || e.contains(el)))
+                    const externalLegend = model.legendItemSelector != undefined ? this.application.selectElement(`.${el.kaChart.css.legend}`) : undefined;
+                    if (!elements.some(e => e === el || e.contains(el) || e === externalLegend || (externalLegend != undefined && e.contains(externalLegend))))
                         return;
                     registerEvents();
+                    el.kaDomUpdated = true;
                 };
-            });
+            }, el.getAttribute("ka-chart-id"));
+            if (el.kaDomUpdated) {
+                registerEvents();
+            }
+        }
+        getTooltipOptions(el, tipKey) {
+            return {
+                html: true,
+                sanitize: false,
+                trigger: "manual",
+                container: el.querySelector(".ka-chart"),
+                template: '<div class="tooltip katapp-css ka-chart-tip" role="tooltip"><div class="tooltip-arrow arrow"></div><div class="tooltip-inner"></div></div>',
+                placement: (tooltip, trigger) => "auto",
+                fallbackPlacements: ["top", "right", "bottom", "left"],
+                title: function () {
+                    const tipContent = el.querySelector(`.ka-chart-tips .tooltip-${tipKey}`);
+                    if (!tipContent)
+                        return undefined;
+                    return tipContent?.cloneWithEvents();
+                },
+                content: function () { return undefined; }
+            };
+        }
+        addTooltips(model, el) {
+            if (model.mode == "legend")
+                return;
+            const configuration = el.kaChart;
+            const tipConfig = configuration.plotOptions.tip;
+            const tipContainer = document.createElement("div");
+            tipContainer.classList.add("ka-chart-tips");
+            tipContainer.style.display = "none";
+            const tips = configuration.data.map((item, index) => {
+                const tipInfo = (item.data instanceof Array
+                    ? item.data.map((v, seriesIndex) => {
+                        return v > 0
+                            ? {
+                                name: configuration.series[seriesIndex].text,
+                                value: v,
+                                seriesConfig: configuration.series[seriesIndex]
+                            }
+                            : undefined;
+                    }).filter(v => v != undefined)
+                    : [{
+                            name: item.name,
+                            value: item.data,
+                            seriesConfig: configuration.series[index]
+                        }]);
+                if (tipInfo.length == 0)
+                    return undefined;
+                let header = item.data instanceof Array ? item.name : undefined;
+                if (header) {
+                    header = configuration.plotOptions.tip.headerFormat?.replace("{x}", header) ?? header;
+                }
+                const tooltipContent = document.createElement("div");
+                tooltipContent.className = `tooltip-${index}`;
+                const tooltipSvg = document.createElementNS(this.ns, "svg");
+                const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipInfo.map(tip => `${tip.name}: ${this.formatNumber(tip.value, configuration.plotOptions.dataLabels.format)}`.length))) * 7;
+                const svgWidth = maxTextWidth + tipConfig.padding.left * 2;
+                const includeTotal = tipConfig.includeTotal && tipInfo.length > 1;
+                tooltipSvg.setAttribute("viewBox", `0 0 ${svgWidth} ${(tipInfo.length + (header ? 1 : 0) + (includeTotal ? 1 : 0)) * 20 + tipConfig.padding.top * 2}`);
+                tooltipSvg.setAttribute("width", String(svgWidth));
+                const tipLineBaseY = header ? 17 : 0;
+                if (header) {
+                    const categoryText = this.createText(configuration.plotOptions, 0, tipLineBaseY, header, { "font-size": `${configuration.plotOptions.font.size.tipHeader}px`, "font-weight": "bold" });
+                    tooltipSvg.appendChild(categoryText);
+                }
+                const shapeXPadding = tipConfig.includeShape ? 15 : 0;
+                tipInfo.forEach((tip, i) => {
+                    const y = tipLineBaseY + (i + 1) * 20;
+                    if (tipConfig.includeShape) {
+                        tooltipSvg.appendChild(this.getSeriesShape(y, tip.seriesConfig.shape, tip.seriesConfig.color));
+                    }
+                    const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${tip.name}: `, { "font-size": `${configuration.plotOptions.font.size.tipBody}px` });
+                    const tspan = document.createElementNS(this.ns, "tspan");
+                    tspan.setAttribute("font-weight", "bold");
+                    tspan.innerHTML = this.formatNumber(tip.value, configuration.plotOptions.dataLabels.format);
+                    text.appendChild(tspan);
+                    tooltipSvg.appendChild(text);
+                });
+                if (includeTotal) {
+                    const y = tipLineBaseY + (tipInfo.length + 1) * 20;
+                    const total = this.formatNumber(tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
+                    const text = this.createText(configuration.plotOptions, shapeXPadding, y, `Total: ${total}`, { "font-size": `${configuration.plotOptions.font.size.tipBody}px` });
+                    text.setAttribute("font-weight", "bold");
+                    tooltipSvg.appendChild(text);
+                }
+                tooltipContent.appendChild(tooltipSvg);
+                return tooltipContent;
+            }).filter(tip => tip != undefined);
+            tipContainer.append(...tips);
+            el.appendChild(tipContainer);
         }
         addMarkerPoints(configuration, points) {
             const markerGroup = document.createElementNS(this.ns, "g");
@@ -3866,14 +3978,17 @@ var KatApps;
             glow.setAttribute("opacity", "0");
             glow.setAttribute("class", "ka-chart-point-glow");
             markerGroup.appendChild(glow);
-            markerGroup.append(...points.map((point, index) => {
+            markerGroup.append(...points.map(point => {
                 const diamond = this.createPointMarker(point.x, point.y, point.seriesConfig.color);
                 const valueFormatted = this.formatNumber(point.value, configuration.plotOptions.dataLabels.format);
-                diamond.setAttribute("aria-label", `${point.seriesConfig.text}, ${valueFormatted}. ${this.encodeHtmlAttributeValue(point.name)}.`);
+                diamond.setAttribute("aria-label", `${point.seriesConfig.text}, ${valueFormatted}. ${this.getHeader(configuration.plotOptions, point.name)}.`);
                 diamond.setAttribute("ka-chart-point", `${point.x},${point.y}`);
                 return diamond;
             }));
             return markerGroup;
+        }
+        getHeader(plotOptions, header) {
+            return plotOptions.tip.headerFormat?.replace("{x}", header) ?? header;
         }
         addPlotLines(svg, config, plotOffset = 0) {
             if (config.plotOptions.xAxis.plotLines.length == 0)
@@ -4104,14 +4219,6 @@ var KatApps;
                 minimumFractionDigits: style == "c2" ? 2 : 0,
                 maximumFractionDigits: style == "c2" ? 2 : 0
             }).format(amount);
-        }
-        encodeHtmlAttributeValue(value) {
-            return value
-                .replace(/&/g, "&amp;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#39;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;");
         }
     }
     KatApps.DirectiveKaChart = DirectiveKaChart;
@@ -4946,52 +5053,11 @@ var KatApps;
                     }, 200);
                 });
             }
-            const selectHelptipContent = (search, application, context) => application?.selectElement(search, context) ?? document.querySelector(search) ?? undefined;
-            const getTipContent = function (h) {
-                const dataContentSelector = h.getAttribute('data-bs-content-selector');
-                if (dataContentSelector != undefined) {
-                    HelpTips.visiblePopupContentSource = selectHelptipContent(dataContentSelector, KatApp.get(h));
-                    if (HelpTips.visiblePopupContentSource == undefined)
-                        return undefined;
-                    return HelpTips.visiblePopupContentSource.cloneWithEvents();
-                }
-                const content = h.getAttribute('data-bs-content') ?? h.nextElementSibling?.innerHTML;
-                const labelFix = h.getAttribute("data-label-fix");
-                return labelFix != undefined
-                    ? content.replace(/\{Label}/g, selectHelptipContent("." + labelFix, KatApp.get(h)).innerHTML)
-                    : content;
-            };
-            const getTipTitle = function (h) {
-                if (h.getAttribute('data-bs-toggle') == "tooltip")
-                    return getTipContent(h);
-                const titleSelector = h.getAttribute('data-bs-content-selector');
-                if (titleSelector != undefined) {
-                    const title = selectHelptipContent(titleSelector + "Title", KatApp.get(h));
-                    if ((title?.innerHTML ?? "") != "") {
-                        return title.innerHTML;
-                    }
-                }
-                return "";
-            };
             const selectHelptips = (search, application, context) => application?.selectElements(search, context) ?? [...document.querySelectorAll(search)];
             const currentTips = tipsToProcess ??
                 selectHelptips(selector ?? "[data-bs-toggle='tooltip'], [data-bs-toggle='popover']", KatApp.get(container), container.tagName == "A" || container.tagName == "BUTTON"
                     ? container.parentElement
                     : container);
-            const getTipContainer = function (tip) {
-                if (tip.hasAttribute('data-bs-container'))
-                    return tip.getAttribute('data-bs-container');
-                if (tip.parentElement != undefined) {
-                    let el = tip;
-                    while ((el = el.parentElement) && el !== document) {
-                        if (el.tagName == "LABEL") {
-                            return el.parentElement;
-                        }
-                    }
-                    return tip.parentElement;
-                }
-                return tip;
-            };
             currentTips.forEach(tip => {
                 if (tip.getAttribute("ka-init-tip") == "true")
                     return;
@@ -5002,6 +5068,47 @@ var KatApps;
                         tip.click();
                     });
                 }
+                const selectHelptipContent = (search, application, context) => application?.selectElement(search, context) ?? document.querySelector(search) ?? undefined;
+                const getTipContent = function (h) {
+                    const dataContentSelector = h.getAttribute('data-bs-content-selector');
+                    if (dataContentSelector != undefined) {
+                        HelpTips.visiblePopupContentSource = selectHelptipContent(dataContentSelector, KatApp.get(h));
+                        if (HelpTips.visiblePopupContentSource == undefined)
+                            return undefined;
+                        return HelpTips.visiblePopupContentSource.cloneWithEvents();
+                    }
+                    const content = h.getAttribute('data-bs-content') ?? h.nextElementSibling?.innerHTML;
+                    const labelFix = h.getAttribute("data-label-fix");
+                    return labelFix != undefined
+                        ? content.replace(/\{Label}/g, selectHelptipContent("." + labelFix, KatApp.get(h)).innerHTML)
+                        : content;
+                };
+                const getTipTitle = function (h) {
+                    if (isTooltip)
+                        return getTipContent(h);
+                    const titleSelector = h.getAttribute('data-bs-content-selector');
+                    if (titleSelector != undefined) {
+                        const title = selectHelptipContent(titleSelector + "Title", KatApp.get(h));
+                        if ((title?.innerHTML ?? "") != "") {
+                            return title.innerHTML;
+                        }
+                    }
+                    return "";
+                };
+                const getTipContainer = function (tip) {
+                    if (tip.hasAttribute('data-bs-container'))
+                        return selectHelptipContent(tip.getAttribute('data-bs-container'), KatApp.get(tip));
+                    if (tip.parentElement != undefined) {
+                        let el = tip;
+                        while ((el = el.parentElement) && el !== document) {
+                            if (el.tagName == "LABEL") {
+                                return el.parentElement;
+                            }
+                        }
+                        return tip.parentElement;
+                    }
+                    return tip;
+                };
                 const options = {
                     html: true,
                     sanitize: false,

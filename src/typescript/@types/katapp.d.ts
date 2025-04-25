@@ -1,4 +1,4 @@
-declare class KatAppEventFluentApi<T extends Element> implements IKatAppEventFluentApi<T> {
+declare class KatAppEventFluentApi<T extends EventTarget> implements IKatAppEventFluentApi<T> {
     elements: Array<T>;
     constructor(elements: Array<T>);
     on(events: string, handler: (e: Event) => void): KatAppEventFluentApi<T>;
@@ -40,7 +40,8 @@ declare class KatApp implements IKatApp {
     private getCloneApplication;
     triggerEventAsync(eventName: string, ...args: (object | string | undefined | unknown)[]): Promise<boolean | undefined>;
     configure(configAction: (config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
-    handleEvents(configAction: (config: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
+    handleEvents(configAction: (config: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void, directiveId?: string): IKatApp;
+    removeEvents(directiveId: string): IKatApp;
     private appendAndExecuteScripts;
     private mountAsync;
     private initializeInspector;
@@ -60,8 +61,8 @@ declare class KatApp implements IKatApp {
     getInputs(customInputs?: ICalculationInputs): ICalculationInputs;
     private getKatAppId;
     private getTargetItems;
-    on<T extends Element>(target: string | T | Array<T>, events: string, handler: (e: Event) => void, context?: Element): IKatAppEventFluentApi<T>;
-    off<T extends Element>(target: string | T | Array<T>, events: string, context?: Element): IKatAppEventFluentApi<T>;
+    on<T extends EventTarget>(target: string | T | Array<T>, events: string, handler: (e: Event) => void, context?: Element): IKatAppEventFluentApi<T>;
+    off<T extends EventTarget>(target: string | T | Array<T>, events: string, context?: Element): IKatAppEventFluentApi<T>;
     private selectorSplitter;
     private inputSelectorRegex;
     private psuedoInputTypes;
@@ -201,11 +202,12 @@ declare namespace KatApps {
         private generateBreakpointColumnCharts;
         private generateDonutChart;
         private addLegend;
-        private addTooltips;
-        private createTooltip;
         private resetContextElement;
         private addHoverEvents;
+        private getTooltipOptions;
+        private addTooltips;
         private addMarkerPoints;
+        private getHeader;
         private addPlotLines;
         private addPlotBands;
         private addXAxis;
@@ -222,7 +224,6 @@ declare namespace KatApps {
         private getOptionJson;
         private getOptionValue;
         private formatNumber;
-        private encodeHtmlAttributeValue;
     }
 }
 declare namespace KatApps {
@@ -306,7 +307,6 @@ declare enum TraceVerbosity {
     Diagnostic = 5
 }
 type IRblChartConfigurationDataType = number | Array<number>;
-type IRblChartConfigurationTipShowOption = "off" | "category" | "series";
 type IRblChartConfigurationType = "column" | "columnStacked" | "donut" | "sharkfin";
 type IRblChartConfigurationShape = "square" | "circle" | "line";
 type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
@@ -315,8 +315,11 @@ type IRblChartColumnName = "value" | `data${number}`;
 type IRblPlotColumnName = "text" | "textXs";
 interface KaChartElement<T extends IRblChartConfigurationDataType> extends HTMLElement {
     kaChart: IRblChartConfiguration<T>;
+    kaDomUpdated?: boolean;
 }
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
+    name: string;
+    type: IRblChartConfigurationType;
     data: Array<{
         name: string;
         data: T;
@@ -331,8 +334,6 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
     series: Array<IRblChartConfigurationSeries>;
 }
 interface IRblChartConfigurationPlotOptions {
-    name: string;
-    type: IRblChartConfigurationType;
     font: {
         size: {
             heuristic: number;
@@ -442,7 +443,7 @@ interface IRblChartConfigurationSharkfin {
     };
 }
 interface IRblChartConfigurationTip {
-    show: IRblChartConfigurationTipShowOption;
+    show: boolean;
     includeShape: boolean;
     includeTotal: boolean;
     headerFormat: string | undefined;
@@ -650,7 +651,8 @@ interface IKatApp {
     state: IState;
     selector: string;
     configure(configAction: (config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
-    handleEvents(configAction: (events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
+    handleEvents(configAction: (events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void, directiveId?: string): IKatApp;
+    removeEvents(directiveId: string): IKatApp;
     allowCalculation(ceKey: string, enabled: boolean): void;
     checkValidity(): boolean;
     calculateAsync(customInputs?: ICalculationInputs, processResults?: boolean, calcEngines?: ICalcEngine[], allowLogging?: boolean): Promise<ITabDef[] | void>;
@@ -662,8 +664,8 @@ interface IKatApp {
     getInputs(customInputs?: ICalculationInputs): ICalculationInputs;
     getInputValue(name: string, allowDisabled?: boolean): string | undefined;
     setInputValue(name: string, value: string | undefined, calculate?: boolean): Array<HTMLInputElement> | undefined;
-    on<T extends Element>(target: string | T | Array<T>, events: string, handler: (e: Event) => void, context?: Element): IKatAppEventFluentApi<T>;
-    off<T extends Element>(target: string | T | Array<T>, events: string, context?: Element): IKatAppEventFluentApi<T>;
+    on<T extends EventTarget>(target: string | T | Array<T>, events: string, handler: (e: Event) => void, context?: Element): IKatAppEventFluentApi<T>;
+    off<T extends EventTarget>(target: string | T | Array<T>, events: string, context?: Element): IKatAppEventFluentApi<T>;
     selectElement<T extends Element>(selector: string, context?: Element): T | undefined;
     selectElements<T extends Element>(selector: string, context?: Element): Array<T>;
     closestElement<T extends Element>(element: Element, selector: string): T | undefined;
@@ -672,7 +674,7 @@ interface IKatApp {
     getLocalizedString(key: string | undefined, formatObject?: IStringIndexer<string>, defaultValue?: string): string | undefined;
     debugNext(saveLocations?: string | boolean, serverSideOnly?: boolean, trace?: boolean, expireCache?: boolean): void;
 }
-interface IKatAppEventFluentApi<T extends Element> {
+interface IKatAppEventFluentApi<T extends EventTarget> {
     on(events: string, handler: (e: Event) => void): IKatAppEventFluentApi<T>;
     off(events: string): IKatAppEventFluentApi<T>;
     elements: Array<T>;

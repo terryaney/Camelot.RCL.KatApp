@@ -11,7 +11,7 @@
 //		- look at v-ka-inline to get idea on how to handle
 
 // TODO: Decide on modules vs iife? Modules seems better/recommended practices, but iife and static methods support console debugging better
-class KatAppEventFluentApi<T extends Element> implements IKatAppEventFluentApi<T> {
+class KatAppEventFluentApi<T extends EventTarget> implements IKatAppEventFluentApi<T> {
 	constructor(public elements: Array<T>) { }
 	
 	public on(events: string, handler: (e: Event) => void): KatAppEventFluentApi<T> {
@@ -137,7 +137,8 @@ class KatApp implements IKatApp {
 	public calcEngines: ICalcEngine[] = [];
 	private uiBlockCount = 0;
 
-	private eventConfigurations: Array<IKatAppEventsConfiguration> = [];
+	// ka-chart directive needed to process if/when external legend was added so each chart directive needed to receive domUpdated event
+	private eventConfigurations: Array<{ directiveId: string | undefined, events: IKatAppEventsConfiguration }> = [];
 
 	private domElementQueued = false;
 	private domElementQueue: Array<HTMLElement> = [];
@@ -580,11 +581,19 @@ class KatApp implements IKatApp {
 			const isReturnable = (result: false | undefined) => result != undefined && typeof(result) == "boolean" && ["modalAppInitialized", "calculateStart", "apiStart"].indexOf(eventName) > -1 && !result;
 
 			const eventArgs = [...args, this];
-
-			for (const eventConfiguration of this.eventConfigurations.concat(KatApp.globalEventConfigurations.filter( e => e.selector.split(",").map( s => s.trim() ).indexOf(this.selector) > -1).map( e => e.events))) {
+			
+			const eventConfigurations = this.eventConfigurations
+				.map(c => c.events)
+				.concat(
+					KatApp.globalEventConfigurations
+						.filter(e => e.selector.split(",").map(s => s.trim()).indexOf(this.selector) > -1)
+						.map(e => e.events)
+			);
+			
+			for (const ec of eventConfigurations) {
 				try {
 					// Make application.element[0] be 'this' in the event handler
-					let delegateResult = (eventConfiguration as IStringAnyIndexer)[eventName]?.apply(this.el, eventArgs);
+					let delegateResult = (ec as IStringAnyIndexer)[eventName]?.apply(this.el, eventArgs);
 
 					if (delegateResult instanceof Promise) {
 						delegateResult = await delegateResult;
@@ -627,7 +636,7 @@ class KatApp implements IKatApp {
 			break;
         }
 		if (hasEventHandlers) {
-			this.eventConfigurations.push(config.events);
+			this.eventConfigurations.push({ directiveId: undefined, events: config.events });
 		}
 
 		this.configureOptions = config;
@@ -636,11 +645,24 @@ class KatApp implements IKatApp {
 		return this;
 	}
 
-	public handleEvents(configAction: (config: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp {
+	public handleEvents(
+		configAction: (config: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void,
+		directiveId?: string
+	): IKatApp {
 		const config: IKatAppEventsConfiguration = {};
 		configAction(config, this.state.rbl, this.state.model, this.state.inputs, this.state.handlers);
-		this.eventConfigurations.push(config);
+		
+		if (directiveId) {
+			this.removeEvents(directiveId);
+		}
+
+		this.eventConfigurations.push({ directiveId, events: config });
 		return this;
+	}
+
+	public removeEvents(directiveId: string): IKatApp {
+		this.eventConfigurations = this.eventConfigurations.filter(e => e.directiveId != directiveId);
+		return this;	
 	}
 
 	private appendAndExecuteScripts(target: HTMLElement, viewElement: HTMLElement): void {
@@ -1837,21 +1859,21 @@ Type 'help' to see available options displayed in the console.`;
 		return undefined;
 	}
 
-	private getTargetItems<T extends Element>(target: string | T | Array<T> | undefined, context?: Element) : Array<T> {
+	private getTargetItems<T extends EventTarget>(target: string | T | Array<T> | undefined, context?: Element) : Array<T> {
 		return target == undefined ? [] :
-			typeof target === 'string' ? this.selectElements<T>(target, context) :
-			target instanceof Element || target instanceof Document ? [target] as Array<T> :
+			typeof target === 'string' ? this.selectElements<Element>(target, context) as unknown as Array<T> :
+			target instanceof EventTarget ? [target] as Array<T> :
 			target instanceof NodeList ? [...target] as Array<T> :
 			target as Array<T>;
 	}
 
-	public on<T extends Element>(target: string | T | Array<T>, events: string, handler: (e: Event) => void, context?: Element): IKatAppEventFluentApi<T> {
+	public on<T extends EventTarget>(target: string | T | Array<T>, events: string, handler: (e: Event) => void, context?: Element): IKatAppEventFluentApi<T> {
 		const eventFluentApi = new KatAppEventFluentApi<T>(this.getTargetItems<T>(target, context));
 		eventFluentApi.on(events, handler);
 		return eventFluentApi;
 	}
 
- 	public off<T extends Element>(target: string | T | Array<T>, events: string, context?: Element): IKatAppEventFluentApi<T> {
+ 	public off<T extends EventTarget>(target: string | T | Array<T>, events: string, context?: Element): IKatAppEventFluentApi<T> {
 		const eventFluentApi = new KatAppEventFluentApi<T>(this.getTargetItems<T>(target, context));
 		eventFluentApi.off(events);
 		return eventFluentApi;

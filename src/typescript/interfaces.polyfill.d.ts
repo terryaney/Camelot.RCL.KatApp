@@ -43,13 +43,16 @@ declare global {
 		localeFormat(format: string): string;
 	}
 
-	interface Element {
+	interface EventTarget {
 		_addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
 		_removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
 		// Couldn't figure out how to get this 'overload' defined to work.  I simply wanted an additional overload to 
 		// popup for people that referenced KatApp.d.ts, but they can just try to use it without intellisense
 		// removeEventListener(type: string, listener: ElementEventListener): void;
 		kaEventListeners?: { [type: string]: Array<ElementEventListener> };
+	}
+
+	interface Element {
 		cloneWithEvents<T extends HTMLElement>(): T;
 	}
 
