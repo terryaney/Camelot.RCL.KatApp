@@ -1423,8 +1423,9 @@
 		}
 
 		private formatNumber(amount: number, style: IRblChartFormatStyle): string {
-			const locales = (window as any).camelot?.internationalization?.locales ?? "en-US";
-			const currencyCode = (window as any).camelot?.internationalization?.currencyCode ?? "USD";
+			// TODO: Should pass this in as options to application instead of camelot dependency
+			const locales = (window as any).camelot?.configuration?.intl?.locales ?? "en-US";
+			const currencyCode = (window as any).camelot?.configuration?.intl?.currencyCode ?? "USD";
 
 			return Intl.NumberFormat(locales, {
 				style: style == "c0" || style == "c2" ? "currency" : style,
