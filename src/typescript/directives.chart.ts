@@ -132,7 +132,7 @@
 
 			const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", globalOptions) ?? "{}") as IRblChartConfigurationDataLabels;
 			dataLabels.show = getBooleanProperty("dataLabels.show", dataLabels.show, false);
-			dataLabels.format = this.getOptionValue<IRblChartFormatStyle>(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat)!;
+			dataLabels.format = this.getOptionValue<IRblCurrencyFormat>(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat)!;
 
 			const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", globalOptions) ?? "{}") as IRblChartConfigurationTip;
 			tip.padding = { top: 5, left: 5 }; // Param?
@@ -232,7 +232,7 @@
 						: item.data
 				)
 			) * (dataLabels.show ? 1.05 : 1.025); // Add 10% buffer...
-			const maxDataValueString = this.formatNumber(maxDataValue, yAxisConfig.format) + "000"; // Just some padding to give a little more room
+			const maxDataValueString = Utils.formatCurrency(maxDataValue, yAxisConfig.format) + "000"; // Just some padding to give a little more room
 
 			const hasAxis = chartType != "donut";
 
@@ -501,7 +501,7 @@
 					element.setAttribute("opacity", "0");
 				}
 
-				const valueFormatted = this.formatNumber(value, configuration.plotOptions.dataLabels.format);
+				const valueFormatted = Utils.formatCurrency(value, configuration.plotOptions.dataLabels.format);
 				element.setAttribute("ka-chart-highlight-key", elementConfig.text);
 				element.setAttribute("aria-label", `${elementConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`);
 
@@ -560,7 +560,7 @@
 						configuration.plotOptions,
 						columnX + columnConfig.width / 2, // Centered above the column
 						labelY,
-						this.formatNumber(totalValue, configuration.plotOptions.dataLabels.format),
+						Utils.formatCurrency(totalValue, configuration.plotOptions.dataLabels.format),
 						{ "text-anchor": "middle", "font-size": `${configuration.plotOptions.font.size.dataLabel}px`, "font-weight": "bold" }
 					);
 
@@ -691,7 +691,7 @@
 				// Determine if the arc should take the long path or short path
 				const largeArcFlag = angle > 180 ? 1 : 0;
 
-				const valueFormatted = this.formatNumber(item.data, configuration.plotOptions.dataLabels.format);
+				const valueFormatted = Utils.formatCurrency(item.data, configuration.plotOptions.dataLabels.format);
 
 				const path = this.createPath(`M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`, "none", 0, configuration.series[index].color);
 
@@ -713,7 +713,7 @@
 
 			svg.appendChild(this.createText(
 				configuration.plotOptions,
-				radius, radius, this.formatNumber(total, configuration.plotOptions.dataLabels.format),
+				radius, radius, Utils.formatCurrency(total, configuration.plotOptions.dataLabels.format),
 				{ "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": `${configuration.plotOptions.font.size.donutLabel}px`, "font-weight": "bold" },
 			));
 
@@ -1058,7 +1058,7 @@
 				tooltipContent.className = `tooltip-${index}`;
 
 				const tooltipSvg = document.createElementNS(this.ns, "svg");
-				const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipInfo.map(tip => `${tip.name}: ${this.formatNumber(tip.value, configuration.plotOptions.dataLabels.format)}`.length))) * 7; // Approximate width of each character
+				const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipInfo.map(tip => `${tip.name}: ${Utils.formatCurrency(tip.value, configuration.plotOptions.dataLabels.format)}`.length))) * 7; // Approximate width of each character
 				const svgWidth = maxTextWidth + tipConfig.padding.left * 2; // Add padding to the width
 
 				const includeTotal = tipConfig.includeTotal && tipInfo.length > 1;
@@ -1083,14 +1083,14 @@
 					const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${tip.name}: `, { "font-size": `${configuration.plotOptions.font.size.tipBody}px` });
 					const tspan = document.createElementNS(this.ns, "tspan");
 					tspan.setAttribute("font-weight", "bold");
-					tspan.innerHTML = this.formatNumber(tip.value, configuration.plotOptions.dataLabels.format);
+					tspan.innerHTML = Utils.formatCurrency(tip.value, configuration.plotOptions.dataLabels.format);
 					text.appendChild(tspan);
 					tooltipSvg.appendChild(text);
 				});
 	
 				if (includeTotal) {
 					const y = tipLineBaseY + (tipInfo.length + 1) * 20;
-					const total = this.formatNumber(tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
+					const total = Utils.formatCurrency(tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
 					const text = this.createText(configuration.plotOptions, shapeXPadding, y, `Total: ${total}`, { "font-size": `${configuration.plotOptions.font.size.tipBody}px` });
 					text.setAttribute("font-weight", "bold");
 					tooltipSvg.appendChild(text);
@@ -1116,7 +1116,7 @@
 
 			markerGroup.append(...points.map(point => {
 				const diamond = this.createPointMarker(point.x, point.y, point.seriesConfig.color);
-				const valueFormatted = this.formatNumber(point.value, configuration.plotOptions.dataLabels.format);
+				const valueFormatted = Utils.formatCurrency(point.value, configuration.plotOptions.dataLabels.format);
 
 				diamond.setAttribute("aria-label", `${point.seriesConfig.text}, ${valueFormatted}. ${this.getHeader(configuration.plotOptions, point.name)}.`);
 				diamond.setAttribute("ka-chart-point", `${point.x},${point.y}`);
@@ -1252,7 +1252,7 @@
 							? this.createLine(paddingConfig.left, y, configuration.plotOptions.width - paddingConfig.right, y, "#e6e6e6")
 							: undefined;
 
-						const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, this.formatNumber(value, configuration.plotOptions.yAxis.format), { "text-anchor": "end", "font-size": `${configuration.plotOptions.font.size.yAxisTickLabels}px`, "dominant-baseline": "middle" })
+						const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, Utils.formatCurrency(value, configuration.plotOptions.yAxis.format), { "text-anchor": "end", "font-size": `${configuration.plotOptions.font.size.yAxisTickLabels}px`, "dominant-baseline": "middle" })
 						return tickLine ? [tickLine!, tickLabel] : [tickLabel];
 					});
 
@@ -1420,19 +1420,6 @@
 		private getOptionValue<T = string>(configRows: Array<IRblChartDataRow>, name: string, globalOptions?: IRblChartOptionRow[], defaultValue?: string): T | undefined {
 			return (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
 				globalOptions?.find(r => r.id == name)?.value ?? defaultValue) as T;
-		}
-
-		private formatNumber(amount: number, style: IRblChartFormatStyle): string {
-			// TODO: Should pass this in as options to application instead of camelot dependency
-			const locales = (window as any).camelot?.configuration?.intl?.locales ?? "en-US";
-			const currencyCode = (window as any).camelot?.configuration?.intl?.currencyCode ?? "USD";
-
-			return Intl.NumberFormat(locales, {
-				style: style == "c0" || style == "c2" ? "currency" : style,
-				currency: currencyCode,
-				minimumFractionDigits: style == "c2" ? 2 : 0,
-				maximumFractionDigits: style == "c2" ? 2 : 0
-			}).format(amount);
 		}
 	}
 }

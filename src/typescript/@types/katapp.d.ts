@@ -135,7 +135,6 @@ declare namespace KatApps {
         protected unmounted(application: KatApp, input: HTMLInputElement, clearOnUnmount: boolean | undefined): void;
         protected mounted(application: KatApp, scope: IStringAnyIndexer, name: string, label: (name: string) => string, input: HTMLInputElement, defaultValue: (name: string) => string | undefined, isExcluded: boolean, noCalc: (name: string) => boolean, displayFormat: (name: string) => string | undefined, hasMask: boolean, mask: (name: string) => string | undefined, maxLength: (name: string) => number, keypressRegex: (name: string) => string | undefined, events: undefined | IStringIndexer<((e: Event, application: KatApp, scope: IStringAnyIndexer) => void)>, refs: IStringIndexer<HTMLElement>): void;
         private bindInputEvents;
-        static percentFormat: RegExp;
         private bindRangeEvents;
         private bindDateEvents;
         private bindCustomEvents;
@@ -223,7 +222,6 @@ declare namespace KatApps {
         private createRect;
         private getOptionJson;
         private getOptionValue;
-        private formatNumber;
     }
 }
 declare namespace KatApps {
@@ -310,9 +308,13 @@ type IRblChartConfigurationDataType = number | Array<number>;
 type IRblChartConfigurationType = "column" | "columnStacked" | "donut" | "sharkfin";
 type IRblChartConfigurationShape = "square" | "circle" | "line";
 type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
-type IRblChartFormatStyle = 'decimal' | 'currency' | 'c0' | 'c2' | 'percent' | 'unit';
 type IRblChartColumnName = "value" | `data${number}`;
 type IRblPlotColumnName = "text" | "textXs";
+type IRblFormatDecimals = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20;
+type IRblCurrencyFormat = "c" | `c${IRblFormatDecimals}`;
+type IRblPercentFormat = "p" | `p${IRblFormatDecimals}`;
+type IRblNumberFormat = "n" | `n${IRblFormatDecimals}` | "f" | `f${IRblFormatDecimals}`;
+type IRblDateFormat = 'd' | 'g' | 's' | 't' | "trace" | "dv" | string;
 interface KaChartElement<T extends IRblChartConfigurationDataType> extends HTMLElement {
     kaChart: IRblChartConfiguration<T>;
     kaDomUpdated?: boolean;
@@ -381,7 +383,7 @@ interface IRblChartConfigurationPlotOptions {
 }
 interface IRblChartConfigurationXAxis {
     label: string | undefined;
-    format: IRblChartFormatStyle;
+    format: IRblCurrencyFormat;
     minCategory: number;
     maxCategory: number;
     plotBandSegmentWidth: number;
@@ -392,7 +394,7 @@ interface IRblChartConfigurationXAxis {
 }
 interface IRblChartConfigurationYAxis {
     label: string | undefined;
-    format: IRblChartFormatStyle;
+    format: IRblCurrencyFormat;
     tickCount: number;
     intervalSize: number;
     maxValue: number;
@@ -454,7 +456,7 @@ interface IRblChartConfigurationTip {
 }
 interface IRblChartConfigurationDataLabels {
     show: boolean;
-    format: IRblChartFormatStyle;
+    format: IRblCurrencyFormat;
 }
 interface IRblChartConfigurationChartColumn {
     maxValue: number;
@@ -1255,5 +1257,9 @@ declare namespace KatApps {
         static getSessionItem<T = string>(options: IKatAppOptions, key: string, oneTimeUse?: boolean): T | undefined;
         static removeSessionItem(options: IKatAppOptions, key: string): void;
         static clearSession(prefix: string | undefined): void;
+        static formatCurrency(amount: number, style: IRblCurrencyFormat): string;
+        static formatNumber(value: number, format?: IRblNumberFormat): string;
+        static formatPercent(value: number, format?: IRblPercentFormat, divideBy100?: boolean): string;
+        static formatDate(value: string | Date, format?: IRblDateFormat): string;
     }
 }

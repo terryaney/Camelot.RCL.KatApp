@@ -454,14 +454,25 @@ namespace KatApps {
 			}
 		}
 
-		static percentFormat = /([/s/S]*?){0:p\d*}/;
-
 		private bindRangeEvents(name: string, input: HTMLInputElement, refs: IStringIndexer<HTMLElement>, displayFormat: (name: string) => string | undefined, inputEventAsync: (calculate: boolean, calculateOnDelay?: boolean) => Promise<void>): void {
 			// https://css-tricks.com/value-bubbles-for-range-inputs/
 			let bubbleTimer: number | undefined;
 			const bubble = refs.bubble;
 			const bubbleValue = refs.bubbleValue ?? bubble;
 			const display = refs.display;
+
+			const formatRange = (value: string, format: string | undefined) => {
+				if (format == undefined) return value;
+
+				// format is {0:formatString} and I want just format string...
+				const formatString = format.slice(3, -1);
+
+				if (formatString[0] == "p") return Utils.formatPercent(+value, formatString as IRblPercentFormat, true);
+				if (formatString[0] == "n" || formatString[0] == "f") return Utils.formatNumber(+value, formatString as IRblNumberFormat);
+				if (formatString[0] == "c") return Utils.formatCurrency(+value, formatString as IRblCurrencyFormat);
+					
+				throw new Error(`Unsupported format ${formatString} for range input ${name}`);
+			};
 
 			const setRangeValues = (showBubble: boolean) => {
 				if (bubbleTimer) {
@@ -471,9 +482,7 @@ namespace KatApps {
 				const
 					value = input.value,
 					valueFormat = displayFormat(name),
-					displayValue = valueFormat != undefined
-						? String.localeFormat(valueFormat, valueFormat.match(InputComponent.percentFormat) ? +value / 100 : +value)
-						: value.toString(),
+					displayValue = formatRange(value, valueFormat),
 					max = +(input.getAttribute("max"))!,
 					min = +(input.getAttribute("min"))!,
 					newValue = Number((+value - min) * 100 / (max - min)),

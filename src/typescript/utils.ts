@@ -125,7 +125,13 @@
 				const lastDelta = Math.abs(currentTrace.getTime() - lastTrace.getTime());
 				application.traceLast = currentTrace;
 				// Date MillisecondsFromStart MilliscondsFromLastTrace DataGroup KatAppId CallerType CallerMethod Message
-				const log = `${String.localeFormat("{0:yyyy-MM-dd hh:mm:ss:ff}", currentTrace)}\t${String(startDelta).padStart(5, "0")}\t${String(lastDelta).padStart(5, "0")}\t${application.options.dataGroup}\t${katApp ?? "Unavailable"}\t${origin}\t${methodName}: ${message}`;
+
+				const dt = currentTrace;
+				const pad2 = (n: number) => String(n).padStart(2, "0");
+				const datePart = [dt.getFullYear(), pad2(dt.getMonth() + 1), pad2(dt.getDate())].join('-');
+				const timePart = `${[pad2(dt.getHours()), pad2(dt.getMinutes()), pad2(dt.getSeconds())].join(':')}:${pad2(Math.floor(dt.getMilliseconds() / 10))}`;
+
+				const log = `${datePart} ${timePart}\t${String(startDelta).padStart(5, "0")}\t${String(lastDelta).padStart(5, "0")}\t${application.options.dataGroup}\t${katApp ?? "Unavailable"}\t${origin}\t${methodName}: ${message}`;
 
 				if (groupItems.length > 0) {
 					console.group(log);
@@ -200,6 +206,127 @@
 				const key = sessionStorage.key(i);
 				if (key != undefined && key.startsWith(keyPrefix)) {
 					sessionStorage.removeItem(key);
+				}
+			}
+		}
+
+		public static formatCurrency(amount: number, style: IRblCurrencyFormat): string {
+			// TODO: Should pass this in as options to application instead of camelot dependency
+			const l = (window as any).camelot?.configuration?.intl?.locales ?? "en-US";
+			const currencyCode = (window as any).camelot?.configuration?.intl?.currencyCode ?? "USD";
+
+			return Intl.NumberFormat(l, {
+				style: "currency",
+				currency: currencyCode,
+				minimumFractionDigits: style == "c2" ? 2 : 0,
+				maximumFractionDigits: style == "c2" ? 2 : 0
+			}).format(amount);
+		}
+		
+		public static formatNumber(value: number, format: IRblNumberFormat = "n") {
+			// TODO: Should pass this in as options to application instead of camelot dependency
+			const l = (window as any).camelot?.configuration?.intl?.locales ?? "en-US";
+			
+			const useGrouping = format.toLowerCase().startsWith("n"); // 'N' for grouping, 'F' for fixed-point
+			const decimalPlaces = parseInt(format.slice(1)) || 0; // Extract decimal places from format (e.g., "N2" -> 2)
+		
+			return Intl.NumberFormat(l, {
+				style: "decimal",
+				useGrouping: useGrouping,
+				minimumFractionDigits: decimalPlaces,
+				maximumFractionDigits: decimalPlaces
+			}).format(value);
+		}
+
+		public static formatPercent(value: number, format: IRblPercentFormat = "p", divideBy100?: boolean) {
+			// TODO: Should pass this in as options to application instead of camelot dependency
+			const l = (window as any).camelot?.configuration?.intl?.locales ?? "en-US";
+			const decimalPlaces = parseInt(format.slice(1)) || 0; // Extract decimal places from format (e.g., "P2" -> 2)
+			
+			let pValue = value;
+			
+			if (divideBy100 === true || (pValue > 1 && divideBy100 == undefined)) {
+				pValue = pValue / 100;
+			}
+
+			return Intl.NumberFormat(l, {
+				style: "percent",
+				minimumFractionDigits: decimalPlaces,
+				maximumFractionDigits: decimalPlaces
+			}).format(pValue);
+		}
+
+		public static formatDate(value: string | Date, format: IRblDateFormat = "g") {
+			const dateValue = value instanceof Date ? value : new Date(value);
+			// TODO: Should pass this in as options to application instead of camelot dependency
+			const l = (window as any).camelot?.configuration?.intl?.locales ?? "en-US";
+
+			if (format == "s") return dateValue.toISOString().slice(0, 19); // ISO8601 sortable: yyyy-MM-ddTHH:mm:ss
+			else if (format == "dv") return dateValue.toISOString().slice(0, 10); // yyyy-MM-dd
+
+			switch (format) {						
+				// M/d/yyyy
+				case "d": return Intl.DateTimeFormat(l, { year: 'numeric', month: 'numeric', day: 'numeric' }).format(dateValue);
+				// h:mm tt
+				case "t": return Intl.DateTimeFormat(l, { timeStyle: "short" }).format(dateValue);
+				// M/d/yyyy h:mm:ss tt
+				case "g": {
+					const datePart = Intl.DateTimeFormat(l, { year: 'numeric', month: 'numeric', day: 'numeric' }).format(dateValue);
+					const timePart = Intl.DateTimeFormat(l, { timeStyle: "medium" }).format(dateValue);
+					return `${datePart} ${timePart}`;
+				}
+				// yyyy-MM-dd hh:mm:ss:ff
+				case "trace": {
+					const dt = dateValue;
+					const pad2 = (n: number) => String(n).padStart(2, "0");
+					const datePart = [dt.getFullYear(), pad2(dt.getMonth() + 1), pad2(dt.getDate())].join('-');
+					const timePart = `${[pad2(dt.getHours()), pad2(dt.getMinutes()), pad2(dt.getSeconds())].join(':')}:${pad2(Math.floor(dt.getMilliseconds() / 10))}`;
+					return `${datePart} ${timePart}`;
+				}
+				default: {
+					const tokenRegex = /M{1,4}|d{1,4}|y{1,4}/g;
+					const matches = [...format.matchAll(tokenRegex)];
+					
+					const year = (matches.find(m => m["0"].indexOf("y") > -1)?.["0"].length ?? 4) == 2 ? "2-digit" : "numeric";
+					const monthLength = (matches.find(m => m["0"].indexOf("M") > -1)?.["0"].length ?? 1);
+					const month = monthLength == 1 ? "numeric" : monthLength == 2 ? "2-digit" : monthLength == 3 ? "short" : "long";
+
+					// Currently, there might be a format like dddd, MMMM d, yyyy where 'day' is
+					// used multiple times.  Currently only supporting the possibility for that
+					// but if I need to support all tokens used multiple times, then I just need to
+					// call DateTimeFormat for every match (or figure out a caching/unique detection method).
+					const dayPatterns = matches.find(m => m["0"].indexOf("d") > -1)
+						? matches.filter(m => m["0"].indexOf("d") > -1).map(m => m["0"])
+						: ["d"];
+
+					const partsByPattern = dayPatterns.reduce((map, pattern) => {
+						const len = pattern.length;
+						const dayOpt = len == 1 ? "numeric" : len == 2 ? "2-digit" : undefined;
+						const weekdayOpt = len == 3 ? "short" : len == 4 ? "long" : undefined;
+						map[pattern] = Intl.DateTimeFormat(l, {
+							year, month, day: dayOpt, weekday: weekdayOpt
+						}).formatToParts(dateValue);
+						return map;
+					}, {} as Record<string, Intl.DateTimeFormatPart[]>);
+
+					// replace each token in one pass, using its exact position
+					return format.replace(tokenRegex, token => {
+						const parts = partsByPattern[token] || partsByPattern[dayPatterns[0]];
+						switch (token[0].toLowerCase()) {
+							case "m":
+								return parts.find(p => p.type == "month")!.value;
+							case "d": {
+								const dayPart =
+									parts.find(p => p.type == "day") ??
+									parts.find(p => p.type == "weekday")!;
+								return dayPart.value;
+							}
+							case "y":
+								return parts.find(p => p.type == "year")!.value;
+							default:
+								return token;
+						}
+					});
 				}
 			}
 		}

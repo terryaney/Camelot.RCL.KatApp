@@ -1976,15 +1976,16 @@ Type 'help' to see available options displayed in the console.`;
 			const templateString = this.getResourceString(keyParts[0]) ?? keyParts[0];
 			const templateArgs: Array<string | Date | Number> = keyParts.slice(1);
 
-			const regex = /\{(\d+):([^{}]+)\}/g;
 			const dateRegex = /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})(?:T.*)?/;
 			const numberRegex = /^-?\d+(\.\d+)?$/;
-			const matches = templateString.matchAll(regex);
+
+			const placeHolderRegex = /\{(\d+)(?::([^{}]+))?\}/g;
+			const placeHolderMatches = templateString.matchAll(placeHolderRegex);
 			
-			for (const match of matches) {
+			for (const match of placeHolderMatches) {
 				const index = +match[1];
-				
 				const arg = templateArgs[index] as string;
+
 				const dateMatch = arg.match(dateRegex);
 				if (dateMatch != undefined) {
 					templateArgs[index] = new Date(parseInt(dateMatch.groups!.year), parseInt(dateMatch.groups!.month) - 1, parseInt(dateMatch.groups!.day));
@@ -1997,7 +1998,25 @@ Type 'help' to see available options displayed in the console.`;
                 }
 			}
 			
-            resourceString = String.localeFormat(templateString, ...templateArgs);
+			resourceString = templateString.replace(placeHolderRegex, (_match, idx, fmt) => {
+			    // `_match` is the entire "{…}" placeholder, `idx` is the digit index, `fmt` is the format if present
+			    const val = templateArgs[+idx];
+			    
+				if (fmt) {
+					// fmt example: "p2", "MM/dd/yyyy"
+					if (typeof val === "number") {
+						if (fmt.startsWith("p")) return KatApps.Utils.formatPercent(val, fmt as IRblPercentFormat);
+						if (fmt.startsWith("c")) return KatApps.Utils.formatCurrency(val, fmt as IRblCurrencyFormat);
+						if (fmt.startsWith("n") || fmt.startsWith("f")) return KatApps.Utils.formatNumber(val, fmt as IRblNumberFormat);
+
+						throw new Error(`Invalid getLocalizedString format string: ${fmt}, value: ${val}`);
+					}
+
+			        return KatApps.Utils.formatDate(val as Date, fmt as IRblDateFormat);
+			    }
+			    
+				return String(val);
+			});
 		}
 		
 		const resource = resourceString ?? resourceDefault;

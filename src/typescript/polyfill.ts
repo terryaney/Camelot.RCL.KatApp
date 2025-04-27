@@ -142,12 +142,15 @@
 					const dateRegex = /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})(?:T.*)?/;
                     const dateMatch = tokenValue.match(dateRegex);
                     if (dateMatch != undefined) {
-                        tokenValue = String.localeFormat(`{0:${tokenFormat}}`, new Date(parseInt(dateMatch.groups.year), parseInt(dateMatch.groups.month) - 1, parseInt(dateMatch.groups.day)));
+                        tokenValue = KatApps.Utils.formatDate(new Date(parseInt(dateMatch.groups.year), parseInt(dateMatch.groups.month) - 1, parseInt(dateMatch.groups.day)), tokenFormat);
                     }
                     else if (numberRegex.test(tokenValue)) {
-                        const number = parseFloat(tokenValue);
-                        if (!isNaN(number)) {
-                            tokenValue = String.localeFormat(`{0:${tokenFormat}}`, number);
+                        const val = parseFloat(tokenValue);
+                        if (!isNaN(val)) {
+							if (tokenFormat.startsWith("p")) tokenValue = KatApps.Utils.formatPercent(val, tokenFormat as IRblPercentFormat);
+							else if (tokenFormat.startsWith("c")) tokenValue = KatApps.Utils.formatCurrency(val, tokenFormat as IRblCurrencyFormat);
+							else if (tokenFormat.startsWith("n") || tokenFormat.startsWith("f")) tokenValue = KatApps.Utils.formatNumber(val, tokenFormat as IRblNumberFormat);
+							else throw new Error(`Invalid String.formatTokens format string: ${tokenFormat}, value: ${val}`);
                         }
                     }
 				}

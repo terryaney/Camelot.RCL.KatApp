@@ -124,11 +124,11 @@
 					this.points.forEach((point, index) => {
 						if (point.y > 0) {
 
-							s += String.formatTokens(pointTemplate, { name: point.series.name, value: String.localeFormat("{0:" + seriesFormats[index] + "}", point.y) });
+							s += String.formatTokens(pointTemplate, { name: point.series.name, value: Utils.formatCurrency(point.y, seriesFormats[index] as IRblCurrencyFormat) });
 							t += point.y;
 						}
 					});
-					return String.formatTokens(tooltipFormat, { x: this.x, stackTotal: String.localeFormat("{0:" + seriesFormats[0] + "}", t), seriesDetail: s });
+					return String.formatTokens(tooltipFormat, { x: this.x, stackTotal: Utils.formatCurrency(t, seriesFormats[0] as IRblCurrencyFormat), seriesDetail: s });
 				},
 				shared: true
 			};
@@ -354,12 +354,12 @@
 						yAxis: {
 							labels: {
 								formatter: function (this: HighchartsDataPoint): string {
-									return String.localeFormat("{0:c0}", this.value);
+									return this.value != undefined ? Utils.formatCurrency(this.value, 'c0') : "";
 								}
 							},
 							stackLabels: {
 								formatter: function (this: HighchartsDataPoint): string {
-									return String.localeFormat("{0:c0}", this.value);
+									return this.value != undefined ? Utils.formatCurrency(this.value, 'c0') : "";
 								}
 							}
 						}

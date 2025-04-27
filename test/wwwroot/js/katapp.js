@@ -1450,11 +1450,11 @@ Type 'help' to see available options displayed in the console.`;
             const keyParts = key.split("^");
             const templateString = this.getResourceString(keyParts[0]) ?? keyParts[0];
             const templateArgs = keyParts.slice(1);
-            const regex = /\{(\d+):([^{}]+)\}/g;
             const dateRegex = /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})(?:T.*)?/;
             const numberRegex = /^-?\d+(\.\d+)?$/;
-            const matches = templateString.matchAll(regex);
-            for (const match of matches) {
+            const placeHolderRegex = /\{(\d+)(?::([^{}]+))?\}/g;
+            const placeHolderMatches = templateString.matchAll(placeHolderRegex);
+            for (const match of placeHolderMatches) {
                 const index = +match[1];
                 const arg = templateArgs[index];
                 const dateMatch = arg.match(dateRegex);
@@ -1468,7 +1468,22 @@ Type 'help' to see available options displayed in the console.`;
                     }
                 }
             }
-            resourceString = String.localeFormat(templateString, ...templateArgs);
+            resourceString = templateString.replace(placeHolderRegex, (_match, idx, fmt) => {
+                const val = templateArgs[+idx];
+                if (fmt) {
+                    if (typeof val === "number") {
+                        if (fmt.startsWith("p"))
+                            return KatApps.Utils.formatPercent(val, fmt);
+                        if (fmt.startsWith("c"))
+                            return KatApps.Utils.formatCurrency(val, fmt);
+                        if (fmt.startsWith("n") || fmt.startsWith("f"))
+                            return KatApps.Utils.formatNumber(val, fmt);
+                        throw new Error(`Invalid getLocalizedString format string: ${fmt}, value: ${val}`);
+                    }
+                    return KatApps.Utils.formatDate(val, fmt);
+                }
+                return String(val);
+            });
         }
         const resource = resourceString ?? resourceDefault;
         if (resource == undefined)
@@ -2572,19 +2587,28 @@ var KatApps;
                 }
             }
         }
-        static percentFormat = /([/s/S]*?){0:p\d*}/;
         bindRangeEvents(name, input, refs, displayFormat, inputEventAsync) {
             let bubbleTimer;
             const bubble = refs.bubble;
             const bubbleValue = refs.bubbleValue ?? bubble;
             const display = refs.display;
+            const formatRange = (value, format) => {
+                if (format == undefined)
+                    return value;
+                const formatString = format.slice(3, -1);
+                if (formatString[0] == "p")
+                    return KatApps.Utils.formatPercent(+value, formatString, true);
+                if (formatString[0] == "n" || formatString[0] == "f")
+                    return KatApps.Utils.formatNumber(+value, formatString);
+                if (formatString[0] == "c")
+                    return KatApps.Utils.formatCurrency(+value, formatString);
+                throw new Error(`Unsupported format ${formatString} for range input ${name}`);
+            };
             const setRangeValues = (showBubble) => {
                 if (bubbleTimer) {
                     clearTimeout(bubbleTimer);
                 }
-                const value = input.value, valueFormat = displayFormat(name), displayValue = valueFormat != undefined
-                    ? String.localeFormat(valueFormat, valueFormat.match(KatApps.InputComponent.percentFormat) ? +value / 100 : +value)
-                    : value.toString(), max = +(input.getAttribute("max")), min = +(input.getAttribute("min")), newValue = Number((+value - min) * 100 / (max - min)), newPosition = 10 - (newValue * 0.2);
+                const value = input.value, valueFormat = displayFormat(name), displayValue = formatRange(value, valueFormat), max = +(input.getAttribute("max")), min = +(input.getAttribute("min")), newValue = Number((+value - min) * 100 / (max - min)), newPosition = 10 - (newValue * 0.2);
                 if (display != undefined) {
                     display.innerHTML = displayValue;
                 }
@@ -3345,7 +3369,7 @@ var KatApps;
             const maxDataValue = Math.max(...data.map(item => Array.isArray(item.data)
                 ? Math.max(item.data.reduce((sum, v, i) => sum + (seriesConfig[i].shape != "line" ? v : 0), 0), ...item.data.map((v, i) => seriesConfig[i].shape != "line" ? v : 0))
                 : item.data)) * (dataLabels.show ? 1.05 : 1.025);
-            const maxDataValueString = this.formatNumber(maxDataValue, yAxisConfig.format) + "000";
+            const maxDataValueString = KatApps.Utils.formatCurrency(maxDataValue, yAxisConfig.format) + "000";
             const hasAxis = chartType != "donut";
             const directive = this;
             const config = {
@@ -3545,7 +3569,7 @@ var KatApps;
                     element.setAttribute("data-is-tooltip", "1");
                     element.setAttribute("opacity", "0");
                 }
-                const valueFormatted = this.formatNumber(value, configuration.plotOptions.dataLabels.format);
+                const valueFormatted = KatApps.Utils.formatCurrency(value, configuration.plotOptions.dataLabels.format);
                 element.setAttribute("ka-chart-highlight-key", elementConfig.text);
                 element.setAttribute("aria-label", `${elementConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`);
                 return element;
@@ -3582,7 +3606,7 @@ var KatApps;
                         ? item.data.reduce((sum, v) => sum + v, 0)
                         : item.data;
                     const labelY = configuration.plotOptions.yAxis.getY(totalValue) - 10;
-                    const dataLabel = this.createText(configuration.plotOptions, columnX + columnConfig.width / 2, labelY, this.formatNumber(totalValue, configuration.plotOptions.dataLabels.format), { "text-anchor": "middle", "font-size": `${configuration.plotOptions.font.size.dataLabel}px`, "font-weight": "bold" });
+                    const dataLabel = this.createText(configuration.plotOptions, columnX + columnConfig.width / 2, labelY, KatApps.Utils.formatCurrency(totalValue, configuration.plotOptions.dataLabels.format), { "text-anchor": "middle", "font-size": `${configuration.plotOptions.font.size.dataLabel}px`, "font-weight": "bold" });
                     columnGroup.appendChild(dataLabel);
                 }
                 const linePoints = columnElements.filter(e => !(e instanceof Element));
@@ -3673,7 +3697,7 @@ var KatApps;
                 const x2 = normalizedRadius * Math.cos((currentAngle - 90) * Math.PI / 180) + radius;
                 const y2 = normalizedRadius * Math.sin((currentAngle - 90) * Math.PI / 180) + radius;
                 const largeArcFlag = angle > 180 ? 1 : 0;
-                const valueFormatted = this.formatNumber(item.data, configuration.plotOptions.dataLabels.format);
+                const valueFormatted = KatApps.Utils.formatCurrency(item.data, configuration.plotOptions.dataLabels.format);
                 const path = this.createPath(`M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`, "none", 0, configuration.series[index].color);
                 path.setAttribute("aria-label", `${item.name}, ${valueFormatted}.`);
                 path.setAttribute("ka-chart-highlight-key", item.name);
@@ -3685,7 +3709,7 @@ var KatApps;
             const svg = this.getChartSvgElement(configuration.plotOptions);
             svg.append(...segments);
             svg.appendChild(this.createCircle(radius, radius, radius - strokeWidth, "white"));
-            svg.appendChild(this.createText(configuration.plotOptions, radius, radius, this.formatNumber(total, configuration.plotOptions.dataLabels.format), { "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": `${configuration.plotOptions.font.size.donutLabel}px`, "font-weight": "bold" }));
+            svg.appendChild(this.createText(configuration.plotOptions, radius, radius, KatApps.Utils.formatCurrency(total, configuration.plotOptions.dataLabels.format), { "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": `${configuration.plotOptions.font.size.donutLabel}px`, "font-weight": "bold" }));
             container.appendChild(svg);
         }
         addLegend(el) {
@@ -3935,7 +3959,7 @@ var KatApps;
                 const tooltipContent = document.createElement("div");
                 tooltipContent.className = `tooltip-${index}`;
                 const tooltipSvg = document.createElementNS(this.ns, "svg");
-                const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipInfo.map(tip => `${tip.name}: ${this.formatNumber(tip.value, configuration.plotOptions.dataLabels.format)}`.length))) * 7;
+                const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipInfo.map(tip => `${tip.name}: ${KatApps.Utils.formatCurrency(tip.value, configuration.plotOptions.dataLabels.format)}`.length))) * 7;
                 const svgWidth = maxTextWidth + tipConfig.padding.left * 2;
                 const includeTotal = tipConfig.includeTotal && tipInfo.length > 1;
                 tooltipSvg.setAttribute("viewBox", `0 0 ${svgWidth} ${(tipInfo.length + (header ? 1 : 0) + (includeTotal ? 1 : 0)) * 20 + tipConfig.padding.top * 2}`);
@@ -3954,13 +3978,13 @@ var KatApps;
                     const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${tip.name}: `, { "font-size": `${configuration.plotOptions.font.size.tipBody}px` });
                     const tspan = document.createElementNS(this.ns, "tspan");
                     tspan.setAttribute("font-weight", "bold");
-                    tspan.innerHTML = this.formatNumber(tip.value, configuration.plotOptions.dataLabels.format);
+                    tspan.innerHTML = KatApps.Utils.formatCurrency(tip.value, configuration.plotOptions.dataLabels.format);
                     text.appendChild(tspan);
                     tooltipSvg.appendChild(text);
                 });
                 if (includeTotal) {
                     const y = tipLineBaseY + (tipInfo.length + 1) * 20;
-                    const total = this.formatNumber(tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
+                    const total = KatApps.Utils.formatCurrency(tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
                     const text = this.createText(configuration.plotOptions, shapeXPadding, y, `Total: ${total}`, { "font-size": `${configuration.plotOptions.font.size.tipBody}px` });
                     text.setAttribute("font-weight", "bold");
                     tooltipSvg.appendChild(text);
@@ -3980,7 +4004,7 @@ var KatApps;
             markerGroup.appendChild(glow);
             markerGroup.append(...points.map(point => {
                 const diamond = this.createPointMarker(point.x, point.y, point.seriesConfig.color);
-                const valueFormatted = this.formatNumber(point.value, configuration.plotOptions.dataLabels.format);
+                const valueFormatted = KatApps.Utils.formatCurrency(point.value, configuration.plotOptions.dataLabels.format);
                 diamond.setAttribute("aria-label", `${point.seriesConfig.text}, ${valueFormatted}. ${this.getHeader(configuration.plotOptions, point.name)}.`);
                 diamond.setAttribute("ka-chart-point", `${point.x},${point.y}`);
                 return diamond;
@@ -4070,7 +4094,7 @@ var KatApps;
                 const tickLine = i != 0
                     ? this.createLine(paddingConfig.left, y, configuration.plotOptions.width - paddingConfig.right, y, "#e6e6e6")
                     : undefined;
-                const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, this.formatNumber(value, configuration.plotOptions.yAxis.format), { "text-anchor": "end", "font-size": `${configuration.plotOptions.font.size.yAxisTickLabels}px`, "dominant-baseline": "middle" });
+                const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, KatApps.Utils.formatCurrency(value, configuration.plotOptions.yAxis.format), { "text-anchor": "end", "font-size": `${configuration.plotOptions.font.size.yAxisTickLabels}px`, "dominant-baseline": "middle" });
                 return tickLine ? [tickLine, tickLabel] : [tickLabel];
             });
             if (yAxisLabel != undefined)
@@ -4210,16 +4234,6 @@ var KatApps;
             return (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
                 globalOptions?.find(r => r.id == name)?.value ?? defaultValue);
         }
-        formatNumber(amount, style) {
-            const locales = window.camelot?.internationalization?.locales ?? "en-US";
-            const currencyCode = window.camelot?.internationalization?.currencyCode ?? "USD";
-            return Intl.NumberFormat(locales, {
-                style: style == "c0" || style == "c2" ? "currency" : style,
-                currency: currencyCode,
-                minimumFractionDigits: style == "c2" ? 2 : 0,
-                maximumFractionDigits: style == "c2" ? 2 : 0
-            }).format(amount);
-        }
     }
     KatApps.DirectiveKaChart = DirectiveKaChart;
 })(KatApps || (KatApps = {}));
@@ -4311,11 +4325,11 @@ var KatApps;
                         : "<br/>{{name}}: {{value}}";
                     this.points.forEach((point, index) => {
                         if (point.y > 0) {
-                            s += String.formatTokens(pointTemplate, { name: point.series.name, value: String.localeFormat("{0:" + seriesFormats[index] + "}", point.y) });
+                            s += String.formatTokens(pointTemplate, { name: point.series.name, value: KatApps.Utils.formatCurrency(point.y, seriesFormats[index]) });
                             t += point.y;
                         }
                     });
-                    return String.formatTokens(tooltipFormat, { x: this.x, stackTotal: String.localeFormat("{0:" + seriesFormats[0] + "}", t), seriesDetail: s });
+                    return String.formatTokens(tooltipFormat, { x: this.x, stackTotal: KatApps.Utils.formatCurrency(t, seriesFormats[0]), seriesDetail: s });
                 },
                 shared: true
             };
@@ -4477,12 +4491,12 @@ var KatApps;
                         yAxis: {
                             labels: {
                                 formatter: function () {
-                                    return String.localeFormat("{0:c0}", this.value);
+                                    return this.value != undefined ? KatApps.Utils.formatCurrency(this.value, 'c0') : "";
                                 }
                             },
                             stackLabels: {
                                 formatter: function () {
-                                    return String.localeFormat("{0:c0}", this.value);
+                                    return this.value != undefined ? KatApps.Utils.formatCurrency(this.value, 'c0') : "";
                                 }
                             }
                         }
@@ -5944,12 +5958,19 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
                     const dateRegex = /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})(?:T.*)?/;
                     const dateMatch = tokenValue.match(dateRegex);
                     if (dateMatch != undefined) {
-                        tokenValue = String.localeFormat(`{0:${tokenFormat}}`, new Date(parseInt(dateMatch.groups.year), parseInt(dateMatch.groups.month) - 1, parseInt(dateMatch.groups.day)));
+                        tokenValue = KatApps.Utils.formatDate(new Date(parseInt(dateMatch.groups.year), parseInt(dateMatch.groups.month) - 1, parseInt(dateMatch.groups.day)), tokenFormat);
                     }
                     else if (numberRegex.test(tokenValue)) {
-                        const number = parseFloat(tokenValue);
-                        if (!isNaN(number)) {
-                            tokenValue = String.localeFormat(`{0:${tokenFormat}}`, number);
+                        const val = parseFloat(tokenValue);
+                        if (!isNaN(val)) {
+                            if (tokenFormat.startsWith("p"))
+                                tokenValue = KatApps.Utils.formatPercent(val, tokenFormat);
+                            else if (tokenFormat.startsWith("c"))
+                                tokenValue = KatApps.Utils.formatCurrency(val, tokenFormat);
+                            else if (tokenFormat.startsWith("n") || tokenFormat.startsWith("f"))
+                                tokenValue = KatApps.Utils.formatNumber(val, tokenFormat);
+                            else
+                                throw new Error(`Invalid String.formatTokens format string: ${tokenFormat}, value: ${val}`);
                         }
                     }
                 }
@@ -6058,7 +6079,11 @@ var KatApps;
                 const startDelta = Math.abs(currentTrace.getTime() - startTrace.getTime());
                 const lastDelta = Math.abs(currentTrace.getTime() - lastTrace.getTime());
                 application.traceLast = currentTrace;
-                const log = `${String.localeFormat("{0:yyyy-MM-dd hh:mm:ss:ff}", currentTrace)}\t${String(startDelta).padStart(5, "0")}\t${String(lastDelta).padStart(5, "0")}\t${application.options.dataGroup}\t${katApp ?? "Unavailable"}\t${origin}\t${methodName}: ${message}`;
+                const dt = currentTrace;
+                const pad2 = (n) => String(n).padStart(2, "0");
+                const datePart = [dt.getFullYear(), pad2(dt.getMonth() + 1), pad2(dt.getDate())].join('-');
+                const timePart = `${[pad2(dt.getHours()), pad2(dt.getMinutes()), pad2(dt.getSeconds())].join(':')}:${pad2(Math.floor(dt.getMilliseconds() / 10))}`;
+                const log = `${datePart} ${timePart}\t${String(startDelta).padStart(5, "0")}\t${String(lastDelta).padStart(5, "0")}\t${application.options.dataGroup}\t${katApp ?? "Unavailable"}\t${origin}\t${methodName}: ${message}`;
                 if (groupItems.length > 0) {
                     console.group(log);
                     groupItems.forEach(i => i instanceof Error ? console.error({ i }) : console.log(i));
@@ -6123,6 +6148,99 @@ var KatApps;
                 const key = sessionStorage.key(i);
                 if (key != undefined && key.startsWith(keyPrefix)) {
                     sessionStorage.removeItem(key);
+                }
+            }
+        }
+        static formatCurrency(amount, style) {
+            const l = window.camelot?.configuration?.intl?.locales ?? "en-US";
+            const currencyCode = window.camelot?.configuration?.intl?.currencyCode ?? "USD";
+            return Intl.NumberFormat(l, {
+                style: "currency",
+                currency: currencyCode,
+                minimumFractionDigits: style == "c2" ? 2 : 0,
+                maximumFractionDigits: style == "c2" ? 2 : 0
+            }).format(amount);
+        }
+        static formatNumber(value, format = "n") {
+            const l = window.camelot?.configuration?.intl?.locales ?? "en-US";
+            const useGrouping = format.toLowerCase().startsWith("n");
+            const decimalPlaces = parseInt(format.slice(1)) || 0;
+            return Intl.NumberFormat(l, {
+                style: "decimal",
+                useGrouping: useGrouping,
+                minimumFractionDigits: decimalPlaces,
+                maximumFractionDigits: decimalPlaces
+            }).format(value);
+        }
+        static formatPercent(value, format = "p", divideBy100) {
+            const l = window.camelot?.configuration?.intl?.locales ?? "en-US";
+            const decimalPlaces = parseInt(format.slice(1)) || 0;
+            let pValue = value;
+            if (divideBy100 === true || (pValue > 1 && divideBy100 == undefined)) {
+                pValue = pValue / 100;
+            }
+            return Intl.NumberFormat(l, {
+                style: "percent",
+                minimumFractionDigits: decimalPlaces,
+                maximumFractionDigits: decimalPlaces
+            }).format(pValue);
+        }
+        static formatDate(value, format = "g") {
+            const dateValue = value instanceof Date ? value : new Date(value);
+            const l = window.camelot?.configuration?.intl?.locales ?? "en-US";
+            if (format == "s")
+                return dateValue.toISOString().slice(0, 19);
+            else if (format == "dv")
+                return dateValue.toISOString().slice(0, 10);
+            switch (format) {
+                case "d": return Intl.DateTimeFormat(l, { year: 'numeric', month: 'numeric', day: 'numeric' }).format(dateValue);
+                case "t": return Intl.DateTimeFormat(l, { timeStyle: "short" }).format(dateValue);
+                case "g": {
+                    const datePart = Intl.DateTimeFormat(l, { year: 'numeric', month: 'numeric', day: 'numeric' }).format(dateValue);
+                    const timePart = Intl.DateTimeFormat(l, { timeStyle: "medium" }).format(dateValue);
+                    return `${datePart} ${timePart}`;
+                }
+                case "trace": {
+                    const dt = dateValue;
+                    const pad2 = (n) => String(n).padStart(2, "0");
+                    const datePart = [dt.getFullYear(), pad2(dt.getMonth() + 1), pad2(dt.getDate())].join('-');
+                    const timePart = `${[pad2(dt.getHours()), pad2(dt.getMinutes()), pad2(dt.getSeconds())].join(':')}:${pad2(Math.floor(dt.getMilliseconds() / 10))}`;
+                    return `${datePart} ${timePart}`;
+                }
+                default: {
+                    const tokenRegex = /M{1,4}|d{1,4}|y{1,4}/g;
+                    const matches = [...format.matchAll(tokenRegex)];
+                    const year = (matches.find(m => m["0"].indexOf("y") > -1)?.["0"].length ?? 4) == 2 ? "2-digit" : "numeric";
+                    const monthLength = (matches.find(m => m["0"].indexOf("M") > -1)?.["0"].length ?? 1);
+                    const month = monthLength == 1 ? "numeric" : monthLength == 2 ? "2-digit" : monthLength == 3 ? "short" : "long";
+                    const dayPatterns = matches.find(m => m["0"].indexOf("d") > -1)
+                        ? matches.filter(m => m["0"].indexOf("d") > -1).map(m => m["0"])
+                        : ["d"];
+                    const partsByPattern = dayPatterns.reduce((map, pattern) => {
+                        const len = pattern.length;
+                        const dayOpt = len == 1 ? "numeric" : len == 2 ? "2-digit" : undefined;
+                        const weekdayOpt = len == 3 ? "short" : len == 4 ? "long" : undefined;
+                        map[pattern] = Intl.DateTimeFormat(l, {
+                            year, month, day: dayOpt, weekday: weekdayOpt
+                        }).formatToParts(dateValue);
+                        return map;
+                    }, {});
+                    return format.replace(tokenRegex, token => {
+                        const parts = partsByPattern[token] || partsByPattern[dayPatterns[0]];
+                        switch (token[0].toLowerCase()) {
+                            case "m":
+                                return parts.find(p => p.type == "month").value;
+                            case "d": {
+                                const dayPart = parts.find(p => p.type == "day") ??
+                                    parts.find(p => p.type == "weekday");
+                                return dayPart.value;
+                            }
+                            case "y":
+                                return parts.find(p => p.type == "year").value;
+                            default:
+                                return token;
+                        }
+                    });
                 }
             }
         }
