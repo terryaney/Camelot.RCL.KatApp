@@ -254,17 +254,18 @@
 					font: {
 						size: {
 							heuristic: 0.6,
-							default: 16,
-							yAxisLabel: 16 * 0.9,
-							yAxisTickLabels: 16 * 0.8,
-							xAxisLabel: 16 * 0.9,
-							xAxisTickLabels: 16 * 0.8,
-							plotBandLabel: 16 * 0.7,
-							plotBandLine: 16 * 0.8,
-							dataLabel: 16 * 0.7,
-							donutLabel: 16 * 2,
-							tipHeader: 16 * 0.6,
-							tipBody: 16 * 0.8
+							base: 16,
+							get default() { return this.base * directive.getOptionNumber(chartOptions, "font.multiplier", globalOptions, 1)!; },
+							get yAxisLabel() { return this.default * 0.9; },
+							get yAxisTickLabels() { return this.default * 0.8; },
+							get xAxisLabel() { return this.default * 0.9; },
+							get xAxisTickLabels() { return this.default * 0.8; },
+							get plotBandLabel() { return this.default * 0.7; },
+							get plotBandLine() { return this.default * 0.8; },
+							get dataLabel() { return this.default * 0.7; },
+							get donutLabel() { return this.default * 2; },
+							get tipHeader() { return this.base * 0.6; },
+							get tipBody() { return this.base * 0.8; }
 						}	
 					},
 						
@@ -561,7 +562,8 @@
 						columnX + columnConfig.width / 2, // Centered above the column
 						labelY,
 						Utils.formatCurrency(totalValue, configuration.plotOptions.dataLabels.format),
-						{ "text-anchor": "middle", "font-size": `${configuration.plotOptions.font.size.dataLabel}px`, "font-weight": "bold" }
+						configuration.plotOptions.font.size.dataLabel,
+						{ "text-anchor": "middle", "font-weight": "bold" }
 					);
 
 					columnGroup.appendChild(dataLabel);
@@ -714,7 +716,8 @@
 			svg.appendChild(this.createText(
 				configuration.plotOptions,
 				radius, radius, Utils.formatCurrency(total, configuration.plotOptions.dataLabels.format),
-				{ "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": `${configuration.plotOptions.font.size.donutLabel}px`, "font-weight": "bold" },
+				configuration.plotOptions.font.size.donutLabel,
+				{ "text-anchor": "middle", "dominant-baseline": "middle", "font-weight": "bold" },
 			));
 
 			container.appendChild(svg);
@@ -800,14 +803,10 @@
 						}
 
 						currentTip.show();
-
-						// console.log(`${event.type}: ${me.clientX}, ${me.clientY} Show tip: ${(event.target as SVGElement).getAttribute("ka-tip-key")}`)
 					});
-
-				// stackedArea
 			};
 
-			const registerHighlightEvents = () => {
+			const registerSeriesHighlightEvents = () => {
 				const seriesItems = [
 					{ textSelector: "span", highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverItem, elements: [...el.querySelectorAll(".ka-chart [ka-chart-highlight-key]")] },
 					{ textSelector: "span", highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverLegend, elements: [...el.querySelectorAll(".ka-chart-legend [ka-chart-highlight-key]")] }
@@ -846,7 +845,7 @@
 				});
 			};
 
-			let matrix: DOMMatrix | undefined;
+			let matrix: DOMMatrix = undefined!;
 
 			const registerMarkerEvents = () => {
 				if (el.querySelector(".ka-chart-marker-points")) {
@@ -862,7 +861,7 @@
 					const isStackedArea = el.kaChart.type == "sharkfin";
 
 					const areaTooltipMarkers = isStackedArea
-						? [...el.querySelectorAll(`.ka-chart-series-item[ka-stack-top="1"] path`)]
+						? [...el.querySelectorAll(`.ka-chart-series-item[ka-stack-top="1"] .ka-chart-marker-points path`)]
 						: [];
 
 					let currentColumn: number | undefined = undefined;
@@ -870,6 +869,7 @@
 	
 					const chartSvg = el.querySelector("svg")!;
 					const pt = chartSvg.createSVGPoint();
+					let svgRect: DOMRect = undefined!;
 
 					const columnCount = el.kaChart.plotOptions.column.count;
 					const columnWidth = el.kaChart.plotOptions.plotWidth / columnCount;
@@ -878,26 +878,26 @@
 					const plotBottom = el.kaChart.plotOptions.yAxis.baseY;
 					const plotTop = el.kaChart.plotOptions.padding.top;
 		
-					const setNoHover = () => {
+					const setNoHover = (me: MouseEvent) => {
 						if (currentColumn == undefined) return;
+
 						pointMarkers.forEach(g => {
 							g.points.forEach(p => p.setAttribute("opacity", "0"));
 							g.glow.setAttribute("opacity", "0");
 						});
-						currentTip?.hide();
+
+						if (currentTip) {
+							currentTip.hide();
+							currentTip = undefined;
+						}
+						
 						currentColumn = undefined;
 					};
 
-					this.application.off(chartSvg, "mousemove.ka.chart.marker mouseleave.ka.chart.marker").on("mousemove.ka.chart.marker mouseleave.ka.chart.marker", (event: Event) => {
-						const me = event as MouseEvent;
-						
-						if (event.type == "mouseleave") {
-							setNoHover();
-							return;
-						}
-
+					const processMove = (me: MouseEvent) => {
 						if (matrix == undefined) {
 							matrix = chartSvg.getScreenCTM()!.inverse();
+							svgRect = chartSvg.getBoundingClientRect();
 						}
 						
 						// map window coords into SVG coords
@@ -909,14 +909,14 @@
 						const isInsideY = loc.y >= plotTop && loc.y <= plotBottom;
 
 						if (!(isInsideX && isInsideY)) {
-							setNoHover();
+							setNoHover(me);
 							return;
 						}
 
 						// zero‑based column index under the pointer
 						const relativeX = loc.x - plotLeft;
 						const hoverColumn = Math.max(0, Math.min(columnCount - 1, Math.floor(relativeX / columnWidth)));
-						
+							
 						if (hoverColumn != currentColumn) {
 							currentColumn = hoverColumn;
 
@@ -934,30 +934,81 @@
 							});
 
 							if (isStackedArea) {
-								currentTip?.hide();
-								HelpTips.hideVisiblePopover();
-
 								const tipTrigger = areaTooltipMarkers[currentColumn];
-								currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
-								
-								if (!currentTip) {
+								// If current category tip is not initialized, then 
+								if (!bootstrap.Tooltip.getInstance(tipTrigger)) {
+									// Bootstrap show/hide are async, so need to wait for events to properly process
+									tipTrigger.addEventListener("hidden.bs.tooltip", (e: Event) => {
+										console.log(`hidden.bs.tooltip ${(e.target as Element)!.getAttribute("aria-label")}`);
+										currentTip?.show();
+									});
+
+									// If mouse over the tooptip, want to hide it if outside of chart and also move it with the mouse according to chart...
+									tipTrigger.addEventListener("inserted.bs.tooltip", e => {
+										const target = e.target as HTMLElement;
+										const tipId = "#" + target.getAttribute("aria-describedby");
+										const tip = document.querySelector<HTMLElement>(tipId)!;
+
+										tip.addEventListener("mousemove", (event: MouseEvent) => {
+											if (!(event.clientX >= svgRect.left && event.clientX <= svgRect.right && event.clientY >= svgRect.top && event.clientY <= svgRect.bottom)) {
+												setNoHover(me);
+											}
+											else {
+												processMove(event);
+											}
+										});
+									});
+						
+									HelpTips.hideVisiblePopover();
+
 									const options = this.getTooltipOptions(el, String(currentColumn));
-									currentTip = new bootstrap.Tooltip(tipTrigger, options);
+									new bootstrap.Tooltip(tipTrigger, options); // initialize tooltip
 								}
 
-								currentTip.show();
+								const visibleTip = document.querySelector<HTMLElement>(".tooltip.ka-chart-tip");
+								currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
+
+								if (visibleTip) {
+									// This will show the next tip in the hide event handler...
+									bootstrap.Tooltip.getInstance(document.querySelector(`[aria-describedby="${visibleTip.id}"]`)!).hide();
+								}
+								else {
+									currentTip.show();
+								}
 							}
 						}
-					});
+					};
+
+					this.application
+						.off(chartSvg, "mousemove.ka.chart.marker mouseleave.ka.chart.marker")
+						.on("mousemove.ka.chart.marker mouseleave.ka.chart.marker", (event: Event) => {
+							const me = event as MouseEvent;
+							if (me.type == "mouseleave") {
+								// Check if the relatedTarget is still inside the SVG (moving to a child element of chartSvg) or the rendered tip
+								const relatedTarget = me.relatedTarget as Element | null;
+								if (chartSvg.contains(relatedTarget) || relatedTarget?.closest(".ka-chart-tip")) return;
+								setNoHover(me);
+								return;
+							}
+
+							processMove(me);
+						});
 				}
 			};
 
 			const registerEvents = () => {
 				registerTipEvents();
-				registerHighlightEvents();
+				registerSeriesHighlightEvents();
 				registerMarkerEvents();
 
-				this.application.off(window, "resize scroll").on("resize scroll", () => matrix = undefined);
+				this.application.off(window, "resize scroll").on("resize scroll", () => {
+					matrix = undefined!; 
+					const visibleTip = document.querySelector<HTMLElement>(".tooltip.ka-chart-tip");
+					if (visibleTip) {
+						// This will show the next tip...
+						bootstrap.Tooltip.getInstance(document.querySelector(`[aria-describedby="${visibleTip.id}"]`)!).hide();
+					}	
+				});
 			};
 
 			// If external legends are used, the legend isn't guaranteed to be rendered before chart is,
@@ -987,8 +1038,8 @@
 				container: el.querySelector(".ka-chart")!,
 				template: '<div class="tooltip katapp-css ka-chart-tip" role="tooltip"><div class="tooltip-arrow arrow"></div><div class="tooltip-inner"></div></div>',
 
-				placement: (tooltip, trigger) => "auto",
-				fallbackPlacements: ["top", "right", "bottom", "left"],
+				placement: (tooltip, trigger) => "top",
+				fallbackPlacements: ["top", "bottom", "right", "left"],
 				
 				title: function () {
 					const tipContent = el.querySelector(`.ka-chart-tips .tooltip-${tipKey}`);
@@ -1069,7 +1120,7 @@
 				const tipLineBaseY = header ? 17 : 0;
 
 				if (header) {
-					const categoryText = this.createText(configuration.plotOptions, 0, tipLineBaseY, header, { "font-size": `${configuration.plotOptions.font.size.tipHeader}px`, "font-weight": "bold" });
+					const categoryText = this.createText(configuration.plotOptions, 0, tipLineBaseY, header, configuration.plotOptions.font.size.tipHeader, { "font-weight": "bold" });
 					tooltipSvg.appendChild(categoryText);
 				}
 	
@@ -1080,7 +1131,7 @@
 					if (tipConfig.includeShape) {
 						tooltipSvg.appendChild(this.getSeriesShape(y, tip.seriesConfig.shape, tip.seriesConfig.color));
 					}
-					const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${tip.name}: `, { "font-size": `${configuration.plotOptions.font.size.tipBody}px` });
+					const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${tip.name}: `, configuration.plotOptions.font.size.tipBody);
 					const tspan = document.createElementNS(this.ns, "tspan");
 					tspan.setAttribute("font-weight", "bold");
 					tspan.innerHTML = Utils.formatCurrency(tip.value, configuration.plotOptions.dataLabels.format);
@@ -1091,8 +1142,7 @@
 				if (includeTotal) {
 					const y = tipLineBaseY + (tipInfo.length + 1) * 20;
 					const total = Utils.formatCurrency(tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
-					const text = this.createText(configuration.plotOptions, shapeXPadding, y, `Total: ${total}`, { "font-size": `${configuration.plotOptions.font.size.tipBody}px` });
-					text.setAttribute("font-weight", "bold");
+					const text = this.createText(configuration.plotOptions, shapeXPadding, y, `Total: ${total}`, configuration.plotOptions.font.size.tipBody, { "font-weight": "bold" });
 					tooltipSvg.appendChild(text);
 				}
 
@@ -1149,7 +1199,8 @@
 						config.plotOptions,
 						value, paddingConfig.top - 3,
 						line.label.text,
-						{ "text-anchor": "start", "font-size": `${config.plotOptions.font.size.plotBandLine}px`, "dominant-baseline": "baseline" })
+						config.plotOptions.font.size.plotBandLine,
+						{ "text-anchor": "start", "dominant-baseline": "baseline" })
 					: undefined;
 				return label ? [label, plotLine] : [plotLine];
 			});
@@ -1179,7 +1230,8 @@
 							configuration.plotOptions,
 							from, paddingConfig.top - 3,
 							plotLabel,
-							{ "text-anchor": "start", "font-size": `${configuration.plotOptions.font.size.plotBandLabel}px`, "dominant-baseline": "baseline" })
+							configuration.plotOptions.font.size.plotBandLabel,
+							{ "text-anchor": "start", "dominant-baseline": "baseline" })
 						: undefined;
 					return label ? [label, rect] : [rect];
 				});
@@ -1207,7 +1259,8 @@
 						columnX + columnConfig.width / 2, // center...
 						configuration.plotOptions.yAxis.baseY + 2,
 						item.name,
-						{ "text-anchor": "middle", "font-size": `${configuration.plotOptions.font.size.xAxisTickLabels}px`, "dominant-baseline": "text-before-edge" }, // top of text aligns with Y
+						configuration.plotOptions.font.size.xAxisTickLabels,
+						{ "text-anchor": "middle", "dominant-baseline": "text-before-edge" }, // top of text aligns with Y
 						true
 					);
 					return xAxisTickLabel;
@@ -1219,7 +1272,7 @@
 			if (configuration.plotOptions.xAxis.label) {
 				const xAxisLabelX = configuration.plotOptions.padding.left + configuration.plotOptions.plotWidth / 2;
 				const xAxisLabelY = configuration.plotOptions.height - configuration.plotOptions.font.size.xAxisLabel * 1.5;
-				const xAxisLabel = this.createText(configuration.plotOptions, xAxisLabelX, xAxisLabelY, configuration.plotOptions.xAxis.label, { "text-anchor": "middle", "font-size": `${configuration.plotOptions.font.size.xAxisLabel}px`, "dominant-baseline": "middle" });
+				const xAxisLabel = this.createText(configuration.plotOptions, xAxisLabelX, xAxisLabelY, configuration.plotOptions.xAxis.label, configuration.plotOptions.font.size.xAxisLabel, { "text-anchor": "middle", "dominant-baseline": "middle" });
 				xAxis.appendChild(xAxisLabel);
 			}
 
@@ -1237,7 +1290,7 @@
 			const yAxisLabelX = configuration.plotOptions.font.size.yAxisLabel;
 			const yAxisLabelY = plotHeight / 2;
 			const yAxisLabel = configuration.plotOptions.yAxis.label
-				? this.createText(configuration.plotOptions, yAxisLabelX, yAxisLabelY, configuration.plotOptions.yAxis.label, { "font-size": `${configuration.plotOptions.font.size.yAxisLabel}px`, fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
+				? this.createText(configuration.plotOptions, yAxisLabelX, yAxisLabelY, configuration.plotOptions.yAxis.label, configuration.plotOptions.font.size.yAxisLabel, { fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
 				: undefined;
 			
 			const yAxisMax = configuration.plotOptions.yAxis.maxValue;
@@ -1252,7 +1305,7 @@
 							? this.createLine(paddingConfig.left, y, configuration.plotOptions.width - paddingConfig.right, y, "#e6e6e6")
 							: undefined;
 
-						const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, Utils.formatCurrency(value, configuration.plotOptions.yAxis.format), { "text-anchor": "end", "font-size": `${configuration.plotOptions.font.size.yAxisTickLabels}px`, "dominant-baseline": "middle" })
+						const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, Utils.formatCurrency(value, configuration.plotOptions.yAxis.format), configuration.plotOptions.font.size.yAxisTickLabels, { "text-anchor": "end", "dominant-baseline": "middle" })
 						return tickLine ? [tickLine!, tickLabel] : [tickLabel];
 					});
 
@@ -1309,10 +1362,11 @@
 			}
 		}
 
-		private createText(plotOptions: IRblChartConfigurationPlotOptions, x: number, y: number, text: string, properties: {} = {}, isxAxisLabel?: boolean): Element {
+		private createText(plotOptions: IRblChartConfigurationPlotOptions, x: number, y: number, text: string, fontSize: number, properties: {} = {}, isxAxisLabel?: boolean): Element {
 			const textSvg = document.createElementNS(this.ns, "text");
 			textSvg.setAttribute("x", String(x));
 			textSvg.setAttribute("y", String(y));
+			textSvg.setAttribute("font-size", `${fontSize}px`);
 
 			if (properties) {
 				for (const [key, value] of Object.entries(properties)) {
@@ -1420,6 +1474,14 @@
 		private getOptionValue<T = string>(configRows: Array<IRblChartDataRow>, name: string, globalOptions?: IRblChartOptionRow[], defaultValue?: string): T | undefined {
 			return (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
 				globalOptions?.find(r => r.id == name)?.value ?? defaultValue) as T;
+		}
+		private getOptionNumber(configRows: Array<IRblChartDataRow>, name: string, globalOptions?: IRblChartOptionRow[], defaultValue?: number): number | undefined {
+			const value = (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
+				globalOptions?.find(r => r.id == name)?.value ?? String(defaultValue));
+			
+			if (value == undefined) return undefined;
+			
+			return Number(value);
 		}
 	}
 }

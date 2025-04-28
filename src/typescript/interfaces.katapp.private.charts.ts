@@ -38,6 +38,7 @@ interface IRblChartConfigurationPlotOptions {
 	font: {
 		size: {
 			heuristic: number;
+			base: number;
 			default: number;
 			yAxisLabel: number;
 			yAxisTickLabels: number;

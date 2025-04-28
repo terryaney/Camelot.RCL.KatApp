@@ -222,6 +222,7 @@ declare namespace KatApps {
         private createRect;
         private getOptionJson;
         private getOptionValue;
+        private getOptionNumber;
     }
 }
 declare namespace KatApps {
@@ -339,6 +340,7 @@ interface IRblChartConfigurationPlotOptions {
     font: {
         size: {
             heuristic: number;
+            base: number;
             default: number;
             yAxisLabel: number;
             yAxisTickLabels: number;

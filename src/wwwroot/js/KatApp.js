@@ -3386,17 +3386,18 @@ var KatApps;
                     font: {
                         size: {
                             heuristic: 0.6,
-                            default: 16,
-                            yAxisLabel: 16 * 0.9,
-                            yAxisTickLabels: 16 * 0.8,
-                            xAxisLabel: 16 * 0.9,
-                            xAxisTickLabels: 16 * 0.8,
-                            plotBandLabel: 16 * 0.7,
-                            plotBandLine: 16 * 0.8,
-                            dataLabel: 16 * 0.7,
-                            donutLabel: 16 * 2,
-                            tipHeader: 16 * 0.6,
-                            tipBody: 16 * 0.8
+                            base: 16,
+                            get default() { return this.base * directive.getOptionNumber(chartOptions, "font.multiplier", globalOptions, 1); },
+                            get yAxisLabel() { return this.default * 0.9; },
+                            get yAxisTickLabels() { return this.default * 0.8; },
+                            get xAxisLabel() { return this.default * 0.9; },
+                            get xAxisTickLabels() { return this.default * 0.8; },
+                            get plotBandLabel() { return this.default * 0.7; },
+                            get plotBandLine() { return this.default * 0.8; },
+                            get dataLabel() { return this.default * 0.7; },
+                            get donutLabel() { return this.default * 2; },
+                            get tipHeader() { return this.base * 0.6; },
+                            get tipBody() { return this.base * 0.8; }
                         }
                     },
                     aspectRadio: aspectRatioConfig,
@@ -3606,7 +3607,7 @@ var KatApps;
                         ? item.data.reduce((sum, v) => sum + v, 0)
                         : item.data;
                     const labelY = configuration.plotOptions.yAxis.getY(totalValue) - 10;
-                    const dataLabel = this.createText(configuration.plotOptions, columnX + columnConfig.width / 2, labelY, KatApps.Utils.formatCurrency(totalValue, configuration.plotOptions.dataLabels.format), { "text-anchor": "middle", "font-size": `${configuration.plotOptions.font.size.dataLabel}px`, "font-weight": "bold" });
+                    const dataLabel = this.createText(configuration.plotOptions, columnX + columnConfig.width / 2, labelY, KatApps.Utils.formatCurrency(totalValue, configuration.plotOptions.dataLabels.format), configuration.plotOptions.font.size.dataLabel, { "text-anchor": "middle", "font-weight": "bold" });
                     columnGroup.appendChild(dataLabel);
                 }
                 const linePoints = columnElements.filter(e => !(e instanceof Element));
@@ -3709,7 +3710,7 @@ var KatApps;
             const svg = this.getChartSvgElement(configuration.plotOptions);
             svg.append(...segments);
             svg.appendChild(this.createCircle(radius, radius, radius - strokeWidth, "white"));
-            svg.appendChild(this.createText(configuration.plotOptions, radius, radius, KatApps.Utils.formatCurrency(total, configuration.plotOptions.dataLabels.format), { "text-anchor": "middle", "dominant-baseline": "middle", "font-family": "Arial", "font-size": `${configuration.plotOptions.font.size.donutLabel}px`, "font-weight": "bold" }));
+            svg.appendChild(this.createText(configuration.plotOptions, radius, radius, KatApps.Utils.formatCurrency(total, configuration.plotOptions.dataLabels.format), configuration.plotOptions.font.size.donutLabel, { "text-anchor": "middle", "dominant-baseline": "middle", "font-weight": "bold" }));
             container.appendChild(svg);
         }
         addLegend(el) {
@@ -3774,7 +3775,7 @@ var KatApps;
                     currentTip.show();
                 });
             };
-            const registerHighlightEvents = () => {
+            const registerSeriesHighlightEvents = () => {
                 const seriesItems = [
                     { textSelector: "span", highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverItem, elements: [...el.querySelectorAll(".ka-chart [ka-chart-highlight-key]")] },
                     { textSelector: "span", highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverLegend, elements: [...el.querySelectorAll(".ka-chart-legend [ka-chart-highlight-key]")] }
@@ -3806,7 +3807,7 @@ var KatApps;
                     }
                 });
             };
-            let matrix;
+            let matrix = undefined;
             const registerMarkerEvents = () => {
                 if (el.querySelector(".ka-chart-marker-points")) {
                     const pointMarkers = [...el.querySelectorAll(".ka-chart-marker-points")]
@@ -3818,36 +3819,37 @@ var KatApps;
                     });
                     const isStackedArea = el.kaChart.type == "sharkfin";
                     const areaTooltipMarkers = isStackedArea
-                        ? [...el.querySelectorAll(`.ka-chart-series-item[ka-stack-top="1"] path`)]
+                        ? [...el.querySelectorAll(`.ka-chart-series-item[ka-stack-top="1"] .ka-chart-marker-points path`)]
                         : [];
                     let currentColumn = undefined;
                     let currentTip = undefined;
                     const chartSvg = el.querySelector("svg");
                     const pt = chartSvg.createSVGPoint();
+                    let svgRect = undefined;
                     const columnCount = el.kaChart.plotOptions.column.count;
                     const columnWidth = el.kaChart.plotOptions.plotWidth / columnCount;
                     const plotLeft = el.kaChart.plotOptions.padding.left;
                     const plotRight = el.kaChart.plotOptions.width - el.kaChart.plotOptions.padding.right;
                     const plotBottom = el.kaChart.plotOptions.yAxis.baseY;
                     const plotTop = el.kaChart.plotOptions.padding.top;
-                    const setNoHover = () => {
+                    const setNoHover = (me) => {
                         if (currentColumn == undefined)
                             return;
                         pointMarkers.forEach(g => {
                             g.points.forEach(p => p.setAttribute("opacity", "0"));
                             g.glow.setAttribute("opacity", "0");
                         });
-                        currentTip?.hide();
+                        if (currentTip) {
+                            console.log(`setNoHover, ${me.type}, hide ${currentColumn}`);
+                            currentTip.hide();
+                            currentTip = undefined;
+                        }
                         currentColumn = undefined;
                     };
-                    this.application.off(chartSvg, "mousemove.ka.chart.marker mouseleave.ka.chart.marker").on("mousemove.ka.chart.marker mouseleave.ka.chart.marker", (event) => {
-                        const me = event;
-                        if (event.type == "mouseleave") {
-                            setNoHover();
-                            return;
-                        }
+                    const processMove = (me) => {
                         if (matrix == undefined) {
                             matrix = chartSvg.getScreenCTM().inverse();
+                            svgRect = chartSvg.getBoundingClientRect();
                         }
                         pt.x = me.clientX;
                         pt.y = me.clientY;
@@ -3855,7 +3857,7 @@ var KatApps;
                         const isInsideX = loc.x >= plotLeft && loc.x <= plotRight;
                         const isInsideY = loc.y >= plotTop && loc.y <= plotBottom;
                         if (!(isInsideX && isInsideY)) {
-                            setNoHover();
+                            setNoHover(me);
                             return;
                         }
                         const relativeX = loc.x - plotLeft;
@@ -3875,25 +3877,66 @@ var KatApps;
                                 g.glow.setAttribute("opacity", "0.2");
                             });
                             if (isStackedArea) {
-                                currentTip?.hide();
-                                KatApps.HelpTips.hideVisiblePopover();
                                 const tipTrigger = areaTooltipMarkers[currentColumn];
-                                currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
-                                if (!currentTip) {
+                                if (!bootstrap.Tooltip.getInstance(tipTrigger)) {
+                                    tipTrigger.addEventListener("hidden.bs.tooltip", (e) => {
+                                        console.log(`hidden.bs.tooltip ${e.target.getAttribute("aria-label")}`);
+                                        currentTip?.show();
+                                    });
+                                    tipTrigger.addEventListener("inserted.bs.tooltip", e => {
+                                        const target = e.target;
+                                        const tipId = "#" + target.getAttribute("aria-describedby");
+                                        const tip = document.querySelector(tipId);
+                                        tip.addEventListener("mousemove", (event) => {
+                                            if (!(event.clientX >= svgRect.left && event.clientX <= svgRect.right && event.clientY >= svgRect.top && event.clientY <= svgRect.bottom)) {
+                                                setNoHover(me);
+                                            }
+                                            else {
+                                                processMove(event);
+                                            }
+                                        });
+                                    });
+                                    KatApps.HelpTips.hideVisiblePopover();
                                     const options = this.getTooltipOptions(el, String(currentColumn));
-                                    currentTip = new bootstrap.Tooltip(tipTrigger, options);
+                                    new bootstrap.Tooltip(tipTrigger, options);
                                 }
-                                currentTip.show();
+                                const visibleTip = document.querySelector(".tooltip.ka-chart-tip");
+                                currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
+                                if (visibleTip) {
+                                    bootstrap.Tooltip.getInstance(document.querySelector(`[aria-describedby="${visibleTip.id}"]`)).hide();
+                                }
+                                else {
+                                    currentTip.show();
+                                }
                             }
                         }
+                    };
+                    this.application
+                        .off(chartSvg, "mousemove.ka.chart.marker mouseleave.ka.chart.marker")
+                        .on("mousemove.ka.chart.marker mouseleave.ka.chart.marker", (event) => {
+                        const me = event;
+                        if (me.type == "mouseleave") {
+                            const relatedTarget = me.relatedTarget;
+                            if (chartSvg.contains(relatedTarget) || relatedTarget?.closest(".ka-chart-tip"))
+                                return;
+                            setNoHover(me);
+                            return;
+                        }
+                        processMove(me);
                     });
                 }
             };
             const registerEvents = () => {
                 registerTipEvents();
-                registerHighlightEvents();
+                registerSeriesHighlightEvents();
                 registerMarkerEvents();
-                this.application.off(window, "resize scroll").on("resize scroll", () => matrix = undefined);
+                this.application.off(window, "resize scroll").on("resize scroll", () => {
+                    matrix = undefined;
+                    const visibleTip = document.querySelector(".tooltip.ka-chart-tip");
+                    if (visibleTip) {
+                        bootstrap.Tooltip.getInstance(document.querySelector(`[aria-describedby="${visibleTip.id}"]`)).hide();
+                    }
+                });
             };
             this.application.handleEvents(events => {
                 events.domUpdated = elements => {
@@ -3915,8 +3958,8 @@ var KatApps;
                 trigger: "manual",
                 container: el.querySelector(".ka-chart"),
                 template: '<div class="tooltip katapp-css ka-chart-tip" role="tooltip"><div class="tooltip-arrow arrow"></div><div class="tooltip-inner"></div></div>',
-                placement: (tooltip, trigger) => "auto",
-                fallbackPlacements: ["top", "right", "bottom", "left"],
+                placement: (tooltip, trigger) => "top",
+                fallbackPlacements: ["top", "bottom", "right", "left"],
                 title: function () {
                     const tipContent = el.querySelector(`.ka-chart-tips .tooltip-${tipKey}`);
                     if (!tipContent)
@@ -3966,7 +4009,7 @@ var KatApps;
                 tooltipSvg.setAttribute("width", String(svgWidth));
                 const tipLineBaseY = header ? 17 : 0;
                 if (header) {
-                    const categoryText = this.createText(configuration.plotOptions, 0, tipLineBaseY, header, { "font-size": `${configuration.plotOptions.font.size.tipHeader}px`, "font-weight": "bold" });
+                    const categoryText = this.createText(configuration.plotOptions, 0, tipLineBaseY, header, configuration.plotOptions.font.size.tipHeader, { "font-weight": "bold" });
                     tooltipSvg.appendChild(categoryText);
                 }
                 const shapeXPadding = tipConfig.includeShape ? 15 : 0;
@@ -3975,7 +4018,7 @@ var KatApps;
                     if (tipConfig.includeShape) {
                         tooltipSvg.appendChild(this.getSeriesShape(y, tip.seriesConfig.shape, tip.seriesConfig.color));
                     }
-                    const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${tip.name}: `, { "font-size": `${configuration.plotOptions.font.size.tipBody}px` });
+                    const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${tip.name}: `, configuration.plotOptions.font.size.tipBody);
                     const tspan = document.createElementNS(this.ns, "tspan");
                     tspan.setAttribute("font-weight", "bold");
                     tspan.innerHTML = KatApps.Utils.formatCurrency(tip.value, configuration.plotOptions.dataLabels.format);
@@ -3985,8 +4028,7 @@ var KatApps;
                 if (includeTotal) {
                     const y = tipLineBaseY + (tipInfo.length + 1) * 20;
                     const total = KatApps.Utils.formatCurrency(tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
-                    const text = this.createText(configuration.plotOptions, shapeXPadding, y, `Total: ${total}`, { "font-size": `${configuration.plotOptions.font.size.tipBody}px` });
-                    text.setAttribute("font-weight", "bold");
+                    const text = this.createText(configuration.plotOptions, shapeXPadding, y, `Total: ${total}`, configuration.plotOptions.font.size.tipBody, { "font-weight": "bold" });
                     tooltipSvg.appendChild(text);
                 }
                 tooltipContent.appendChild(tooltipSvg);
@@ -4024,7 +4066,7 @@ var KatApps;
                 const value = paddingConfig.left + config.plotOptions.xAxis.plotBandSegmentWidth + ((line.value - plotOffset) / 0.5) * config.plotOptions.xAxis.plotBandSegmentWidth;
                 const plotLine = this.createLine(value, paddingConfig.top, value, config.plotOptions.yAxis.baseY, line.color, 2);
                 const label = line.label?.text
-                    ? this.createText(config.plotOptions, value, paddingConfig.top - 3, line.label.text, { "text-anchor": "start", "font-size": `${config.plotOptions.font.size.plotBandLine}px`, "dominant-baseline": "baseline" })
+                    ? this.createText(config.plotOptions, value, paddingConfig.top - 3, line.label.text, config.plotOptions.font.size.plotBandLine, { "text-anchor": "start", "dominant-baseline": "baseline" })
                     : undefined;
                 return label ? [label, plotLine] : [plotLine];
             });
@@ -4046,7 +4088,7 @@ var KatApps;
                 const rect = this.createRect(from, paddingConfig.top, to - from, plotHeight, band.color);
                 const plotLabel = band.label?.[labelColumn ?? "text"] ?? band.label?.text;
                 const label = plotLabel
-                    ? this.createText(configuration.plotOptions, from, paddingConfig.top - 3, plotLabel, { "text-anchor": "start", "font-size": `${configuration.plotOptions.font.size.plotBandLabel}px`, "dominant-baseline": "baseline" })
+                    ? this.createText(configuration.plotOptions, from, paddingConfig.top - 3, plotLabel, configuration.plotOptions.font.size.plotBandLabel, { "text-anchor": "start", "dominant-baseline": "baseline" })
                     : undefined;
                 return label ? [label, rect] : [rect];
             });
@@ -4063,7 +4105,7 @@ var KatApps;
             const xAxisTicks = data.map((item, i) => {
                 const columnX = columnConfig.getX(i);
                 if (i % configuration.plotOptions.xAxis.skipInterval == 0) {
-                    const xAxisTickLabel = this.createText(configuration.plotOptions, columnX + columnConfig.width / 2, configuration.plotOptions.yAxis.baseY + 2, item.name, { "text-anchor": "middle", "font-size": `${configuration.plotOptions.font.size.xAxisTickLabels}px`, "dominant-baseline": "text-before-edge" }, true);
+                    const xAxisTickLabel = this.createText(configuration.plotOptions, columnX + columnConfig.width / 2, configuration.plotOptions.yAxis.baseY + 2, item.name, configuration.plotOptions.font.size.xAxisTickLabels, { "text-anchor": "middle", "dominant-baseline": "text-before-edge" }, true);
                     return xAxisTickLabel;
                 }
             });
@@ -4071,7 +4113,7 @@ var KatApps;
             if (configuration.plotOptions.xAxis.label) {
                 const xAxisLabelX = configuration.plotOptions.padding.left + configuration.plotOptions.plotWidth / 2;
                 const xAxisLabelY = configuration.plotOptions.height - configuration.plotOptions.font.size.xAxisLabel * 1.5;
-                const xAxisLabel = this.createText(configuration.plotOptions, xAxisLabelX, xAxisLabelY, configuration.plotOptions.xAxis.label, { "text-anchor": "middle", "font-size": `${configuration.plotOptions.font.size.xAxisLabel}px`, "dominant-baseline": "middle" });
+                const xAxisLabel = this.createText(configuration.plotOptions, xAxisLabelX, xAxisLabelY, configuration.plotOptions.xAxis.label, configuration.plotOptions.font.size.xAxisLabel, { "text-anchor": "middle", "dominant-baseline": "middle" });
                 xAxis.appendChild(xAxisLabel);
             }
             svg.appendChild(xAxis);
@@ -4084,7 +4126,7 @@ var KatApps;
             const yAxisLabelX = configuration.plotOptions.font.size.yAxisLabel;
             const yAxisLabelY = plotHeight / 2;
             const yAxisLabel = configuration.plotOptions.yAxis.label
-                ? this.createText(configuration.plotOptions, yAxisLabelX, yAxisLabelY, configuration.plotOptions.yAxis.label, { "font-size": `${configuration.plotOptions.font.size.yAxisLabel}px`, fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
+                ? this.createText(configuration.plotOptions, yAxisLabelX, yAxisLabelY, configuration.plotOptions.yAxis.label, configuration.plotOptions.font.size.yAxisLabel, { fill: "black", "text-anchor": "middle", transform: `rotate(-90, ${yAxisLabelX}, ${yAxisLabelY})` })
                 : undefined;
             const yAxisMax = configuration.plotOptions.yAxis.maxValue;
             const yAxisInterval = configuration.plotOptions.yAxis.intervalSize;
@@ -4094,7 +4136,7 @@ var KatApps;
                 const tickLine = i != 0
                     ? this.createLine(paddingConfig.left, y, configuration.plotOptions.width - paddingConfig.right, y, "#e6e6e6")
                     : undefined;
-                const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, KatApps.Utils.formatCurrency(value, configuration.plotOptions.yAxis.format), { "text-anchor": "end", "font-size": `${configuration.plotOptions.font.size.yAxisTickLabels}px`, "dominant-baseline": "middle" });
+                const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, KatApps.Utils.formatCurrency(value, configuration.plotOptions.yAxis.format), configuration.plotOptions.font.size.yAxisTickLabels, { "text-anchor": "end", "dominant-baseline": "middle" });
                 return tickLine ? [tickLine, tickLabel] : [tickLabel];
             });
             if (yAxisLabel != undefined)
@@ -4141,10 +4183,11 @@ var KatApps;
                     return this.createRect(0, y - 10, 10, 10, color);
             }
         }
-        createText(plotOptions, x, y, text, properties = {}, isxAxisLabel) {
+        createText(plotOptions, x, y, text, fontSize, properties = {}, isxAxisLabel) {
             const textSvg = document.createElementNS(this.ns, "text");
             textSvg.setAttribute("x", String(x));
             textSvg.setAttribute("y", String(y));
+            textSvg.setAttribute("font-size", `${fontSize}px`);
             if (properties) {
                 for (const [key, value] of Object.entries(properties)) {
                     textSvg.setAttribute(key, String(value));
@@ -4233,6 +4276,13 @@ var KatApps;
         getOptionValue(configRows, name, globalOptions, defaultValue) {
             return (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
                 globalOptions?.find(r => r.id == name)?.value ?? defaultValue);
+        }
+        getOptionNumber(configRows, name, globalOptions, defaultValue) {
+            const value = (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
+                globalOptions?.find(r => r.id == name)?.value ?? String(defaultValue));
+            if (value == undefined)
+                return undefined;
+            return Number(value);
         }
     }
     KatApps.DirectiveKaChart = DirectiveKaChart;
@@ -4993,6 +5043,7 @@ var KatApps;
             if (visiblePopover?.getAttribute("ka-init-tip") == "true" &&
                 (selectorPredicate == undefined || HelpTips.visiblePopoverApp.el.matches(selectorPredicate))) {
                 bootstrap.Popover.getInstance(visiblePopover).hide();
+                console.log("Hiding visible popover: " + visiblePopover.id);
                 return true;
             }
             return false;
