@@ -93,12 +93,6 @@
 
 			const dataColumns = (Object.keys(dataRows[0]) as Array<IRblChartColumnName>).filter(c => c.startsWith("data"));
 
-			switch (chartType) {
-				case "columnStacked":
-					dataColumns.reverse();
-					break;
-			}
-
 			const text = configRow("text");
 			let data: Array<{ name: string, data: IRblChartConfigurationDataType }> = []
 			switch (chartType) {
@@ -108,7 +102,7 @@
 					data = dataColumns.map(c => ({ name: text[c]!, data: +dataRows[0][c]! }));
 					break;
 				
-				// 'Category' charts with two or more series...
+				// 'Category' charts with ability to have two or more series...
 				case "sharkfin":
 				case "columnStacked":
 					data = dataRows.map(r => ({ name: r.value!, data: dataColumns.map(c => +r[c]!) }));
@@ -492,38 +486,47 @@
 			
 			const yAxisMax = configuration.plotOptions.yAxis.maxValue;
 
-			const getColumnElement = (elementX: number, elementY: number, value: number, elementConfig: IRblChartConfigurationSeries, headerName?: string) => {
+			const getColumnElement = (elementX: number, elementY: number, value: number, seriesConfig: IRblChartConfigurationSeries, headerName?: string) => {
 				const columnHeight = (value / yAxisMax) * plotHeight;
-				const element = this.createRect(elementX, elementY, columnConfig.width, columnHeight, elementConfig.color, "#ffffff", 1);
+				const element = this.createRect(elementX, elementY, columnConfig.width, columnHeight, seriesConfig.color, "#ffffff", 1);
 
 				// This element is never 'shown', it is simply an additional series to show in the tooltip (i.e. 'short fall' in an retirement income chart)
-				if (elementConfig.type == "tooltip") {
+				if (seriesConfig.type == "tooltip") {
 					element.setAttribute("data-is-tooltip", "1"); // so hover doesn't change opacity
 					element.setAttribute("opacity", "0");
 				}
 
 				const valueFormatted = Utils.formatCurrency(value, configuration.plotOptions.dataLabels.format);
-				element.setAttribute("ka-chart-highlight-key", elementConfig.text);
-				element.setAttribute("aria-label", `${elementConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`);
+				element.setAttribute("ka-chart-highlight-key", seriesConfig.text);
+				element.setAttribute("aria-label", `${seriesConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`);
 
 				return element;
 			};
+
+			// KAT put stackedColumn series in order in CE that needs to be reversed when rendering chart
+			const colStart = configuration.type == "columnStacked" ? (data[0].data as []).length - 1 : 0;
+			const colEnd = configuration.type == "columnStacked" ? -1 : (data[0].data as []).length;
+			const colStep = configuration.type == "columnStacked" ? -1 : 1;
 
 			const columns = data.map((item, columnIndex) => {
 				const columnX = columnConfig.getX(columnIndex);
 				const columnTipKey = columnIndex + (breakpointConfig?.plotOffset ?? 0);
 
 				let stackBase = 0;
-				const columnElements = (item.data instanceof Array
-					// Stacked ...
-					? item.data.map((value, seriesIndex) => {
+				const columnElements: (Element | IRblChartPoint)[] = [];
+
+				if (item.data instanceof Array) {
+					// Stacked column chart
+					for(let seriesIndex = colStart; seriesIndex != colEnd; seriesIndex += colStep) {
 						const seriesConfig = configuration.series[seriesIndex];
+						const value = item.data[seriesIndex];
+
 						if (seriesConfig.shape == "line") {
 							const x = columnX + columnConfig.width / 2;
 							const y = configuration.plotOptions.yAxis.getY(value);
-
+							
 							const linePoint: IRblChartPoint = { x, y, seriesConfig, value, name: item.name };
-							return linePoint;
+							columnElements.push(linePoint);
 						}
 						else {
 							const element = getColumnElement(
@@ -534,11 +537,14 @@
 								this.getHeader(configuration.plotOptions, item.name)
 							);
 							stackBase += value;
-							return element;
+
+							columnElements.push(element);
 						}
-					})
-					: [getColumnElement(columnX, configuration.plotOptions.yAxis.getY(item.data), item.data, configuration.series[columnIndex])]
-				);
+					}
+				}
+				else {
+					columnElements.push(getColumnElement(columnX, configuration.plotOptions.yAxis.getY(item.data), item.data, configuration.series[columnIndex]));
+				}
 
 				const columnGroup = document.createElementNS(this.ns, "g");
 				columnGroup.classList.add("ka-chart-category");
@@ -890,11 +896,15 @@
 						if (currentTip) {
 							if (!hidingTip) {
 								hidingTip = true;
-								// const currentTipLabel = ((currentTip as any)?._element as Element)?.getAttribute("aria-label");
-								// console.log(`setNoHover: hide ${currentTipLabel}`);
-								// console.log(`Before hide: _isShown=${(currentTip as any)._isShown}`);
+								/*
+								const currentTipLabel = ((currentTip as any)?._element as Element)?.getAttribute("aria-label");
+								console.log(`setNoHover: hide ${currentTipLabel}`);
+								const isShown = (currentTip as any)._isShown();
+								if (isShown !== true) {
+									console.log(`Before hide: _isShown=${isShown}`);
+								}
+								*/
 								currentTip.hide();
-								// console.log(`After hide: _isShown=${(currentTip as any)._isShown}`);
 							}
 							currentTip = undefined;
 						}
@@ -946,13 +956,51 @@
 								// If current category tip is not initialized, then 
 								if (!bootstrap.Tooltip.getInstance(tipTrigger)) {
 									// Bootstrap show/hide are async, so need to wait for events to properly process
+
+									tipTrigger.addEventListener("hide.bs.tooltip", e => {
+										/*
+										I was having a race condition after moving mouse quickly that often times caused the tooltip that I stopped on
+										to flicker (after shown, there was one more hide event dispatched for the same tip that was already shown, so
+										it would show, hide, show).
+										
+										Key Observations
+										Timeout in Bootstrap:
+											- The second hidden.bs.tooltip event is triggered by executeAfterTransition in Bootstrap's internal logic. 
+												This suggests that Bootstrap is queuing a hide() operation, even though show() may have already been called for the same tooltip.
+										
+										Manual Management vs. Bootstrap's Built-in Behavior:
+											- By manually calling show() and hide(), Bootstrap's default behavior is bypassed (e.g., hover trigger). This can lead to race 
+												conditions where Bootstrap's internal state becomes inconsistent.
+										
+										Potential Redundant hide and show:
+											- When hiding and showing the same tooltip in quick succession, Bootstrap's internal logic may still process the hide event, 
+												even though the tooltip is already being shown again.
+												
+										Solution: Prevent Bootstrap from processing the hide event if the tooltip is already scheduled to be shown again.
+										*/
+
+										const targetLabel = (e.target as Element).getAttribute("aria-label");
+										const currentTipLabel = ((currentTip as any)?._element as Element)?.getAttribute("aria-label");
+									
+										// Prevent hiding if the tooltip is already scheduled to be shown again
+										if (!hidingTip && currentTipLabel === targetLabel) {
+											// console.log(`hide.bs.tooltip: skipping hide for ${targetLabel} because it is already being shown.`);
+											e.preventDefault(); // Prevent Bootstrap from processing the hide event
+										}
+									});
+									
 									tipTrigger.addEventListener("hidden.bs.tooltip", e => {
-										// const currentTipLabel = ((currentTip as any)?._element as Element)?.getAttribute("aria-label");
-										// const targetLabel = (e.target as Element).getAttribute("aria-label");
-										// console.log(`hidden.bs.tooltip\r\n\thiding: ${targetLabel}\r\n\tshowing: ${currentTipLabel}`);
-										// console.log(`Before show: _isShown=${(currentTip as any)?._isShown}`);
+										/*
+										const currentTipLabel = ((currentTip as any)?._element as Element)?.getAttribute("aria-label");
+										const targetLabel = (e.target as Element).getAttribute("aria-label");
+										console.log(`hidden.bs.tooltip\r\n\thiding: ${targetLabel}\r\n\tshowing: ${currentTipLabel}`);
+										const isShown = (currentTip as any)?._isShown();
+										if (isShown === true) {
+											console.log(`Before show: _isShown=${isShown}`);
+										}
+										console.trace("Call stack for hidden.bs.tooltip");
+										*/
 										currentTip?.show();
-										// console.log(`After show: _isShown=${(currentTip as any)?._isShown}`);
 										hidingTip = false;
 									});
 
@@ -990,16 +1038,24 @@
 
 									const visibleTrigger = document.querySelector(`[aria-describedby="${visibleTip.id}"]`)!;
 									const visibleInstance = bootstrap.Tooltip.getInstance(visibleTrigger);
-									// console.log(`isStackedArea: trigger hide ${visibleTrigger.getAttribute("aria-label")}`);
-									// console.log(`Before hide: _isShown=${(visibleInstance as any)._isShown}`);
+									/*
+									const isShown = (visibleInstance as any)._isShown();
+									console.log(`isStackedArea: trigger hide ${visibleTrigger.getAttribute("aria-label")}`);
+									if (isShown !== true) {
+										console.log(`Before hide: _isShown=${isShown}`);
+									}
+									*/
 									visibleInstance.hide();
-									// console.log(`After hide: _isShown=${(visibleInstance as any)._isShown}`);
 								}
 								else {
-									// console.log(`isStackedArea: trigger show ${tipTrigger.getAttribute("aria-label")}`);
-									// console.log(`Before show: _isShown=${(currentTip as any)._isShown}`);
+									/*
+									console.log(`isStackedArea: trigger show ${tipTrigger.getAttribute("aria-label")}`);
+									const isShown = (currentTip as any)._isShown();
+									if (isShown === true) {
+										console.log(`Before show: _isShown=${isShown}`);
+									}
+									*/
 									currentTip.show();
-									// console.log(`After show: _isShown=${(currentTip as any)._isShown}`);
 								}
 							}
 						}

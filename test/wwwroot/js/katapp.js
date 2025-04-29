@@ -3266,11 +3266,6 @@ var KatApps;
                 return chartOptions.filter(r => r.id == id);
             }
             const dataColumns = Object.keys(dataRows[0]).filter(c => c.startsWith("data"));
-            switch (chartType) {
-                case "columnStacked":
-                    dataColumns.reverse();
-                    break;
-            }
             const text = configRow("text");
             let data = [];
             switch (chartType) {
@@ -3563,38 +3558,46 @@ var KatApps;
             this.addYAxis(svg, configuration);
             this.addPlotLines(svg, configuration, plotOffset);
             const yAxisMax = configuration.plotOptions.yAxis.maxValue;
-            const getColumnElement = (elementX, elementY, value, elementConfig, headerName) => {
+            const getColumnElement = (elementX, elementY, value, seriesConfig, headerName) => {
                 const columnHeight = (value / yAxisMax) * plotHeight;
-                const element = this.createRect(elementX, elementY, columnConfig.width, columnHeight, elementConfig.color, "#ffffff", 1);
-                if (elementConfig.type == "tooltip") {
+                const element = this.createRect(elementX, elementY, columnConfig.width, columnHeight, seriesConfig.color, "#ffffff", 1);
+                if (seriesConfig.type == "tooltip") {
                     element.setAttribute("data-is-tooltip", "1");
                     element.setAttribute("opacity", "0");
                 }
                 const valueFormatted = KatApps.Utils.formatCurrency(value, configuration.plotOptions.dataLabels.format);
-                element.setAttribute("ka-chart-highlight-key", elementConfig.text);
-                element.setAttribute("aria-label", `${elementConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`);
+                element.setAttribute("ka-chart-highlight-key", seriesConfig.text);
+                element.setAttribute("aria-label", `${seriesConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`);
                 return element;
             };
+            const colStart = configuration.type == "columnStacked" ? data[0].data.length - 1 : 0;
+            const colEnd = configuration.type == "columnStacked" ? -1 : data[0].data.length;
+            const colStep = configuration.type == "columnStacked" ? -1 : 1;
             const columns = data.map((item, columnIndex) => {
                 const columnX = columnConfig.getX(columnIndex);
                 const columnTipKey = columnIndex + (breakpointConfig?.plotOffset ?? 0);
                 let stackBase = 0;
-                const columnElements = (item.data instanceof Array
-                    ? item.data.map((value, seriesIndex) => {
+                const columnElements = [];
+                if (item.data instanceof Array) {
+                    for (let seriesIndex = colStart; seriesIndex != colEnd; seriesIndex += colStep) {
                         const seriesConfig = configuration.series[seriesIndex];
+                        const value = item.data[seriesIndex];
                         if (seriesConfig.shape == "line") {
                             const x = columnX + columnConfig.width / 2;
                             const y = configuration.plotOptions.yAxis.getY(value);
                             const linePoint = { x, y, seriesConfig, value, name: item.name };
-                            return linePoint;
+                            columnElements.push(linePoint);
                         }
                         else {
                             const element = getColumnElement(columnX, configuration.plotOptions.yAxis.getY(stackBase + value), value, seriesConfig, this.getHeader(configuration.plotOptions, item.name));
                             stackBase += value;
-                            return element;
+                            columnElements.push(element);
                         }
-                    })
-                    : [getColumnElement(columnX, configuration.plotOptions.yAxis.getY(item.data), item.data, configuration.series[columnIndex])]);
+                    }
+                }
+                else {
+                    columnElements.push(getColumnElement(columnX, configuration.plotOptions.yAxis.getY(item.data), item.data, configuration.series[columnIndex]));
+                }
                 const columnGroup = document.createElementNS(this.ns, "g");
                 columnGroup.classList.add("ka-chart-category");
                 if (stackBase > 0 && configuration.plotOptions.tip.show) {
@@ -3882,6 +3885,13 @@ var KatApps;
                             if (isStackedArea) {
                                 const tipTrigger = areaTooltipMarkers[currentColumn];
                                 if (!bootstrap.Tooltip.getInstance(tipTrigger)) {
+                                    tipTrigger.addEventListener("hide.bs.tooltip", e => {
+                                        const targetLabel = e.target.getAttribute("aria-label");
+                                        const currentTipLabel = currentTip?._element?.getAttribute("aria-label");
+                                        if (!hidingTip && currentTipLabel === targetLabel) {
+                                            e.preventDefault();
+                                        }
+                                    });
                                     tipTrigger.addEventListener("hidden.bs.tooltip", e => {
                                         currentTip?.show();
                                         hidingTip = false;
