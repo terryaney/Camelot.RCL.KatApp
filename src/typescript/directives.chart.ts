@@ -870,6 +870,7 @@
 					const chartSvg = el.querySelector("svg")!;
 					const pt = chartSvg.createSVGPoint();
 					let svgRect: DOMRect = undefined!;
+					let hidingTip = false;
 
 					const columnCount = el.kaChart.plotOptions.column.count;
 					const columnWidth = el.kaChart.plotOptions.plotWidth / columnCount;
@@ -887,7 +888,14 @@
 						});
 
 						if (currentTip) {
-							currentTip.hide();
+							if (!hidingTip) {
+								hidingTip = true;
+								// const currentTipLabel = ((currentTip as any)?._element as Element)?.getAttribute("aria-label");
+								// console.log(`setNoHover: hide ${currentTipLabel}`);
+								// console.log(`Before hide: _isShown=${(currentTip as any)._isShown}`);
+								currentTip.hide();
+								// console.log(`After hide: _isShown=${(currentTip as any)._isShown}`);
+							}
 							currentTip = undefined;
 						}
 						
@@ -938,16 +946,20 @@
 								// If current category tip is not initialized, then 
 								if (!bootstrap.Tooltip.getInstance(tipTrigger)) {
 									// Bootstrap show/hide are async, so need to wait for events to properly process
-									tipTrigger.addEventListener("hidden.bs.tooltip", (e: Event) => {
-										console.log(`hidden.bs.tooltip ${(e.target as Element)!.getAttribute("aria-label")}`);
+									tipTrigger.addEventListener("hidden.bs.tooltip", e => {
+										// const currentTipLabel = ((currentTip as any)?._element as Element)?.getAttribute("aria-label");
+										// const targetLabel = (e.target as Element).getAttribute("aria-label");
+										// console.log(`hidden.bs.tooltip\r\n\thiding: ${targetLabel}\r\n\tshowing: ${currentTipLabel}`);
+										// console.log(`Before show: _isShown=${(currentTip as any)?._isShown}`);
 										currentTip?.show();
+										// console.log(`After show: _isShown=${(currentTip as any)?._isShown}`);
+										hidingTip = false;
 									});
 
 									// If mouse over the tooptip, want to hide it if outside of chart and also move it with the mouse according to chart...
 									tipTrigger.addEventListener("inserted.bs.tooltip", e => {
 										const target = e.target as HTMLElement;
-										const tipId = "#" + target.getAttribute("aria-describedby");
-										const tip = document.querySelector<HTMLElement>(tipId)!;
+										const tip = document.querySelector<HTMLElement>(`#${target.getAttribute("aria-describedby")}`)!;
 
 										tip.addEventListener("mousemove", (event: MouseEvent) => {
 											if (!(event.clientX >= svgRect.left && event.clientX <= svgRect.right && event.clientY >= svgRect.top && event.clientY <= svgRect.bottom)) {
@@ -970,10 +982,24 @@
 
 								if (visibleTip) {
 									// This will show the next tip in the hide event handler...
-									bootstrap.Tooltip.getInstance(document.querySelector(`[aria-describedby="${visibleTip.id}"]`)!).hide();
+									if (hidingTip) {
+										// console.log(`isStackedArea: skipping hide ${tipTrigger.getAttribute("aria-label")}`);
+										return;
+									}
+									hidingTip = true;
+
+									const visibleTrigger = document.querySelector(`[aria-describedby="${visibleTip.id}"]`)!;
+									const visibleInstance = bootstrap.Tooltip.getInstance(visibleTrigger);
+									// console.log(`isStackedArea: trigger hide ${visibleTrigger.getAttribute("aria-label")}`);
+									// console.log(`Before hide: _isShown=${(visibleInstance as any)._isShown}`);
+									visibleInstance.hide();
+									// console.log(`After hide: _isShown=${(visibleInstance as any)._isShown}`);
 								}
 								else {
+									// console.log(`isStackedArea: trigger show ${tipTrigger.getAttribute("aria-label")}`);
+									// console.log(`Before show: _isShown=${(currentTip as any)._isShown}`);
 									currentTip.show();
+									// console.log(`After show: _isShown=${(currentTip as any)._isShown}`);
 								}
 							}
 						}

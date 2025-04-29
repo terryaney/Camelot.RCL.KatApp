@@ -3826,6 +3826,7 @@ var KatApps;
                     const chartSvg = el.querySelector("svg");
                     const pt = chartSvg.createSVGPoint();
                     let svgRect = undefined;
+                    let hidingTip = false;
                     const columnCount = el.kaChart.plotOptions.column.count;
                     const columnWidth = el.kaChart.plotOptions.plotWidth / columnCount;
                     const plotLeft = el.kaChart.plotOptions.padding.left;
@@ -3840,8 +3841,10 @@ var KatApps;
                             g.glow.setAttribute("opacity", "0");
                         });
                         if (currentTip) {
-                            console.log(`setNoHover, ${me.type}, hide ${currentColumn}`);
-                            currentTip.hide();
+                            if (!hidingTip) {
+                                hidingTip = true;
+                                currentTip.hide();
+                            }
                             currentTip = undefined;
                         }
                         currentColumn = undefined;
@@ -3879,14 +3882,13 @@ var KatApps;
                             if (isStackedArea) {
                                 const tipTrigger = areaTooltipMarkers[currentColumn];
                                 if (!bootstrap.Tooltip.getInstance(tipTrigger)) {
-                                    tipTrigger.addEventListener("hidden.bs.tooltip", (e) => {
-                                        console.log(`hidden.bs.tooltip ${e.target.getAttribute("aria-label")}`);
+                                    tipTrigger.addEventListener("hidden.bs.tooltip", e => {
                                         currentTip?.show();
+                                        hidingTip = false;
                                     });
                                     tipTrigger.addEventListener("inserted.bs.tooltip", e => {
                                         const target = e.target;
-                                        const tipId = "#" + target.getAttribute("aria-describedby");
-                                        const tip = document.querySelector(tipId);
+                                        const tip = document.querySelector(`#${target.getAttribute("aria-describedby")}`);
                                         tip.addEventListener("mousemove", (event) => {
                                             if (!(event.clientX >= svgRect.left && event.clientX <= svgRect.right && event.clientY >= svgRect.top && event.clientY <= svgRect.bottom)) {
                                                 setNoHover(me);
@@ -3903,7 +3905,13 @@ var KatApps;
                                 const visibleTip = document.querySelector(".tooltip.ka-chart-tip");
                                 currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
                                 if (visibleTip) {
-                                    bootstrap.Tooltip.getInstance(document.querySelector(`[aria-describedby="${visibleTip.id}"]`)).hide();
+                                    if (hidingTip) {
+                                        return;
+                                    }
+                                    hidingTip = true;
+                                    const visibleTrigger = document.querySelector(`[aria-describedby="${visibleTip.id}"]`);
+                                    const visibleInstance = bootstrap.Tooltip.getInstance(visibleTrigger);
+                                    visibleInstance.hide();
                                 }
                                 else {
                                     currentTip.show();
@@ -5043,7 +5051,6 @@ var KatApps;
             if (visiblePopover?.getAttribute("ka-init-tip") == "true" &&
                 (selectorPredicate == undefined || HelpTips.visiblePopoverApp.el.matches(selectorPredicate))) {
                 bootstrap.Popover.getInstance(visiblePopover).hide();
-                console.log("Hiding visible popover: " + visiblePopover.id);
                 return true;
             }
             return false;
