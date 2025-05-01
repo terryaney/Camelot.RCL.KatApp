@@ -148,8 +148,7 @@
                         const val = parseFloat(tokenValue);
                         if (!isNaN(val)) {
 							if (tokenFormat.startsWith("p")) tokenValue = KatApps.Utils.formatPercent(val, tokenFormat as IRblPercentFormat);
-							else if (tokenFormat.startsWith("c")) tokenValue = KatApps.Utils.formatCurrency(val, tokenFormat as IRblCurrencyFormat);
-							else if (tokenFormat.startsWith("n") || tokenFormat.startsWith("f")) tokenValue = KatApps.Utils.formatNumber(val, tokenFormat as IRblNumberFormat);
+							else if (tokenFormat.startsWith("c") || tokenFormat.startsWith("n") || tokenFormat.startsWith("f")) tokenValue = KatApps.Utils.formatNumber(val, tokenFormat as IRblCurrencyFormat | IRblNumberFormat);
 							else throw new Error(`Invalid String.formatTokens format string: ${tokenFormat}, value: ${val}`);
                         }
                     }

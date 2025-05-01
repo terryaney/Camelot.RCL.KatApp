@@ -117,13 +117,14 @@
 					let s = "";
 					let t = 0;
 
-					const pointTemplate = Sys.CultureInfo.CurrentCulture.name.startsWith("fr")
+					// TODO: Should pass this in as options to application instead of camelot dependency
+					const locales: string | Array<string> = (window as any).camelot?.intl?.locales ?? "en-US";
+					const pointTemplate = (locales instanceof Array ? locales : [locales]).some(l => l.startsWith("fr"))
 						? "<br/>{{name}} : {{value}}"
 						: "<br/>{{name}}: {{value}}";
 
 					this.points.forEach((point, index) => {
 						if (point.y > 0) {
-
 							s += String.formatTokens(pointTemplate, { name: point.series.name, value: Utils.formatCurrency(point.y, seriesFormats[index] as IRblCurrencyFormat) });
 							t += point.y;
 						}

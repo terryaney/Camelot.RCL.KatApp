@@ -203,7 +203,8 @@ namespace KatApps {
 							const decimalPlacesString = inputMask.substring(allowNegative ? 7 : 6);
 							const decimalPlaces = decimalPlacesString != "" ? +decimalPlacesString : 2;
 
-							const currencySeparator = (Sys.CultureInfo.CurrentCulture as any).numberFormat.CurrencyDecimalSeparator;
+							// TODO: Should pass this in as options to application instead of camelot dependency
+							const currencySeparator = (window as any).camelot?.intl?.currencyDecimalSeparator ?? ".";
 							const negRegEx = allowNegative ? `\\-` : "";
 							const sepRegEx = decimalPlaces > 0 ? `\\${currencySeparator}` : "";
 
@@ -468,8 +469,7 @@ namespace KatApps {
 				const formatString = format.slice(3, -1);
 
 				if (formatString[0] == "p") return Utils.formatPercent(+value, formatString as IRblPercentFormat, true);
-				if (formatString[0] == "n" || formatString[0] == "f") return Utils.formatNumber(+value, formatString as IRblNumberFormat);
-				if (formatString[0] == "c") return Utils.formatCurrency(+value, formatString as IRblCurrencyFormat);
+				if (formatString[0] == "c" || formatString[0] == "n" || formatString[0] == "f") return Utils.formatNumber(+value, formatString as IRblCurrencyFormat | IRblNumberFormat);
 					
 				throw new Error(`Unsupported format ${formatString} for range input ${name}`);
 			};

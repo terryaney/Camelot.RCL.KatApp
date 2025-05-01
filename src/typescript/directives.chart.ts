@@ -126,12 +126,12 @@
 
 			const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", globalOptions) ?? "{}") as IRblChartConfigurationDataLabels;
 			dataLabels.show = getBooleanProperty("dataLabels.show", dataLabels.show, false);
-			dataLabels.format = this.getOptionValue<IRblCurrencyFormat>(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat)!;
+			dataLabels.format = this.getOptionValue<IRblCurrencyFormat | IRblNumberFormat>(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat)!;
 
 			const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", globalOptions) ?? "{}") as IRblChartConfigurationTip;
 			tip.padding = { top: 5, left: 5 }; // Param?
 			tip.show = getBooleanProperty("tip.show", tip.show, true);
-			tip.headerFormat = this.getOptionValue(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
+			tip.headerFormatter = this.getOptionValue(chartOptions, "tip.headerFormatter", globalOptions, tip.headerFormatter);
 			tip.includeShape = getBooleanProperty("tip.includeShape", tip.includeShape, true);
 			tip.includeTotal = getBooleanProperty("tip.includeTotal", tip.includeTotal, chartIsStacked && !dataLabels.show);
 
@@ -226,7 +226,8 @@
 						: item.data
 				)
 			) * (dataLabels.show ? 1.05 : 1.025); // Add 10% buffer...
-			const maxDataValueString = Utils.formatCurrency(maxDataValue, yAxisConfig.format) + "000"; // Just some padding to give a little more room
+			
+			const maxDataValueString = Utils.formatNumber(maxDataValue, yAxisConfig.format) + "000"; // Just some padding to give a little more room
 
 			const hasAxis = chartType != "donut";
 
@@ -235,6 +236,7 @@
 				name: model.data,
 				type: chartType,
 
+				dataColumns: dataColumns,
 				data: data,
 
 				css: {
@@ -270,6 +272,14 @@
 					get plotWidth() { return this.width - this.padding.left - this.padding.right; },
 					get plotHeight() { return this.height - this.padding.top - this.padding.bottom; },
 					
+					pie: {
+						startAngle: +this.getOptionValue(chartOptions, "pie.startAngle", globalOptions, "0")!,
+						endAngle: +this.getOptionValue(chartOptions, "pie.endAngle", globalOptions, "360")!,
+					},
+					donut: {
+						labelFormatter: this.getOptionValue(chartOptions, "donut.labelFormatter", globalOptions)
+					},
+
 					padding: {
 						get top() {
 							return 5 +
@@ -496,7 +506,7 @@
 					element.setAttribute("opacity", "0");
 				}
 
-				const valueFormatted = Utils.formatCurrency(value, configuration.plotOptions.dataLabels.format);
+				const valueFormatted = Utils.formatNumber(value, configuration.plotOptions.dataLabels.format);
 				element.setAttribute("ka-chart-highlight-key", seriesConfig.text);
 				element.setAttribute("aria-label", `${seriesConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`);
 
@@ -567,7 +577,7 @@
 						configuration.plotOptions,
 						columnX + columnConfig.width / 2, // Centered above the column
 						labelY,
-						Utils.formatCurrency(totalValue, configuration.plotOptions.dataLabels.format),
+						Utils.formatNumber(totalValue, configuration.plotOptions.dataLabels.format),
 						configuration.plotOptions.font.size.dataLabel,
 						{ "text-anchor": "middle", "font-weight": "bold" }
 					);
@@ -682,11 +692,14 @@
 			const strokeWidth = radius * 0.4375;
 			const normalizedRadius = radius - strokeWidth / 2;
 
-			// Create segments
-			let currentAngle = 0;
+			const fullAngle = configuration.plotOptions.pie.endAngle - configuration.plotOptions.pie.startAngle;
+			let currentAngle = configuration.plotOptions.pie.startAngle;
+
 			const segments = data.map((item, index) => {
+				if (item.data == 0) return undefined; // Skip zero data points
+
 				// Calculate the angles
-				const angle = (item.data / total) * 360;
+				const angle = (item.data / total) * fullAngle;
 				const startAngle = currentAngle;
 				currentAngle += angle;
 
@@ -697,11 +710,13 @@
 				const y2 = normalizedRadius * Math.sin((currentAngle - 90) * Math.PI / 180) + radius;
 
 				// Determine if the arc should take the long path or short path
-				const largeArcFlag = angle > 180 ? 1 : 0;
+				const largeArcFlag = angle > fullAngle / 2 ? 1 : 0;
 
-				const valueFormatted = Utils.formatCurrency(item.data, configuration.plotOptions.dataLabels.format);
+				const valueFormatted = Utils.formatNumber(item.data, configuration.plotOptions.dataLabels.format);
 
-				const path = this.createPath(`M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`, "none", 0, configuration.series[index].color);
+				const path = angle >= 360
+					? this.createCircle(radius, radius, normalizedRadius, configuration.series[index].color)
+					: this.createPath(`M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`, "none", 0, configuration.series[index].color);
 
 				path.setAttribute("aria-label", `${item.name}, ${valueFormatted}.`);
 				path.setAttribute("ka-chart-highlight-key", item.name);
@@ -711,7 +726,7 @@
 				}
 				
 				return path;
-			});
+			}).filter(s => s != undefined) as Element[];
 
 			const svg = this.getChartSvgElement(configuration.plotOptions);
 			
@@ -719,9 +734,18 @@
 
 			svg.appendChild(this.createCircle(radius, radius, radius - strokeWidth, "white"));
 
+			const formattedTotal = Utils.formatNumber(total, configuration.plotOptions.dataLabels.format);
+			const donutLabel = configuration.plotOptions.donut.labelFormatter
+				? String.formatTokens(
+					configuration.plotOptions.donut.labelFormatter.replace(/\{([^}]+)\}/g, '{{$1}}'),
+					configuration.dataColumns
+						.reduce(function (o, c, i) { o[c] = Utils.formatNumber(data[i].data, configuration.plotOptions.dataLabels.format); return o; }, { total: formattedTotal } as Record<string, string>)
+				)
+				: formattedTotal;
+
 			svg.appendChild(this.createText(
 				configuration.plotOptions,
-				radius, radius, Utils.formatCurrency(total, configuration.plotOptions.dataLabels.format),
+				radius, radius, donutLabel,
 				configuration.plotOptions.font.size.donutLabel,
 				{ "text-anchor": "middle", "dominant-baseline": "middle", "font-weight": "bold" },
 			));
@@ -786,30 +810,16 @@
 		private addHoverEvents(model: IKaChartModel, el: KaChartElement<IRblChartConfigurationDataType>) {
 			const registerTipEvents = () => {
 				const tipItems = [...el.querySelectorAll(".ka-chart-donut [ka-tip-key], .ka-chart-category-group [ka-tip-key]")];
-				let currentTip: BootstrapTooltip | undefined = undefined;
 
-				// donut, column, stackedColumn
-				this.application.off(tipItems, "mouseenter.ka.chart.tip mouseleave.ka.chart.tip")
-					.on("mouseenter.ka.chart.tip mouseleave.ka.chart.tip", (event: Event) => {
-						const me = event as MouseEvent;
-						const tipTrigger = (event.target as SVGElement)!;
-
-						currentTip?.hide();
-
-						if (me.type == "mouseleave") return;
-
-						HelpTips.hideVisiblePopover();
-
-						currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
-
-						if (!currentTip) {
-							const tipKey = tipTrigger.getAttribute("ka-tip-key")!;
-							const options = this.getTooltipOptions(el, tipKey);
-							currentTip = new bootstrap.Tooltip(tipTrigger, options);
-						}
-
-						currentTip.show();
-					});
+				// If I ever didn't want to use bootstrap 'hover', I could render all these tips in the registerMarkerEvents
+				// function the same way I do for stacked area...
+				tipItems.forEach(item => {
+					const tipKey = item.getAttribute("ka-tip-key")!;
+					const options = this.getTooltipOptions(el, tipKey);
+					options.trigger = "hover";
+					new bootstrap.Tooltip(item, options);
+					item.setAttribute("ka-init-tip", "true");
+				});
 			};
 
 			const registerSeriesHighlightEvents = () => {
@@ -1184,14 +1194,14 @@
 
 				let header = item.data instanceof Array ? item.name : undefined;
 				if (header) {
-					header = configuration.plotOptions.tip.headerFormat?.replace("{x}", header) ?? header;
+					header = configuration.plotOptions.tip.headerFormatter?.replace("{x}", header) ?? header;
 				}
 
 				const tooltipContent = document.createElement("div");
 				tooltipContent.className = `tooltip-${index}`;
 
 				const tooltipSvg = document.createElementNS(this.ns, "svg");
-				const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipInfo.map(tip => `${tip.name}: ${Utils.formatCurrency(tip.value, configuration.plotOptions.dataLabels.format)}`.length))) * 7; // Approximate width of each character
+				const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipInfo.map(tip => `${tip.name}: ${Utils.formatNumber(tip.value, configuration.plotOptions.dataLabels.format)}`.length))) * 7; // Approximate width of each character
 				const svgWidth = maxTextWidth + tipConfig.padding.left * 2; // Add padding to the width
 
 				const includeTotal = tipConfig.includeTotal && tipInfo.length > 1;
@@ -1216,14 +1226,14 @@
 					const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${tip.name}: `, configuration.plotOptions.font.size.tipBody);
 					const tspan = document.createElementNS(this.ns, "tspan");
 					tspan.setAttribute("font-weight", "bold");
-					tspan.innerHTML = Utils.formatCurrency(tip.value, configuration.plotOptions.dataLabels.format);
+					tspan.innerHTML = Utils.formatNumber(tip.value, configuration.plotOptions.dataLabels.format);
 					text.appendChild(tspan);
 					tooltipSvg.appendChild(text);
 				});
 	
 				if (includeTotal) {
 					const y = tipLineBaseY + (tipInfo.length + 1) * 20;
-					const total = Utils.formatCurrency(tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
+					const total = Utils.formatNumber(tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
 					const text = this.createText(configuration.plotOptions, shapeXPadding, y, `Total: ${total}`, configuration.plotOptions.font.size.tipBody, { "font-weight": "bold" });
 					tooltipSvg.appendChild(text);
 				}
@@ -1248,7 +1258,7 @@
 
 			markerGroup.append(...points.map(point => {
 				const diamond = this.createPointMarker(point.x, point.y, point.seriesConfig.color);
-				const valueFormatted = Utils.formatCurrency(point.value, configuration.plotOptions.dataLabels.format);
+				const valueFormatted = Utils.formatNumber(point.value, configuration.plotOptions.dataLabels.format);
 
 				diamond.setAttribute("aria-label", `${point.seriesConfig.text}, ${valueFormatted}. ${this.getHeader(configuration.plotOptions, point.name)}.`);
 				diamond.setAttribute("ka-chart-point", `${point.x},${point.y}`);
@@ -1260,7 +1270,7 @@
 		}
 
 		private getHeader(plotOptions: IRblChartConfigurationPlotOptions, header: string): string {
-			return plotOptions.tip.headerFormat?.replace("{x}", header) ?? header
+			return plotOptions.tip.headerFormatter?.replace("{x}", header) ?? header
 		}
 
 		private addPlotLines(svg: Element, config: IRblChartConfiguration<IRblChartConfigurationDataType>, plotOffset: number = 0) {
@@ -1387,7 +1397,7 @@
 							? this.createLine(paddingConfig.left, y, configuration.plotOptions.width - paddingConfig.right, y, "#e6e6e6")
 							: undefined;
 
-						const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, Utils.formatCurrency(value, configuration.plotOptions.yAxis.format), configuration.plotOptions.font.size.yAxisTickLabels, { "text-anchor": "end", "dominant-baseline": "middle" })
+						const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, Utils.formatNumber(value, configuration.plotOptions.yAxis.format), configuration.plotOptions.font.size.yAxisTickLabels, { "text-anchor": "end", "dominant-baseline": "middle" })
 						return tickLine ? [tickLine!, tickLabel] : [tickLabel];
 					});
 

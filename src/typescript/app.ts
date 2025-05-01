@@ -377,7 +377,8 @@ class KatApp implements IKatApp {
 						const currencyString = that.state.inputs[inputId] as string;
 						if (currencyString == undefined) return undefined;
 
-						const decimalSeparator = ( Sys.CultureInfo.CurrentCulture as any ).numberFormat.CurrencyDecimalSeparator;
+						// TODO: Should pass this in as options to application instead of camelot dependency
+						const decimalSeparator = (window as any).camelot?.intl?.currencyDecimalSeparator ?? ".";
 						const numberRegEx = new RegExp(`[^\-0-9${decimalSeparator}]+`, "g");
 						// Parse the cleaned string as a float, replacing the French decimal separator with a dot
 						var parsedValue = parseFloat(currencyString.replace(numberRegEx, "").replace(decimalSeparator, "."));
@@ -2006,8 +2007,7 @@ Type 'help' to see available options displayed in the console.`;
 					// fmt example: "p2", "MM/dd/yyyy"
 					if (typeof val === "number") {
 						if (fmt.startsWith("p")) return KatApps.Utils.formatPercent(val, fmt as IRblPercentFormat);
-						if (fmt.startsWith("c")) return KatApps.Utils.formatCurrency(val, fmt as IRblCurrencyFormat);
-						if (fmt.startsWith("n") || fmt.startsWith("f")) return KatApps.Utils.formatNumber(val, fmt as IRblNumberFormat);
+						if (fmt.startsWith("c") || fmt.startsWith("n") || fmt.startsWith("f")) return KatApps.Utils.formatNumber(val, fmt as IRblCurrencyFormat | IRblNumberFormat);
 
 						throw new Error(`Invalid getLocalizedString format string: ${fmt}, value: ${val}`);
 					}

@@ -19,6 +19,8 @@ interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 	name: string;
 	type: IRblChartConfigurationType;
 
+	dataColumns: Array<IRblChartColumnName>;
+	
 	data: Array<{ name: string, data: T }>;
 
 	css: {
@@ -79,6 +81,14 @@ interface IRblChartConfigurationPlotOptions {
 		}
 	}
 
+	pie: {
+		startAngle: number; // Default: 0, Start angle for the pie chart.
+		endAngle: number; // Default: 360, End angle for the pie chart.
+	}
+	donut: {
+		labelFormatter: string | undefined; // Default: formatNumber(total, dataLabels.format)
+	}
+
 	dataLabels: IRblChartConfigurationDataLabels;
 	tip: IRblChartConfigurationTip;
 	
@@ -88,7 +98,7 @@ interface IRblChartConfigurationPlotOptions {
 
 interface IRblChartConfigurationXAxis {
 	label: string | undefined; // If present, render label
-	format: IRblCurrencyFormat; // Default: c0
+	format: IRblCurrencyFormat | IRblNumberFormat; // Default: c0
 	minCategory: number;
 	maxCategory: number;
 	plotBandSegmentWidth: number;
@@ -100,7 +110,7 @@ interface IRblChartConfigurationXAxis {
 
 interface IRblChartConfigurationYAxis {
 	label: string | undefined; // If present, render label
-	format: IRblCurrencyFormat; // Default: c0
+	format: IRblCurrencyFormat | IRblNumberFormat; // Default: c0
 	tickCount: number; // Default: 5, Number of major axis ticks to show on yAxis.
 	intervalSize: number;
 	maxValue: number;
@@ -158,13 +168,13 @@ interface IRblChartConfigurationTip {
 	show: boolean; // Default: true, Show tips on each xAxis entry or data point (when no xAxis).
 	includeShape: boolean; // Default: true, Include shape in the tip.
 	includeTotal: boolean; // Default: true if show == "category"
-	headerFormat: string | undefined; // Default: xAxis/category name
+	headerFormatter: string | undefined; // Default: xAxis/category name
 	padding: { top: number; left: number; }
 }
 
 interface IRblChartConfigurationDataLabels {
 	show: boolean; // Default: true, Show data label on each category or data point.
-	format: IRblCurrencyFormat; // Default: c0
+	format: IRblCurrencyFormat | IRblNumberFormat; // Default: c0
 }
 
 interface IRblChartConfigurationChartColumn {

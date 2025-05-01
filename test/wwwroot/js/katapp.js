@@ -273,7 +273,7 @@ class KatApp {
                     const currencyString = that.state.inputs[inputId];
                     if (currencyString == undefined)
                         return undefined;
-                    const decimalSeparator = Sys.CultureInfo.CurrentCulture.numberFormat.CurrencyDecimalSeparator;
+                    const decimalSeparator = window.camelot?.intl?.currencyDecimalSeparator ?? ".";
                     const numberRegEx = new RegExp(`[^\-0-9${decimalSeparator}]+`, "g");
                     var parsedValue = parseFloat(currencyString.replace(numberRegEx, "").replace(decimalSeparator, "."));
                     return !isNaN(parsedValue) ? parsedValue : undefined;
@@ -1474,9 +1474,7 @@ Type 'help' to see available options displayed in the console.`;
                     if (typeof val === "number") {
                         if (fmt.startsWith("p"))
                             return KatApps.Utils.formatPercent(val, fmt);
-                        if (fmt.startsWith("c"))
-                            return KatApps.Utils.formatCurrency(val, fmt);
-                        if (fmt.startsWith("n") || fmt.startsWith("f"))
+                        if (fmt.startsWith("c") || fmt.startsWith("n") || fmt.startsWith("f"))
                             return KatApps.Utils.formatNumber(val, fmt);
                         throw new Error(`Invalid getLocalizedString format string: ${fmt}, value: ${val}`);
                     }
@@ -2381,7 +2379,7 @@ var KatApps;
                             const allowNegative = inputMask.startsWith("-");
                             const decimalPlacesString = inputMask.substring(allowNegative ? 7 : 6);
                             const decimalPlaces = decimalPlacesString != "" ? +decimalPlacesString : 2;
-                            const currencySeparator = Sys.CultureInfo.CurrentCulture.numberFormat.CurrencyDecimalSeparator;
+                            const currencySeparator = window.camelot?.intl?.currencyDecimalSeparator ?? ".";
                             const negRegEx = allowNegative ? `\\-` : "";
                             const sepRegEx = decimalPlaces > 0 ? `\\${currencySeparator}` : "";
                             return {
@@ -2598,10 +2596,8 @@ var KatApps;
                 const formatString = format.slice(3, -1);
                 if (formatString[0] == "p")
                     return KatApps.Utils.formatPercent(+value, formatString, true);
-                if (formatString[0] == "n" || formatString[0] == "f")
+                if (formatString[0] == "c" || formatString[0] == "n" || formatString[0] == "f")
                     return KatApps.Utils.formatNumber(+value, formatString);
-                if (formatString[0] == "c")
-                    return KatApps.Utils.formatCurrency(+value, formatString);
                 throw new Error(`Unsupported format ${formatString} for range input ${name}`);
             };
             const setRangeValues = (showBubble) => {
@@ -3293,7 +3289,7 @@ var KatApps;
             const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", globalOptions) ?? "{}");
             tip.padding = { top: 5, left: 5 };
             tip.show = getBooleanProperty("tip.show", tip.show, true);
-            tip.headerFormat = this.getOptionValue(chartOptions, "tip.headerFormat", globalOptions, tip.headerFormat);
+            tip.headerFormatter = this.getOptionValue(chartOptions, "tip.headerFormatter", globalOptions, tip.headerFormatter);
             tip.includeShape = getBooleanProperty("tip.includeShape", tip.includeShape, true);
             tip.includeTotal = getBooleanProperty("tip.includeTotal", tip.includeTotal, chartIsStacked && !dataLabels.show);
             const aspectRatioValue = this.getOptionValue(chartOptions, "aspectRatio", globalOptions, "1:1");
@@ -3364,12 +3360,13 @@ var KatApps;
             const maxDataValue = Math.max(...data.map(item => Array.isArray(item.data)
                 ? Math.max(item.data.reduce((sum, v, i) => sum + (seriesConfig[i].shape != "line" ? v : 0), 0), ...item.data.map((v, i) => seriesConfig[i].shape != "line" ? v : 0))
                 : item.data)) * (dataLabels.show ? 1.05 : 1.025);
-            const maxDataValueString = KatApps.Utils.formatCurrency(maxDataValue, yAxisConfig.format) + "000";
+            const maxDataValueString = KatApps.Utils.formatNumber(maxDataValue, yAxisConfig.format) + "000";
             const hasAxis = chartType != "donut";
             const directive = this;
             const config = {
                 name: model.data,
                 type: chartType,
+                dataColumns: dataColumns,
                 data: data,
                 css: {
                     chart: `ka-chart-${model.data.toLowerCase()}`,
@@ -3400,6 +3397,13 @@ var KatApps;
                     get width() { return Math.ceil(400 * this.aspectRadio[this.aspectRadio.current]); },
                     get plotWidth() { return this.width - this.padding.left - this.padding.right; },
                     get plotHeight() { return this.height - this.padding.top - this.padding.bottom; },
+                    pie: {
+                        startAngle: +this.getOptionValue(chartOptions, "pie.startAngle", globalOptions, "0"),
+                        endAngle: +this.getOptionValue(chartOptions, "pie.endAngle", globalOptions, "360"),
+                    },
+                    donut: {
+                        labelFormatter: this.getOptionValue(chartOptions, "donut.labelFormatter", globalOptions)
+                    },
                     padding: {
                         get top() {
                             return 5 +
@@ -3565,7 +3569,7 @@ var KatApps;
                     element.setAttribute("data-is-tooltip", "1");
                     element.setAttribute("opacity", "0");
                 }
-                const valueFormatted = KatApps.Utils.formatCurrency(value, configuration.plotOptions.dataLabels.format);
+                const valueFormatted = KatApps.Utils.formatNumber(value, configuration.plotOptions.dataLabels.format);
                 element.setAttribute("ka-chart-highlight-key", seriesConfig.text);
                 element.setAttribute("aria-label", `${seriesConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`);
                 return element;
@@ -3610,7 +3614,7 @@ var KatApps;
                         ? item.data.reduce((sum, v) => sum + v, 0)
                         : item.data;
                     const labelY = configuration.plotOptions.yAxis.getY(totalValue) - 10;
-                    const dataLabel = this.createText(configuration.plotOptions, columnX + columnConfig.width / 2, labelY, KatApps.Utils.formatCurrency(totalValue, configuration.plotOptions.dataLabels.format), configuration.plotOptions.font.size.dataLabel, { "text-anchor": "middle", "font-weight": "bold" });
+                    const dataLabel = this.createText(configuration.plotOptions, columnX + columnConfig.width / 2, labelY, KatApps.Utils.formatNumber(totalValue, configuration.plotOptions.dataLabels.format), configuration.plotOptions.font.size.dataLabel, { "text-anchor": "middle", "font-weight": "bold" });
                     columnGroup.appendChild(dataLabel);
                 }
                 const linePoints = columnElements.filter(e => !(e instanceof Element));
@@ -3691,29 +3695,39 @@ var KatApps;
             const radius = configuration.plotOptions.height / 2;
             const strokeWidth = radius * 0.4375;
             const normalizedRadius = radius - strokeWidth / 2;
-            let currentAngle = 0;
+            const fullAngle = configuration.plotOptions.pie.endAngle - configuration.plotOptions.pie.startAngle;
+            let currentAngle = configuration.plotOptions.pie.startAngle;
             const segments = data.map((item, index) => {
-                const angle = (item.data / total) * 360;
+                if (item.data == 0)
+                    return undefined;
+                const angle = (item.data / total) * fullAngle;
                 const startAngle = currentAngle;
                 currentAngle += angle;
                 const x1 = normalizedRadius * Math.cos((startAngle - 90) * Math.PI / 180) + radius;
                 const y1 = normalizedRadius * Math.sin((startAngle - 90) * Math.PI / 180) + radius;
                 const x2 = normalizedRadius * Math.cos((currentAngle - 90) * Math.PI / 180) + radius;
                 const y2 = normalizedRadius * Math.sin((currentAngle - 90) * Math.PI / 180) + radius;
-                const largeArcFlag = angle > 180 ? 1 : 0;
-                const valueFormatted = KatApps.Utils.formatCurrency(item.data, configuration.plotOptions.dataLabels.format);
-                const path = this.createPath(`M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`, "none", 0, configuration.series[index].color);
+                const largeArcFlag = angle > fullAngle / 2 ? 1 : 0;
+                const valueFormatted = KatApps.Utils.formatNumber(item.data, configuration.plotOptions.dataLabels.format);
+                const path = angle >= 360
+                    ? this.createCircle(radius, radius, normalizedRadius, configuration.series[index].color)
+                    : this.createPath(`M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`, "none", 0, configuration.series[index].color);
                 path.setAttribute("aria-label", `${item.name}, ${valueFormatted}.`);
                 path.setAttribute("ka-chart-highlight-key", item.name);
                 if (configuration.plotOptions.tip.show) {
                     path.setAttribute("ka-tip-key", String(index));
                 }
                 return path;
-            });
+            }).filter(s => s != undefined);
             const svg = this.getChartSvgElement(configuration.plotOptions);
             svg.append(...segments);
             svg.appendChild(this.createCircle(radius, radius, radius - strokeWidth, "white"));
-            svg.appendChild(this.createText(configuration.plotOptions, radius, radius, KatApps.Utils.formatCurrency(total, configuration.plotOptions.dataLabels.format), configuration.plotOptions.font.size.donutLabel, { "text-anchor": "middle", "dominant-baseline": "middle", "font-weight": "bold" }));
+            const formattedTotal = KatApps.Utils.formatNumber(total, configuration.plotOptions.dataLabels.format);
+            const donutLabel = configuration.plotOptions.donut.labelFormatter
+                ? String.formatTokens(configuration.plotOptions.donut.labelFormatter.replace(/\{([^}]+)\}/g, '{{$1}}'), configuration.dataColumns
+                    .reduce(function (o, c, i) { o[c] = KatApps.Utils.formatNumber(data[i].data, configuration.plotOptions.dataLabels.format); return o; }, { total: formattedTotal }))
+                : formattedTotal;
+            svg.appendChild(this.createText(configuration.plotOptions, radius, radius, donutLabel, configuration.plotOptions.font.size.donutLabel, { "text-anchor": "middle", "dominant-baseline": "middle", "font-weight": "bold" }));
             container.appendChild(svg);
         }
         addLegend(el) {
@@ -3761,20 +3775,32 @@ var KatApps;
             const registerTipEvents = () => {
                 const tipItems = [...el.querySelectorAll(".ka-chart-donut [ka-tip-key], .ka-chart-category-group [ka-tip-key]")];
                 let currentTip = undefined;
+                tipItems.forEach(item => {
+                    const tipKey = item.getAttribute("ka-tip-key");
+                    const options = this.getTooltipOptions(el, tipKey);
+                    options.trigger = "hover";
+                    new bootstrap.Tooltip(item, options);
+                    item.setAttribute("ka-init-tip", "true");
+                });
+                return;
                 this.application.off(tipItems, "mouseenter.ka.chart.tip mouseleave.ka.chart.tip")
                     .on("mouseenter.ka.chart.tip mouseleave.ka.chart.tip", (event) => {
                     const me = event;
                     const tipTrigger = event.target;
+                    if (currentTip) {
+                        console.log(`${event.type}: HIDE ${currentTip._element.getAttribute("ka-tip-key")}`);
+                    }
                     currentTip?.hide();
                     if (me.type == "mouseleave")
                         return;
-                    KatApps.HelpTips.hideVisiblePopover();
                     currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
                     if (!currentTip) {
+                        KatApps.HelpTips.hideVisiblePopover();
                         const tipKey = tipTrigger.getAttribute("ka-tip-key");
                         const options = this.getTooltipOptions(el, tipKey);
                         currentTip = new bootstrap.Tooltip(tipTrigger, options);
                     }
+                    console.log(`${event.type}: SHOW ${tipTrigger.getAttribute("ka-tip-key")}`);
                     currentTip.show();
                 });
             };
@@ -4015,12 +4041,12 @@ var KatApps;
                     return undefined;
                 let header = item.data instanceof Array ? item.name : undefined;
                 if (header) {
-                    header = configuration.plotOptions.tip.headerFormat?.replace("{x}", header) ?? header;
+                    header = configuration.plotOptions.tip.headerFormatter?.replace("{x}", header) ?? header;
                 }
                 const tooltipContent = document.createElement("div");
                 tooltipContent.className = `tooltip-${index}`;
                 const tooltipSvg = document.createElementNS(this.ns, "svg");
-                const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipInfo.map(tip => `${tip.name}: ${KatApps.Utils.formatCurrency(tip.value, configuration.plotOptions.dataLabels.format)}`.length))) * 7;
+                const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipInfo.map(tip => `${tip.name}: ${KatApps.Utils.formatNumber(tip.value, configuration.plotOptions.dataLabels.format)}`.length))) * 7;
                 const svgWidth = maxTextWidth + tipConfig.padding.left * 2;
                 const includeTotal = tipConfig.includeTotal && tipInfo.length > 1;
                 tooltipSvg.setAttribute("viewBox", `0 0 ${svgWidth} ${(tipInfo.length + (header ? 1 : 0) + (includeTotal ? 1 : 0)) * 20 + tipConfig.padding.top * 2}`);
@@ -4039,13 +4065,13 @@ var KatApps;
                     const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${tip.name}: `, configuration.plotOptions.font.size.tipBody);
                     const tspan = document.createElementNS(this.ns, "tspan");
                     tspan.setAttribute("font-weight", "bold");
-                    tspan.innerHTML = KatApps.Utils.formatCurrency(tip.value, configuration.plotOptions.dataLabels.format);
+                    tspan.innerHTML = KatApps.Utils.formatNumber(tip.value, configuration.plotOptions.dataLabels.format);
                     text.appendChild(tspan);
                     tooltipSvg.appendChild(text);
                 });
                 if (includeTotal) {
                     const y = tipLineBaseY + (tipInfo.length + 1) * 20;
-                    const total = KatApps.Utils.formatCurrency(tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
+                    const total = KatApps.Utils.formatNumber(tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
                     const text = this.createText(configuration.plotOptions, shapeXPadding, y, `Total: ${total}`, configuration.plotOptions.font.size.tipBody, { "font-weight": "bold" });
                     tooltipSvg.appendChild(text);
                 }
@@ -4064,7 +4090,7 @@ var KatApps;
             markerGroup.appendChild(glow);
             markerGroup.append(...points.map(point => {
                 const diamond = this.createPointMarker(point.x, point.y, point.seriesConfig.color);
-                const valueFormatted = KatApps.Utils.formatCurrency(point.value, configuration.plotOptions.dataLabels.format);
+                const valueFormatted = KatApps.Utils.formatNumber(point.value, configuration.plotOptions.dataLabels.format);
                 diamond.setAttribute("aria-label", `${point.seriesConfig.text}, ${valueFormatted}. ${this.getHeader(configuration.plotOptions, point.name)}.`);
                 diamond.setAttribute("ka-chart-point", `${point.x},${point.y}`);
                 return diamond;
@@ -4072,7 +4098,7 @@ var KatApps;
             return markerGroup;
         }
         getHeader(plotOptions, header) {
-            return plotOptions.tip.headerFormat?.replace("{x}", header) ?? header;
+            return plotOptions.tip.headerFormatter?.replace("{x}", header) ?? header;
         }
         addPlotLines(svg, config, plotOffset = 0) {
             if (config.plotOptions.xAxis.plotLines.length == 0)
@@ -4154,7 +4180,7 @@ var KatApps;
                 const tickLine = i != 0
                     ? this.createLine(paddingConfig.left, y, configuration.plotOptions.width - paddingConfig.right, y, "#e6e6e6")
                     : undefined;
-                const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, KatApps.Utils.formatCurrency(value, configuration.plotOptions.yAxis.format), configuration.plotOptions.font.size.yAxisTickLabels, { "text-anchor": "end", "dominant-baseline": "middle" });
+                const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, KatApps.Utils.formatNumber(value, configuration.plotOptions.yAxis.format), configuration.plotOptions.font.size.yAxisTickLabels, { "text-anchor": "end", "dominant-baseline": "middle" });
                 return tickLine ? [tickLine, tickLabel] : [tickLabel];
             });
             if (yAxisLabel != undefined)
@@ -4388,7 +4414,8 @@ var KatApps;
                 formatter: function () {
                     let s = "";
                     let t = 0;
-                    const pointTemplate = Sys.CultureInfo.CurrentCulture.name.startsWith("fr")
+                    const locales = window.camelot?.intl?.locales ?? "en-US";
+                    const pointTemplate = (locales instanceof Array ? locales : [locales]).some(l => l.startsWith("fr"))
                         ? "<br/>{{name}} : {{value}}"
                         : "<br/>{{name}}: {{value}}";
                     this.points.forEach((point, index) => {
@@ -6033,9 +6060,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
                         if (!isNaN(val)) {
                             if (tokenFormat.startsWith("p"))
                                 tokenValue = KatApps.Utils.formatPercent(val, tokenFormat);
-                            else if (tokenFormat.startsWith("c"))
-                                tokenValue = KatApps.Utils.formatCurrency(val, tokenFormat);
-                            else if (tokenFormat.startsWith("n") || tokenFormat.startsWith("f"))
+                            else if (tokenFormat.startsWith("c") || tokenFormat.startsWith("n") || tokenFormat.startsWith("f"))
                                 tokenValue = KatApps.Utils.formatNumber(val, tokenFormat);
                             else
                                 throw new Error(`Invalid String.formatTokens format string: ${tokenFormat}, value: ${val}`);
@@ -6220,8 +6245,8 @@ var KatApps;
             }
         }
         static formatCurrency(amount, style) {
-            const l = window.camelot?.configuration?.intl?.locales ?? "en-US";
-            const currencyCode = window.camelot?.configuration?.intl?.currencyCode ?? "USD";
+            const l = window.camelot?.intl?.locales ?? "en-US";
+            const currencyCode = window.camelot?.intl?.currencyCode ?? "USD";
             return Intl.NumberFormat(l, {
                 style: "currency",
                 currency: currencyCode,
@@ -6230,7 +6255,9 @@ var KatApps;
             }).format(amount);
         }
         static formatNumber(value, format = "n") {
-            const l = window.camelot?.configuration?.intl?.locales ?? "en-US";
+            if (format[0] == "c")
+                return this.formatCurrency(value, format);
+            const l = window.camelot?.intl?.locales ?? "en-US";
             const useGrouping = format.toLowerCase().startsWith("n");
             const decimalPlaces = parseInt(format.slice(1)) || 0;
             return Intl.NumberFormat(l, {
@@ -6241,7 +6268,7 @@ var KatApps;
             }).format(value);
         }
         static formatPercent(value, format = "p", divideBy100) {
-            const l = window.camelot?.configuration?.intl?.locales ?? "en-US";
+            const l = window.camelot?.intl?.locales ?? "en-US";
             const decimalPlaces = parseInt(format.slice(1)) || 0;
             let pValue = value;
             if (divideBy100 === true || (pValue > 1 && divideBy100 == undefined)) {
@@ -6255,7 +6282,7 @@ var KatApps;
         }
         static formatDate(value, format = "g") {
             const dateValue = value instanceof Date ? value : new Date(value);
-            const l = window.camelot?.configuration?.intl?.locales ?? "en-US";
+            const l = window.camelot?.intl?.locales ?? "en-US";
             if (format == "s")
                 return dateValue.toISOString().slice(0, 19);
             else if (format == "dv")

@@ -212,8 +212,8 @@
 
 		public static formatCurrency(amount: number, style: IRblCurrencyFormat): string {
 			// TODO: Should pass this in as options to application instead of camelot dependency
-			const l = (window as any).camelot?.configuration?.intl?.locales ?? "en-US";
-			const currencyCode = (window as any).camelot?.configuration?.intl?.currencyCode ?? "USD";
+			const l = (window as any).camelot?.intl?.locales ?? "en-US";
+			const currencyCode = (window as any).camelot?.intl?.currencyCode ?? "USD";
 
 			return Intl.NumberFormat(l, {
 				style: "currency",
@@ -223,9 +223,11 @@
 			}).format(amount);
 		}
 		
-		public static formatNumber(value: number, format: IRblNumberFormat = "n") {
+		public static formatNumber(value: number, format: IRblCurrencyFormat | IRblNumberFormat = "n") {
+			if (format[0] == "c") return this.formatCurrency(value, format as IRblCurrencyFormat);
+			
 			// TODO: Should pass this in as options to application instead of camelot dependency
-			const l = (window as any).camelot?.configuration?.intl?.locales ?? "en-US";
+			const l = (window as any).camelot?.intl?.locales ?? "en-US";
 			
 			const useGrouping = format.toLowerCase().startsWith("n"); // 'N' for grouping, 'F' for fixed-point
 			const decimalPlaces = parseInt(format.slice(1)) || 0; // Extract decimal places from format (e.g., "N2" -> 2)
@@ -240,7 +242,7 @@
 
 		public static formatPercent(value: number, format: IRblPercentFormat = "p", divideBy100?: boolean) {
 			// TODO: Should pass this in as options to application instead of camelot dependency
-			const l = (window as any).camelot?.configuration?.intl?.locales ?? "en-US";
+			const l = (window as any).camelot?.intl?.locales ?? "en-US";
 			const decimalPlaces = parseInt(format.slice(1)) || 0; // Extract decimal places from format (e.g., "P2" -> 2)
 			
 			let pValue = value;
@@ -259,7 +261,7 @@
 		public static formatDate(value: string | Date, format: IRblDateFormat = "g") {
 			const dateValue = value instanceof Date ? value : new Date(value);
 			// TODO: Should pass this in as options to application instead of camelot dependency
-			const l = (window as any).camelot?.configuration?.intl?.locales ?? "en-US";
+			const l = (window as any).camelot?.intl?.locales ?? "en-US";
 
 			if (format == "s") return dateValue.toISOString().slice(0, 19); // ISO8601 sortable: yyyy-MM-ddTHH:mm:ss
 			else if (format == "dv") return dateValue.toISOString().slice(0, 10); // yyyy-MM-dd

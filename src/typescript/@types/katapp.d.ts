@@ -323,6 +323,7 @@ interface KaChartElement<T extends IRblChartConfigurationDataType> extends HTMLE
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
     name: string;
     type: IRblChartConfigurationType;
+    dataColumns: Array<IRblChartColumnName>;
     data: Array<{
         name: string;
         data: T;
@@ -378,6 +379,13 @@ interface IRblChartConfigurationPlotOptions {
             hoverSeries: boolean;
         };
     };
+    pie: {
+        startAngle: number;
+        endAngle: number;
+    };
+    donut: {
+        labelFormatter: string | undefined;
+    };
     dataLabels: IRblChartConfigurationDataLabels;
     tip: IRblChartConfigurationTip;
     xAxis: IRblChartConfigurationXAxis;
@@ -385,7 +393,7 @@ interface IRblChartConfigurationPlotOptions {
 }
 interface IRblChartConfigurationXAxis {
     label: string | undefined;
-    format: IRblCurrencyFormat;
+    format: IRblCurrencyFormat | IRblNumberFormat;
     minCategory: number;
     maxCategory: number;
     plotBandSegmentWidth: number;
@@ -396,7 +404,7 @@ interface IRblChartConfigurationXAxis {
 }
 interface IRblChartConfigurationYAxis {
     label: string | undefined;
-    format: IRblCurrencyFormat;
+    format: IRblCurrencyFormat | IRblNumberFormat;
     tickCount: number;
     intervalSize: number;
     maxValue: number;
@@ -450,7 +458,7 @@ interface IRblChartConfigurationTip {
     show: boolean;
     includeShape: boolean;
     includeTotal: boolean;
-    headerFormat: string | undefined;
+    headerFormatter: string | undefined;
     padding: {
         top: number;
         left: number;
@@ -458,7 +466,7 @@ interface IRblChartConfigurationTip {
 }
 interface IRblChartConfigurationDataLabels {
     show: boolean;
-    format: IRblCurrencyFormat;
+    format: IRblCurrencyFormat | IRblNumberFormat;
 }
 interface IRblChartConfigurationChartColumn {
     maxValue: number;
@@ -1260,7 +1268,7 @@ declare namespace KatApps {
         static removeSessionItem(options: IKatAppOptions, key: string): void;
         static clearSession(prefix: string | undefined): void;
         static formatCurrency(amount: number, style: IRblCurrencyFormat): string;
-        static formatNumber(value: number, format?: IRblNumberFormat): string;
+        static formatNumber(value: number, format?: IRblCurrencyFormat | IRblNumberFormat): string;
         static formatPercent(value: number, format?: IRblPercentFormat, divideBy100?: boolean): string;
         static formatDate(value: string | Date, format?: IRblDateFormat): string;
     }
