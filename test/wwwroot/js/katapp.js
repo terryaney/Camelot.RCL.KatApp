@@ -3774,34 +3774,12 @@ var KatApps;
         addHoverEvents(model, el) {
             const registerTipEvents = () => {
                 const tipItems = [...el.querySelectorAll(".ka-chart-donut [ka-tip-key], .ka-chart-category-group [ka-tip-key]")];
-                let currentTip = undefined;
                 tipItems.forEach(item => {
                     const tipKey = item.getAttribute("ka-tip-key");
                     const options = this.getTooltipOptions(el, tipKey);
                     options.trigger = "hover";
                     new bootstrap.Tooltip(item, options);
                     item.setAttribute("ka-init-tip", "true");
-                });
-                return;
-                this.application.off(tipItems, "mouseenter.ka.chart.tip mouseleave.ka.chart.tip")
-                    .on("mouseenter.ka.chart.tip mouseleave.ka.chart.tip", (event) => {
-                    const me = event;
-                    const tipTrigger = event.target;
-                    if (currentTip) {
-                        console.log(`${event.type}: HIDE ${currentTip._element.getAttribute("ka-tip-key")}`);
-                    }
-                    currentTip?.hide();
-                    if (me.type == "mouseleave")
-                        return;
-                    currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
-                    if (!currentTip) {
-                        KatApps.HelpTips.hideVisiblePopover();
-                        const tipKey = tipTrigger.getAttribute("ka-tip-key");
-                        const options = this.getTooltipOptions(el, tipKey);
-                        currentTip = new bootstrap.Tooltip(tipTrigger, options);
-                    }
-                    console.log(`${event.type}: SHOW ${tipTrigger.getAttribute("ka-tip-key")}`);
-                    currentTip.show();
                 });
             };
             const registerSeriesHighlightEvents = () => {
