@@ -3204,10 +3204,11 @@ var KatApps;
                     const configuration = this.buildChartConfiguration(scope);
                     this.resetContextElement(el, configuration);
                     if (configuration.data.length > 0) {
-                        this.addChart(scope, el);
-                        this.addLegend(el);
-                        this.addTooltips(scope, el);
-                        this.addHoverEvents(scope, el);
+                        this.addChart(scope, el, configuration);
+                        this.generateBreakpointCharts(scope, el, configuration);
+                        this.addLegend(el, configuration);
+                        this.addTooltips(scope, el, configuration);
+                        this.addHoverEvents(scope, el, configuration);
                     }
                 });
                 return () => {
@@ -3215,13 +3216,20 @@ var KatApps;
                 };
             };
         }
-        addChart(model, el) {
+        addChart(model, el, configuration) {
             if (model.mode == "legend")
                 return;
-            const configuration = el.kaChart;
             const chartContainer = document.createElement("div");
-            chartContainer.classList.add("ka-chart", configuration.css.chartType);
-            if (model.categories?.xs) {
+            chartContainer.classList.add("ka-chart-container", configuration.css.chartType);
+            chartContainer.kaHoverOptions = {
+                columnCount: configuration.plotOptions.column.count,
+                columnWidth: configuration.plotOptions.plotWidth / configuration.plotOptions.column.count,
+                plotLeft: configuration.plotOptions.padding.left,
+                plotRight: configuration.plotOptions.width - configuration.plotOptions.padding.right,
+                plotBottom: configuration.plotOptions.yAxis.baseY,
+                plotTop: configuration.plotOptions.padding.top
+            };
+            if (model.breakpoints?.xs) {
                 chartContainer.classList.add("d-none", "d-sm-block");
             }
             if (model.maxHeight) {
@@ -3238,7 +3246,6 @@ var KatApps;
                 case "column":
                 case "columnStacked":
                     this.generateColumnChart(configuration, chartContainer);
-                    this.generateBreakpointColumnCharts(el, model);
                     break;
                 default:
                     chartContainer.innerHTML = `<b>${model.data} ${configuration.type} chart not supported</b>`;
@@ -3250,7 +3257,7 @@ var KatApps;
         }
         buildChartConfiguration(model) {
             const dataSource = this.application.state.rbl.source(model.data, model.ce, model.tab);
-            const dataRows = dataSource.filter(r => r.id == "category");
+            const dataRows = dataSource.filter(r => r.id == "category").slice(model.from ?? 0, model.to ?? dataSource.length);
             const chartOptions = dataSource.filter(r => r.id != "category");
             const globalOptions = this.application.state.rbl.source(model.options ?? "chartOptions", model.ce, model.tab);
             const chartType = this.getOptionValue(chartOptions, "type");
@@ -3379,7 +3386,8 @@ var KatApps;
                         size: {
                             heuristic: 0.6,
                             base: 16,
-                            get default() { return this.base * directive.getOptionNumber(chartOptions, "font.multiplier", globalOptions, 1); },
+                            fontMultiplier: directive.getOptionNumber(chartOptions, "font.multiplier", globalOptions, 1),
+                            get default() { return this.base * this.fontMultiplier; },
                             get yAxisLabel() { return this.default * 0.9; },
                             get yAxisTickLabels() { return this.default * 0.8; },
                             get xAxisLabel() { return this.default * 0.9; },
@@ -3394,7 +3402,7 @@ var KatApps;
                     },
                     aspectRadio: aspectRatioConfig,
                     height: 400,
-                    get width() { return Math.ceil(400 * this.aspectRadio[this.aspectRadio.current]); },
+                    get width() { return Math.ceil(400 * (this.aspectRadio[this.aspectRadio.current] ?? this.aspectRadio.value)); },
                     get plotWidth() { return this.width - this.padding.left - this.padding.right; },
                     get plotHeight() { return this.height - this.padding.top - this.padding.bottom; },
                     pie: {
@@ -3661,33 +3669,64 @@ var KatApps;
             this.addXAxis(svg, configuration, data);
             container.appendChild(svg);
         }
-        generateBreakpointColumnCharts(el, model) {
-            const categories = model.categories;
-            if (categories?.xs) {
-                el.kaChart.plotOptions.aspectRadio.current = "xs";
-                el.kaChart.plotOptions.column.count = categories.xs;
-                const xsContainer = document.createElement("div");
-                xsContainer.className = `d-block d-sm-none ka-chart-xs ${el.kaChart.css.chartType}`;
-                el.appendChild(xsContainer);
-                const maxHeight = categories.maxHeight ?? model.maxHeight;
-                for (let index = 0; index < Math.ceil(el.kaChart.data.length / categories.xs); index++) {
-                    const plotStart = index * categories.xs;
-                    const plotEnd = plotStart + categories.xs;
-                    let xsContainerMaxHeight = undefined;
-                    if (maxHeight) {
-                        xsContainerMaxHeight = document.createElement("div");
-                        xsContainerMaxHeight.style.maxHeight = `${maxHeight}px`;
-                        xsContainer.appendChild(xsContainerMaxHeight);
+        generateBreakpointCharts(model, el, configuration) {
+            const breakpoints = [
+                { item: model.breakpoints?.xs, name: "xs", labelColumn: "textXs" }
+            ].filter(b => b.item != undefined);
+            const originalCount = configuration.plotOptions.column.count;
+            const originalMultiplier = configuration.plotOptions.font.size.fontMultiplier;
+            const originalMinCategory = configuration.plotOptions.xAxis.minCategory;
+            const originalMaxCategory = configuration.plotOptions.xAxis.maxCategory;
+            try {
+                breakpoints.forEach(b => {
+                    const breakpointContainer = document.createElement("div");
+                    breakpointContainer.className = `d-block d-sm-none ka-chart-container-${b.name} ${configuration.css.chartType}`;
+                    const colCount = b.item.categories ?? configuration.plotOptions.column.count;
+                    configuration.plotOptions.aspectRadio.current = b.name;
+                    configuration.plotOptions.column.count = colCount;
+                    configuration.plotOptions.font.size.fontMultiplier = b.item.fontMultiplier ?? configuration.plotOptions.font.size.fontMultiplier;
+                    breakpointContainer.kaHoverOptions = {
+                        columnCount: colCount,
+                        columnWidth: configuration.plotOptions.plotWidth / colCount,
+                        plotLeft: configuration.plotOptions.padding.left,
+                        plotRight: configuration.plotOptions.width - configuration.plotOptions.padding.right,
+                        plotBottom: configuration.plotOptions.yAxis.baseY,
+                        plotTop: configuration.plotOptions.padding.top
+                    };
+                    el.appendChild(breakpointContainer);
+                    const maxHeight = b.item.maxHeight ?? model.maxHeight;
+                    for (let index = 0; index < Math.ceil(configuration.data.length / colCount); index++) {
+                        const plotStart = index * colCount;
+                        const plotEnd = plotStart + colCount;
+                        let breakpointContainerMaxHeight = undefined;
+                        if (maxHeight) {
+                            breakpointContainerMaxHeight = document.createElement("div");
+                            breakpointContainerMaxHeight.style.maxHeight = `${maxHeight}px`;
+                            breakpointContainer.appendChild(breakpointContainerMaxHeight);
+                        }
+                        configuration.plotOptions.xAxis.minCategory = plotStart - 0.5;
+                        configuration.plotOptions.xAxis.maxCategory = plotEnd - 0.5;
+                        const partialData = configuration.data.slice(plotStart, plotEnd);
+                        const plotBandSegmentWidth = configuration.plotOptions.plotWidth / (partialData.length * 2);
+                        this.generateColumnChart(configuration, breakpointContainerMaxHeight ?? breakpointContainer, {
+                            plotOffset: plotStart,
+                            plotLabelColumn: b.labelColumn,
+                            plotBandSegmentWidth: plotBandSegmentWidth,
+                            data: partialData,
+                            containerClass: `.ka-chart-container-${b.name}`
+                        });
                     }
-                    el.kaChart.plotOptions.xAxis.minCategory = plotStart - 0.5;
-                    el.kaChart.plotOptions.xAxis.maxCategory = plotEnd - 0.5;
-                    const partialData = el.kaChart.data.slice(plotStart, plotEnd);
-                    const plotBandSegmentWidth = el.kaChart.plotOptions.plotWidth / (partialData.length * 2);
-                    this.generateColumnChart(el.kaChart, xsContainerMaxHeight ?? xsContainer, { plotOffset: plotStart, plotLabelColumn: "textXs", plotBandSegmentWidth: plotBandSegmentWidth, data: partialData, containerClass: ".ka-chart-xs" });
-                }
-                if (maxHeight) {
-                    [...xsContainer.children].forEach(div => div.querySelector("svg").style.maxHeight = `${categories.maxHeight}px`);
-                }
+                    if (maxHeight) {
+                        [...breakpointContainer.children].forEach(div => div.querySelector("svg.ka-chart").style.maxHeight = `${maxHeight}px`);
+                    }
+                });
+            }
+            finally {
+                configuration.plotOptions.aspectRadio.current = "value";
+                configuration.plotOptions.column.count = originalCount;
+                configuration.plotOptions.font.size.fontMultiplier = originalMultiplier;
+                configuration.plotOptions.xAxis.minCategory = originalMinCategory;
+                configuration.plotOptions.xAxis.maxCategory = originalMaxCategory;
             }
         }
         generateDonutChart(configuration, container) {
@@ -3731,8 +3770,7 @@ var KatApps;
             svg.appendChild(this.createText(configuration.plotOptions, radius, radius, donutLabel, configuration.plotOptions.font.size.donutLabel, { "text-anchor": "middle", "dominant-baseline": "middle", "font-weight": "bold" }));
             container.appendChild(svg);
         }
-        addLegend(el) {
-            const configuration = el.kaChart;
+        addLegend(el, configuration) {
             if (!configuration.plotOptions.legend.show)
                 return;
             const legendContainer = document.createElement("div");
@@ -3770,9 +3808,8 @@ var KatApps;
                 }
             });
             el.classList.add(configuration.css.chart);
-            el.kaChart = configuration;
         }
-        addHoverEvents(model, el) {
+        addHoverEvents(model, el, configuration) {
             const registerTipEvents = () => {
                 const tipItems = [...el.querySelectorAll(".ka-chart-donut [ka-tip-key], .ka-chart-category-group [ka-tip-key]")];
                 tipItems.forEach(item => {
@@ -3784,14 +3821,15 @@ var KatApps;
                 });
             };
             const registerSeriesHighlightEvents = () => {
+                const plotOptions = configuration.plotOptions;
                 const seriesItems = [
-                    { textSelector: "span", highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverItem, elements: [...el.querySelectorAll(".ka-chart [ka-chart-highlight-key]")] },
-                    { textSelector: "span", highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverLegend, elements: [...el.querySelectorAll(".ka-chart-legend [ka-chart-highlight-key]")] }
+                    { textSelector: "span", highlightOnHover: plotOptions.highlight.series.hoverItem, elements: [...el.querySelectorAll(`.${configuration.css.chartType} [ka-chart-highlight-key]`)] },
+                    { textSelector: "span", highlightOnHover: plotOptions.highlight.series.hoverLegend, elements: [...el.querySelectorAll(".ka-chart-legend [ka-chart-highlight-key]")] }
                 ];
                 if (model.legendItemSelector) {
-                    const legend = this.application.selectElement(`.${el.kaChart.css.legend}`);
+                    const legend = this.application.selectElement(`.${configuration.css.legend}`);
                     if (legend) {
-                        seriesItems.push({ textSelector: model.legendItemSelector, highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverLegend, elements: [...legend.querySelectorAll("[ka-chart-highlight-key]")] });
+                        seriesItems.push({ textSelector: model.legendItemSelector, highlightOnHover: plotOptions.highlight.series.hoverLegend, elements: [...legend.querySelectorAll("[ka-chart-highlight-key]")] });
                     }
                 }
                 const highlightSeries = (event) => {
@@ -3816,136 +3854,142 @@ var KatApps;
                 });
             };
             let matrix = undefined;
+            const isStackedArea = configuration.type == "sharkfin";
             const registerMarkerEvents = () => {
                 if (el.querySelector(".ka-chart-marker-points")) {
-                    const pointMarkers = [...el.querySelectorAll(".ka-chart-marker-points")]
-                        .map(points => {
-                        return {
-                            points: [...points.querySelectorAll(".ka-chart-point")],
-                            glow: points.querySelector(".ka-chart-point-glow")
-                        };
-                    });
-                    const isStackedArea = el.kaChart.type == "sharkfin";
-                    const areaTooltipMarkers = isStackedArea
-                        ? [...el.querySelectorAll(`.ka-chart-series-item[ka-stack-top="1"] .ka-chart-marker-points path`)]
-                        : [];
-                    let currentColumn = undefined;
-                    let currentTip = undefined;
-                    const chartSvg = el.querySelector("svg");
-                    const pt = chartSvg.createSVGPoint();
-                    let svgRect = undefined;
-                    let hidingTip = false;
-                    const columnCount = el.kaChart.plotOptions.column.count;
-                    const columnWidth = el.kaChart.plotOptions.plotWidth / columnCount;
-                    const plotLeft = el.kaChart.plotOptions.padding.left;
-                    const plotRight = el.kaChart.plotOptions.width - el.kaChart.plotOptions.padding.right;
-                    const plotBottom = el.kaChart.plotOptions.yAxis.baseY;
-                    const plotTop = el.kaChart.plotOptions.padding.top;
-                    const setNoHover = (me) => {
-                        if (currentColumn == undefined)
-                            return;
-                        pointMarkers.forEach(g => {
-                            g.points.forEach(p => p.setAttribute("opacity", "0"));
-                            g.glow.setAttribute("opacity", "0");
-                        });
-                        if (currentTip) {
-                            if (!hidingTip) {
-                                hidingTip = true;
-                                currentTip.hide();
-                            }
-                            currentTip = undefined;
-                        }
-                        currentColumn = undefined;
-                    };
-                    const processMove = (me) => {
-                        if (matrix == undefined) {
-                            matrix = chartSvg.getScreenCTM().inverse();
-                            svgRect = chartSvg.getBoundingClientRect();
-                        }
-                        pt.x = me.clientX;
-                        pt.y = me.clientY;
-                        const loc = pt.matrixTransform(matrix);
-                        const isInsideX = loc.x >= plotLeft && loc.x <= plotRight;
-                        const isInsideY = loc.y >= plotTop && loc.y <= plotBottom;
-                        if (!(isInsideX && isInsideY)) {
-                            setNoHover(me);
-                            return;
-                        }
-                        const relativeX = loc.x - plotLeft;
-                        const hoverColumn = Math.max(0, Math.min(columnCount - 1, Math.floor(relativeX / columnWidth)));
-                        if (hoverColumn != currentColumn) {
-                            currentColumn = hoverColumn;
-                            pointMarkers.forEach(g => {
-                                g.points.forEach((p, i) => {
-                                    const isActive = hoverColumn == i;
-                                    p.setAttribute("opacity", isActive ? "1" : "0");
-                                    if (isActive) {
-                                        const point = p.getAttribute("ka-chart-point").split(",");
-                                        g.glow.setAttribute("cx", point[0]);
-                                        g.glow.setAttribute("cy", point[1]);
-                                    }
-                                });
-                                g.glow.setAttribute("opacity", "0.2");
+                    const allChartContainers = [...el.children].filter(c => c.kaHoverOptions != undefined);
+                    allChartContainers.forEach(chartContainer => {
+                        const allCharts = [...chartContainer.querySelectorAll("svg.ka-chart")];
+                        const hoverOptions = chartContainer.kaHoverOptions;
+                        allCharts.forEach(chartSvg => {
+                            const pointMarkers = [...chartSvg.querySelectorAll(".ka-chart-marker-points")]
+                                .map(points => {
+                                return {
+                                    points: [...points.querySelectorAll(".ka-chart-point")],
+                                    glow: points.querySelector(".ka-chart-point-glow")
+                                };
                             });
-                            if (isStackedArea) {
-                                const tipTrigger = areaTooltipMarkers[currentColumn];
-                                if (!bootstrap.Tooltip.getInstance(tipTrigger)) {
-                                    tipTrigger.addEventListener("hide.bs.tooltip", e => {
-                                        const targetLabel = e.target.getAttribute("aria-label");
-                                        const currentTipLabel = currentTip?._element?.getAttribute("aria-label");
-                                        if (!hidingTip && currentTipLabel === targetLabel) {
-                                            e.preventDefault();
-                                        }
-                                    });
-                                    tipTrigger.addEventListener("hidden.bs.tooltip", e => {
-                                        currentTip?.show();
-                                        hidingTip = false;
-                                    });
-                                    tipTrigger.addEventListener("inserted.bs.tooltip", e => {
-                                        const target = e.target;
-                                        const tip = document.querySelector(`#${target.getAttribute("aria-describedby")}`);
-                                        tip.addEventListener("mousemove", (event) => {
-                                            if (!(event.clientX >= svgRect.left && event.clientX <= svgRect.right && event.clientY >= svgRect.top && event.clientY <= svgRect.bottom)) {
-                                                setNoHover(me);
-                                            }
-                                            else {
-                                                processMove(event);
+                            const areaTooltipMarkers = isStackedArea
+                                ? [...chartSvg.querySelectorAll(`.ka-chart-series-item[ka-stack-top="1"] .ka-chart-marker-points path`)]
+                                : [];
+                            let currentColumn = undefined;
+                            let currentTip = undefined;
+                            const pt = chartSvg.createSVGPoint();
+                            let svgRect = undefined;
+                            let hidingTip = false;
+                            const columnCount = hoverOptions.columnCount;
+                            const columnWidth = hoverOptions.columnWidth;
+                            const plotLeft = hoverOptions.plotLeft;
+                            const plotRight = hoverOptions.plotRight;
+                            const plotBottom = hoverOptions.plotBottom;
+                            const plotTop = hoverOptions.plotTop;
+                            const setNoHover = (me) => {
+                                if (currentColumn == undefined)
+                                    return;
+                                pointMarkers.forEach(g => {
+                                    g.points.forEach(p => p.setAttribute("opacity", "0"));
+                                    g.glow.setAttribute("opacity", "0");
+                                });
+                                if (currentTip) {
+                                    if (!hidingTip) {
+                                        hidingTip = true;
+                                        currentTip.hide();
+                                    }
+                                    currentTip = undefined;
+                                }
+                                currentColumn = undefined;
+                            };
+                            const processMove = (me) => {
+                                if (matrix == undefined) {
+                                    matrix = chartSvg.getScreenCTM().inverse();
+                                    svgRect = chartSvg.getBoundingClientRect();
+                                }
+                                pt.x = me.clientX;
+                                pt.y = me.clientY;
+                                const loc = pt.matrixTransform(matrix);
+                                const isInsideX = loc.x >= plotLeft && loc.x <= plotRight;
+                                const isInsideY = loc.y >= plotTop && loc.y <= plotBottom;
+                                if (!(isInsideX && isInsideY)) {
+                                    setNoHover(me);
+                                    return;
+                                }
+                                const relativeX = loc.x - plotLeft;
+                                const hoverColumn = Math.max(0, Math.min(columnCount - 1, Math.floor(relativeX / columnWidth)));
+                                if (hoverColumn != currentColumn) {
+                                    currentColumn = hoverColumn;
+                                    pointMarkers.forEach(g => {
+                                        g.points.forEach((p, i) => {
+                                            const isActive = hoverColumn == i;
+                                            p.setAttribute("opacity", isActive ? "1" : "0");
+                                            if (isActive) {
+                                                const point = p.getAttribute("ka-chart-point").split(",");
+                                                g.glow.setAttribute("cx", point[0]);
+                                                g.glow.setAttribute("cy", point[1]);
                                             }
                                         });
+                                        g.glow.setAttribute("opacity", "0.2");
                                     });
-                                    KatApps.HelpTips.hideVisiblePopover();
-                                    const options = this.getTooltipOptions(el, String(currentColumn));
-                                    new bootstrap.Tooltip(tipTrigger, options);
-                                }
-                                const visibleTip = document.querySelector(".tooltip.ka-chart-tip");
-                                currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
-                                if (visibleTip) {
-                                    if (hidingTip) {
-                                        return;
+                                    if (isStackedArea) {
+                                        const tipTrigger = areaTooltipMarkers[currentColumn];
+                                        if (!bootstrap.Tooltip.getInstance(tipTrigger)) {
+                                            tipTrigger.addEventListener("hide.bs.tooltip", e => {
+                                                const targetLabel = e.target.getAttribute("aria-label");
+                                                const currentTipLabel = currentTip?._element?.getAttribute("aria-label");
+                                                if (!hidingTip && currentTipLabel === targetLabel) {
+                                                    e.preventDefault();
+                                                }
+                                            });
+                                            tipTrigger.addEventListener("hidden.bs.tooltip", e => {
+                                                currentTip?.show();
+                                                hidingTip = false;
+                                            });
+                                            tipTrigger.addEventListener("inserted.bs.tooltip", e => {
+                                                const target = e.target;
+                                                const tip = document.querySelector(`#${target.getAttribute("aria-describedby")}`);
+                                                tip.addEventListener("mousemove", (event) => {
+                                                    if (!(event.clientX >= svgRect.left && event.clientX <= svgRect.right && event.clientY >= svgRect.top && event.clientY <= svgRect.bottom)) {
+                                                        setNoHover(me);
+                                                    }
+                                                    else {
+                                                        processMove(event);
+                                                    }
+                                                });
+                                            });
+                                            KatApps.HelpTips.hideVisiblePopover();
+                                            const options = this.getTooltipOptions(el, String(currentColumn));
+                                            new bootstrap.Tooltip(tipTrigger, options);
+                                        }
+                                        const visibleTip = document.querySelector(".tooltip.ka-chart-tip");
+                                        currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
+                                        if (visibleTip) {
+                                            if (hidingTip) {
+                                                return;
+                                            }
+                                            hidingTip = true;
+                                            const visibleTrigger = document.querySelector(`[aria-describedby="${visibleTip.id}"]`);
+                                            const visibleInstance = bootstrap.Tooltip.getInstance(visibleTrigger);
+                                            visibleInstance.hide();
+                                        }
+                                        else {
+                                            currentTip.show();
+                                        }
                                     }
-                                    hidingTip = true;
-                                    const visibleTrigger = document.querySelector(`[aria-describedby="${visibleTip.id}"]`);
-                                    const visibleInstance = bootstrap.Tooltip.getInstance(visibleTrigger);
-                                    visibleInstance.hide();
                                 }
-                                else {
-                                    currentTip.show();
+                            };
+                            this.application
+                                .off(chartSvg, "mousemove.ka.chart.marker mouseleave.ka.chart.marker")
+                                .on("mousemove.ka.chart.marker mouseleave.ka.chart.marker", (event) => {
+                                const me = event;
+                                if (me.type == "mouseleave") {
+                                    const relatedTarget = me.relatedTarget;
+                                    if (chartSvg.contains(relatedTarget) || relatedTarget?.closest(".ka-chart-tip"))
+                                        return;
+                                    setNoHover(me);
+                                    return;
                                 }
-                            }
-                        }
-                    };
-                    this.application
-                        .off(chartSvg, "mousemove.ka.chart.marker mouseleave.ka.chart.marker")
-                        .on("mousemove.ka.chart.marker mouseleave.ka.chart.marker", (event) => {
-                        const me = event;
-                        if (me.type == "mouseleave") {
-                            const relatedTarget = me.relatedTarget;
-                            if (chartSvg.contains(relatedTarget) || relatedTarget?.closest(".ka-chart-tip"))
-                                return;
-                            setNoHover(me);
-                            return;
-                        }
-                        processMove(me);
+                                processMove(me);
+                            });
+                        });
                     });
                 }
             };
@@ -3963,7 +4007,7 @@ var KatApps;
             };
             this.application.handleEvents(events => {
                 events.domUpdated = elements => {
-                    const externalLegend = model.legendItemSelector != undefined ? this.application.selectElement(`.${el.kaChart.css.legend}`) : undefined;
+                    const externalLegend = model.legendItemSelector != undefined ? this.application.selectElement(`.${configuration.css.legend}`) : undefined;
                     if (!elements.some(e => e === el || e.contains(el) || e === externalLegend || (externalLegend != undefined && e.contains(externalLegend))))
                         return;
                     registerEvents();
@@ -3979,7 +4023,7 @@ var KatApps;
                 html: true,
                 sanitize: false,
                 trigger: "manual",
-                container: el.querySelector(".ka-chart"),
+                container: el,
                 template: '<div class="tooltip katapp-css ka-chart-tip" role="tooltip"><div class="tooltip-arrow arrow"></div><div class="tooltip-inner"></div></div>',
                 placement: (tooltip, trigger) => "top",
                 fallbackPlacements: ["top", "bottom", "right", "left"],
@@ -3992,10 +4036,9 @@ var KatApps;
                 content: function () { return undefined; }
             };
         }
-        addTooltips(model, el) {
+        addTooltips(model, el, configuration) {
             if (model.mode == "legend")
                 return;
-            const configuration = el.kaChart;
             const tipConfig = configuration.plotOptions.tip;
             const tipContainer = document.createElement("div");
             tipContainer.classList.add("ka-chart-tips");
@@ -4201,6 +4244,7 @@ var KatApps;
             const svg = document.createElementNS(this.ns, "svg");
             svg.setAttribute("viewBox", `0 0 ${plotOptions.width} ${plotOptions.height}`);
             svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+            svg.setAttribute("class", "ka-chart");
             return svg;
         }
         getSeriesShape(y, shape, color) {

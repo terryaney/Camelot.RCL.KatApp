@@ -10,11 +10,22 @@ type IRblPercentFormat = "p" | `p${IRblFormatDecimals}`;
 type IRblNumberFormat = "n" | `n${IRblFormatDecimals}` | "f" | `f${IRblFormatDecimals}`;
 type IRblDateFormat = 'd' | 'g' | 's' | 't' | "trace" | "dv" | string;
 
-interface KaChartElement<T extends IRblChartConfigurationDataType> extends HTMLElement {
-	kaChart: IRblChartConfiguration<T>
+interface KaChartElement extends Element {
 	kaDomUpdated?: boolean;
 }
 
+interface KaHoverOptionsElement extends HTMLElement {
+	kaHoverOptions: IRblChartConfigurationHoverOptions
+}
+
+interface IRblChartConfigurationHoverOptions {
+	columnCount: number;
+	columnWidth: number;
+	plotLeft: number;
+	plotRight: number;
+	plotBottom: number;
+	plotTop: number;
+}
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
 	name: string;
 	type: IRblChartConfigurationType;
@@ -40,6 +51,7 @@ interface IRblChartConfigurationPlotOptions {
 	font: {
 		size: {
 			heuristic: number;
+			fontMultiplier: number;
 			base: number;
 			default: number;
 			yAxisLabel: number;

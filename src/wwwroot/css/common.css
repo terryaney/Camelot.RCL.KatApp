@@ -16,7 +16,7 @@
 	opacity: 1;
 }
 
-.ka-chart svg {
+svg.ka-chart {
     width: 100%; 
     height: auto; /* Keeps aspect ratio while respecting max-height */
 }

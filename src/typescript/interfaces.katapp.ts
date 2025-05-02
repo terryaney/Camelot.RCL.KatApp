@@ -495,7 +495,19 @@ interface IKaChartModel {
 	options?: string; // Default: chartOptions
 	mode?: "chart" | "legend"; // Default: both (but legend could be turned off via CalcEngine options if mode not provided, otherwise mode overrides legend.show)
 
-	categories?: IKaChartModelCategories;
+	// If from/to are provided, the chart will be sliced to only show the range of categories.  If not provided, all categories will be shown.
+	// Useful, when lots of categories and client will render multiple charts with different ranges to display 'all' data (or to change the range of data shown without the need of a re-calculation)
+	from?: number;
+	to?: number;
+
+	// If any provided, the primary chart will be wrapped with appropriate bootstrap classes to make it render, then based on provided breakpoints, rendering will be done appropriately based on bootstrap classes
+	breakpoints?: {
+		xs?: IKaChartModelBreakpoint;
+		sm?: IKaChartModelBreakpoint;
+		md?: IKaChartModelBreakpoint;
+		lg?: IKaChartModelBreakpoint;
+		xl?: IKaChartModelBreakpoint;
+	}
 
 	// If provided, Legend needs to have .ka-chart-legend-{name.toLower()} class.  Then each item needs to have ka-chart-highlight-key="series.name" attribute.
 	// Then each 'text' element containing info that should be opaque needs to be provided via selector (i.e. div.legend-hover)
@@ -506,12 +518,10 @@ interface IKaChartModel {
 	tab?: string;
 }
 
-interface IKaChartModelCategories {
-	from?: number; // If from/to are provided, the chart will be sliced to only show the range of categories.  If not provided, all categories will be shown.
-	to?: number;
-	
+interface IKaChartModelBreakpoint {
 	maxHeight?: number; // Max height of 'breakpoint' charts when rendered.  Default is model.maxHeight.
-	xs?: number; // If xs is provided, the primary chart will be wrapped with appropriate bootstrap classes to make it render, then in xs breakpoint, the number provided specifies how many categories to show
+	categories?: number; // The number of categories to show.  Default is all categories.
+	fontMultiplier?: number; // The multiplier to use for the font size of the chart.  Default is ce.fontMultiplier ?? 1.0.
 }
 
 interface IKaHighchartModel {

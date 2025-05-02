@@ -8,7 +8,7 @@
 		public getDefinition(application: KatApp): Directive<Element> {
 			return ctx => {
 				this.application = application;
-				const el = ctx.el as KaChartElement<IRblChartConfigurationDataType>;
+				const el = ctx.el as KaChartElement;
 				el.setAttribute("ka-chart-id", Utils.generateId());
 
 				ctx.effect(() => {
@@ -19,10 +19,11 @@
 					this.resetContextElement(el, configuration);
 
 					if (configuration.data.length > 0) {
-						this.addChart(scope, el)
-						this.addLegend(el);
-						this.addTooltips(scope, el);
-						this.addHoverEvents(scope, el);
+						this.addChart(scope, el, configuration)
+						this.generateBreakpointCharts(scope, el, configuration);
+						this.addLegend(el, configuration);
+						this.addTooltips(scope, el, configuration);
+						this.addHoverEvents(scope, el, configuration);
 					}
 				});
 
@@ -32,14 +33,21 @@
 			};
 		}
 		
-		private addChart(model: IKaChartModel, el: KaChartElement<IRblChartConfigurationDataType>) {
+		private addChart(model: IKaChartModel, el: Element, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>) {
 			if (model.mode == "legend") return;
 
-			const configuration = el.kaChart;
-			const chartContainer = document.createElement("div");
-			chartContainer.classList.add("ka-chart", configuration.css.chartType);
+			const chartContainer = document.createElement("div") as unknown as KaHoverOptionsElement;
+			chartContainer.classList.add("ka-chart-container", configuration.css.chartType);
+			chartContainer.kaHoverOptions = {
+				columnCount: configuration.plotOptions.column.count,
+				columnWidth: configuration.plotOptions.plotWidth / configuration.plotOptions.column.count,
+				plotLeft: configuration.plotOptions.padding.left,
+				plotRight: configuration.plotOptions.width - configuration.plotOptions.padding.right,
+				plotBottom: configuration.plotOptions.yAxis.baseY,
+				plotTop: configuration.plotOptions.padding.top			
+			};
 
-			if (model.categories?.xs) {
+			if (model.breakpoints?.xs) {
 				chartContainer.classList.add("d-none", "d-sm-block");
 			}
 
@@ -60,7 +68,6 @@
 				case "column":
 				case "columnStacked":
 					this.generateColumnChart(configuration, chartContainer);
-					this.generateBreakpointColumnCharts(el, model);
 					break;
 					
 				default:
@@ -75,7 +82,7 @@
 		
 		private buildChartConfiguration(model: IKaChartModel): IRblChartConfiguration<IRblChartConfigurationDataType> {
 			const dataSource = this.application.state.rbl.source(model.data, model.ce, model.tab) as any as Array<IRblChartDataRow>;
-			const dataRows = dataSource.filter(r => r.id == "category");
+			const dataRows = dataSource.filter(r => r.id == "category").slice(model.from ?? 0, model.to ?? dataSource.length);
 			const chartOptions = dataSource.filter(r => r.id != "category");
 			const globalOptions = this.application.state.rbl.source(model.options ?? "chartOptions", model.ce, model.tab) as any as Array<IRblChartDataRow>;
 
@@ -85,7 +92,7 @@
 			// Ideas for 'config' settings when needed: https://api.highcharts.com/highcharts
 
 			function configRow<T = string>(id: string): IRblChartDataRow<T> {
-				return (chartOptions.find(r => r.id == id) ?? {}) as IRblChartDataRow<T>;
+				return (chartOptions.find(r => r.id == id) ?? {}) as IRblChartDataRow<T>; 
 			}
 			function configRows<T = string>(id: string): Array<IRblChartDataRow<T>> {
 				return chartOptions.filter(r => r.id == id) as Array<IRblChartDataRow<T>>;
@@ -137,6 +144,7 @@
 
 			const aspectRatioValue = this.getOptionValue(chartOptions, "aspectRatio", globalOptions, "1:1")!;
 			const aspectRatioConfig = JSON.parse(aspectRatioValue.startsWith("{") ? aspectRatioValue : `{ "value": "${aspectRatioValue}" }`);
+			
 			const calcAspectRatio = (ratio: string) => {
 				const parts = ratio.split(":");
 				return +parts[0] / +parts[1];
@@ -251,7 +259,8 @@
 						size: {
 							heuristic: 0.6,
 							base: 16,
-							get default() { return this.base * directive.getOptionNumber(chartOptions, "font.multiplier", globalOptions, 1)!; },
+							fontMultiplier: directive.getOptionNumber(chartOptions, "font.multiplier", globalOptions, 1)!,
+							get default() { return this.base * this.fontMultiplier; },
 							get yAxisLabel() { return this.default * 0.9; },
 							get yAxisTickLabels() { return this.default * 0.8; },
 							get xAxisLabel() { return this.default * 0.9; },
@@ -267,7 +276,7 @@
 						
 					aspectRadio: aspectRatioConfig,
 					height: 400,
-					get width() { return Math.ceil(400 * this.aspectRadio[this.aspectRadio.current]!); },
+					get width() { return Math.ceil(400 * (this.aspectRadio[this.aspectRadio.current] ?? this.aspectRadio.value)); },
 
 					get plotWidth() { return this.width - this.padding.left - this.padding.right; },
 					get plotHeight() { return this.height - this.padding.top - this.padding.bottom; },
@@ -645,43 +654,79 @@
 			container.appendChild(svg);
 		}
 		
-		private generateBreakpointColumnCharts(el: KaChartElement<IRblChartConfigurationDataType>, model: IKaChartModel) {
-			const categories = model.categories;
+		private generateBreakpointCharts(model: IKaChartModel, el: Element, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>) {
+			const breakpoints = [
+				{ item: model.breakpoints?.xs, name: "xs", labelColumn: "textXs" }
+			].filter(b => b.item != undefined) as Array<{ item: IKaChartModelBreakpoint, name: "xs" | "value", labelColumn: "textXs" }>;
 
-			if (categories?.xs) {
-				el.kaChart.plotOptions.aspectRadio.current = "xs";
-				el.kaChart.plotOptions.column.count = categories.xs;
-				
-				const xsContainer = document.createElement("div");
-				xsContainer.className = `d-block d-sm-none ka-chart-xs ${el.kaChart.css.chartType}`;
+			const originalCount = configuration.plotOptions.column.count;
+			const originalMultiplier = configuration.plotOptions.font.size.fontMultiplier;
+			const originalMinCategory = configuration.plotOptions.xAxis.minCategory;
+			const originalMaxCategory = configuration.plotOptions.xAxis.maxCategory;
 
-				el.appendChild(xsContainer);
+			try {
+				breakpoints.forEach(b => {
+					const breakpointContainer = document.createElement("div") as unknown as KaHoverOptionsElement;
+					breakpointContainer.className = `d-block d-sm-none ka-chart-container-${b.name} ${configuration.css.chartType}`;
 
-				const maxHeight = categories.maxHeight ?? model.maxHeight;
+					const colCount = b.item.categories ?? configuration.plotOptions.column.count;
+					configuration.plotOptions.aspectRadio.current = b.name;
+					configuration.plotOptions.column.count = colCount;
+					configuration.plotOptions.font.size.fontMultiplier = b.item.fontMultiplier ?? configuration.plotOptions.font.size.fontMultiplier;
+					
+					breakpointContainer.kaHoverOptions = {
+						columnCount: colCount,
+						columnWidth: configuration.plotOptions.plotWidth / colCount,
+						plotLeft: configuration.plotOptions.padding.left,
+						plotRight: configuration.plotOptions.width - configuration.plotOptions.padding.right,
+						plotBottom: configuration.plotOptions.yAxis.baseY,
+						plotTop: configuration.plotOptions.padding.top
+					};
+					el.appendChild(breakpointContainer);
 
-				for (let index = 0; index < Math.ceil(el.kaChart.data.length / categories.xs); index++) {
-					const plotStart = index * categories.xs;
-					const plotEnd = plotStart + categories.xs;
+					const maxHeight = b.item.maxHeight ?? model.maxHeight;
 
-					let xsContainerMaxHeight: HTMLElement | undefined = undefined;
+					for (let index = 0; index < Math.ceil(configuration.data.length / colCount); index++) {
+						const plotStart = index * colCount;
+						const plotEnd = plotStart + colCount;
 
-					if (maxHeight) {
-						xsContainerMaxHeight = document.createElement("div");
-						xsContainerMaxHeight.style.maxHeight = `${maxHeight}px`;
-						xsContainer.appendChild(xsContainerMaxHeight);
+						let breakpointContainerMaxHeight: HTMLElement | undefined = undefined;
+
+						if (maxHeight) {
+							breakpointContainerMaxHeight = document.createElement("div");
+							breakpointContainerMaxHeight.style.maxHeight = `${maxHeight}px`;
+							breakpointContainer.appendChild(breakpointContainerMaxHeight);
+						}
+
+						configuration.plotOptions.xAxis.minCategory = plotStart - 0.5;
+						configuration.plotOptions.xAxis.maxCategory = plotEnd - 0.5;
+
+						const partialData = configuration.data.slice(plotStart, plotEnd);
+						const plotBandSegmentWidth = configuration.plotOptions.plotWidth / (partialData.length * 2);
+
+						this.generateColumnChart(
+							configuration,
+							breakpointContainerMaxHeight ?? breakpointContainer,
+							{
+								plotOffset: plotStart,
+								plotLabelColumn: b.labelColumn,
+								plotBandSegmentWidth: plotBandSegmentWidth,
+								data: partialData,
+								containerClass: `.ka-chart-container-${b.name}`
+							});
 					}
 
-					el.kaChart.plotOptions.xAxis.minCategory = plotStart - 0.5;
-					el.kaChart.plotOptions.xAxis.maxCategory = plotEnd - 0.5;
-
-					const partialData = el.kaChart.data.slice(plotStart, plotEnd);
-					const plotBandSegmentWidth = el.kaChart.plotOptions.plotWidth / (partialData.length * 2);
-					this.generateColumnChart(el.kaChart, xsContainerMaxHeight ?? xsContainer, { plotOffset: plotStart, plotLabelColumn: "textXs", plotBandSegmentWidth: plotBandSegmentWidth, data: partialData, containerClass: ".ka-chart-xs" });
-				}
-
-				if (maxHeight) {
-					[...xsContainer.children].forEach(div => div.querySelector("svg")!.style.maxHeight = `${categories.maxHeight}px`);
-				}
+					if (maxHeight) {
+						[...breakpointContainer.children].forEach(div => div.querySelector<SVGSVGElement>("svg.ka-chart")!.style.maxHeight = `${maxHeight}px`);
+					}
+				});
+			}
+			finally {
+				configuration.plotOptions.aspectRadio.current = "value";
+				configuration.plotOptions.column.count = originalCount;
+				configuration.plotOptions.font.size.fontMultiplier = originalMultiplier;
+				configuration.plotOptions.xAxis.minCategory = originalMinCategory;
+				configuration.plotOptions.xAxis.maxCategory = originalMaxCategory;
 			}
 		}
 
@@ -754,8 +799,7 @@
 			container.appendChild(svg);
 		}
 
-		private addLegend(el: KaChartElement<IRblChartConfigurationDataType>): void {
-			const configuration = el.kaChart;
+		private addLegend(el: Element, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>): void {
 			if (!configuration.plotOptions.legend.show) return;
 
 			const legendContainer = document.createElement("div");
@@ -793,7 +837,7 @@
 			legendContainer.appendChild(legend);
 		}
 
-		private resetContextElement(el: KaChartElement<IRblChartConfigurationDataType>, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>): void {
+		private resetContextElement(el: Element, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>): void {
 			// empty the element
 			el.replaceChildren();
 			
@@ -804,11 +848,9 @@
 			});
 			
 			el.classList.add(configuration.css.chart);
-
-			el.kaChart = configuration;
 		}
 		
-		private addHoverEvents(model: IKaChartModel, el: KaChartElement<IRblChartConfigurationDataType>) {
+		private addHoverEvents(model: IKaChartModel, el: KaChartElement, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>) {
 			const registerTipEvents = () => {
 				const tipItems = [...el.querySelectorAll(".ka-chart-donut [ka-tip-key], .ka-chart-category-group [ka-tip-key]")];
 
@@ -824,15 +866,17 @@
 			};
 
 			const registerSeriesHighlightEvents = () => {
+				const plotOptions = configuration.plotOptions;
+
 				const seriesItems = [
-					{ textSelector: "span", highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverItem, elements: [...el.querySelectorAll(".ka-chart [ka-chart-highlight-key]")] },
-					{ textSelector: "span", highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverLegend, elements: [...el.querySelectorAll(".ka-chart-legend [ka-chart-highlight-key]")] }
+					{ textSelector: "span", highlightOnHover: plotOptions.highlight.series.hoverItem, elements: [...el.querySelectorAll(`.${configuration.css.chartType} [ka-chart-highlight-key]`)] },
+					{ textSelector: "span", highlightOnHover: plotOptions.highlight.series.hoverLegend, elements: [...el.querySelectorAll(".ka-chart-legend [ka-chart-highlight-key]")] }
 				];
 
 				if (model.legendItemSelector) {
-					const legend = this.application.selectElement(`.${el.kaChart.css.legend}`);
+					const legend = this.application.selectElement(`.${configuration.css.legend}`);
 					if (legend) {
-						seriesItems.push({ textSelector: model.legendItemSelector, highlightOnHover: el.kaChart.plotOptions.highlight.series.hoverLegend, elements: [...legend!.querySelectorAll("[ka-chart-highlight-key]")] });
+						seriesItems.push({ textSelector: model.legendItemSelector, highlightOnHover: plotOptions.highlight.series.hoverLegend, elements: [...legend!.querySelectorAll("[ka-chart-highlight-key]")] });
 					}
 				}
 
@@ -863,229 +907,238 @@
 			};
 
 			let matrix: DOMMatrix = undefined!;
+			const isStackedArea = configuration.type == "sharkfin";
 
 			const registerMarkerEvents = () => {
+
 				if (el.querySelector(".ka-chart-marker-points")) {
-					const pointMarkers =
-						[...el.querySelectorAll(".ka-chart-marker-points")]
-							.map(points => {
-								return {
-									points: [...points.querySelectorAll(".ka-chart-point")],
-									glow: points.querySelector(".ka-chart-point-glow")!
-								}
-							});
+					const allChartContainers = ([...el.children] as KaHoverOptionsElement[]).filter(c => c.kaHoverOptions != undefined) as KaHoverOptionsElement[];
 
-					const isStackedArea = el.kaChart.type == "sharkfin";
-
-					const areaTooltipMarkers = isStackedArea
-						? [...el.querySelectorAll(`.ka-chart-series-item[ka-stack-top="1"] .ka-chart-marker-points path`)]
-						: [];
-
-					let currentColumn: number | undefined = undefined;
-					let currentTip: BootstrapTooltip | undefined = undefined;
-	
-					const chartSvg = el.querySelector("svg")!;
-					const pt = chartSvg.createSVGPoint();
-					let svgRect: DOMRect = undefined!;
-					let hidingTip = false;
-
-					const columnCount = el.kaChart.plotOptions.column.count;
-					const columnWidth = el.kaChart.plotOptions.plotWidth / columnCount;
-					const plotLeft = el.kaChart.plotOptions.padding.left
-					const plotRight = el.kaChart.plotOptions.width - el.kaChart.plotOptions.padding.right;
-					const plotBottom = el.kaChart.plotOptions.yAxis.baseY;
-					const plotTop = el.kaChart.plotOptions.padding.top;
-		
-					const setNoHover = (me: MouseEvent) => {
-						if (currentColumn == undefined) return;
-
-						pointMarkers.forEach(g => {
-							g.points.forEach(p => p.setAttribute("opacity", "0"));
-							g.glow.setAttribute("opacity", "0");
-						});
-
-						if (currentTip) {
-							if (!hidingTip) {
-								hidingTip = true;
-								/*
-								const currentTipLabel = ((currentTip as any)?._element as Element)?.getAttribute("aria-label");
-								console.log(`setNoHover: hide ${currentTipLabel}`);
-								const isShown = (currentTip as any)._isShown();
-								if (isShown !== true) {
-									console.log(`Before hide: _isShown=${isShown}`);
-								}
-								*/
-								currentTip.hide();
-							}
-							currentTip = undefined;
-						}
+					allChartContainers.forEach(chartContainer => {
+						const allCharts = [...chartContainer.querySelectorAll<SVGSVGElement>("svg.ka-chart")];
+						const hoverOptions = chartContainer.kaHoverOptions;
 						
-						currentColumn = undefined;
-					};
+						allCharts.forEach(chartSvg => {
+							const pointMarkers =
+								[...chartSvg.querySelectorAll(".ka-chart-marker-points")]
+									.map(points => {
+										return {
+											points: [...points.querySelectorAll(".ka-chart-point")],
+											glow: points.querySelector(".ka-chart-point-glow")!
+										}
+									});
 
-					const processMove = (me: MouseEvent) => {
-						if (matrix == undefined) {
-							matrix = chartSvg.getScreenCTM()!.inverse();
-							svgRect = chartSvg.getBoundingClientRect();
-						}
-						
-						// map window coords into SVG coords
-						pt.x = me.clientX;
-						pt.y = me.clientY;
-						const loc = pt.matrixTransform(matrix);
+							const areaTooltipMarkers = isStackedArea
+								? [...chartSvg.querySelectorAll(`.ka-chart-series-item[ka-stack-top="1"] .ka-chart-marker-points path`)]
+								: [];
 
-						const isInsideX = loc.x >= plotLeft && loc.x <= plotRight;
-						const isInsideY = loc.y >= plotTop && loc.y <= plotBottom;
+							let currentColumn: number | undefined = undefined;
+							let currentTip: BootstrapTooltip | undefined = undefined;
+			
+							const pt = chartSvg.createSVGPoint();
+							let svgRect: DOMRect = undefined!;
+							let hidingTip = false;
 
-						if (!(isInsideX && isInsideY)) {
-							setNoHover(me);
-							return;
-						}
+							const columnCount = hoverOptions.columnCount;
+							const columnWidth = hoverOptions.columnWidth;
+							const plotLeft = hoverOptions.plotLeft;
+							const plotRight = hoverOptions.plotRight;
+							const plotBottom = hoverOptions.plotBottom;
+							const plotTop = hoverOptions.plotTop;
+				
+							const setNoHover = (me: MouseEvent) => {
+								if (currentColumn == undefined) return;
 
-						// zero‑based column index under the pointer
-						const relativeX = loc.x - plotLeft;
-						const hoverColumn = Math.max(0, Math.min(columnCount - 1, Math.floor(relativeX / columnWidth)));
-							
-						if (hoverColumn != currentColumn) {
-							currentColumn = hoverColumn;
-
-							pointMarkers.forEach(g => {
-								g.points.forEach((p, i) => {
-									const isActive = hoverColumn == i;
-									p.setAttribute("opacity", isActive ? "1" : "0");
-									if (isActive) {
-										const point = p.getAttribute("ka-chart-point")!.split(",");
-										g.glow.setAttribute("cx", point[0]);
-										g.glow.setAttribute("cy", point[1]);
-									}
+								pointMarkers.forEach(g => {
+									g.points.forEach(p => p.setAttribute("opacity", "0"));
+									g.glow.setAttribute("opacity", "0");
 								});
-								g.glow.setAttribute("opacity", "0.2");
-							});
 
-							if (isStackedArea) {
-								const tipTrigger = areaTooltipMarkers[currentColumn];
-								// If current category tip is not initialized, then 
-								if (!bootstrap.Tooltip.getInstance(tipTrigger)) {
-									// Bootstrap show/hide are async, so need to wait for events to properly process
-
-									tipTrigger.addEventListener("hide.bs.tooltip", e => {
-										/*
-										I was having a race condition after moving mouse quickly that often times caused the tooltip that I stopped on
-										to flicker (after shown, there was one more hide event dispatched for the same tip that was already shown, so
-										it would show, hide, show).
-										
-										Key Observations
-										Timeout in Bootstrap:
-											- The second hidden.bs.tooltip event is triggered by executeAfterTransition in Bootstrap's internal logic. 
-												This suggests that Bootstrap is queuing a hide() operation, even though show() may have already been called for the same tooltip.
-										
-										Manual Management vs. Bootstrap's Built-in Behavior:
-											- By manually calling show() and hide(), Bootstrap's default behavior is bypassed (e.g., hover trigger). This can lead to race 
-												conditions where Bootstrap's internal state becomes inconsistent.
-										
-										Potential Redundant hide and show:
-											- When hiding and showing the same tooltip in quick succession, Bootstrap's internal logic may still process the hide event, 
-												even though the tooltip is already being shown again.
-												
-										Solution: Prevent Bootstrap from processing the hide event if the tooltip is already scheduled to be shown again.
-										*/
-
-										const targetLabel = (e.target as Element).getAttribute("aria-label");
-										const currentTipLabel = ((currentTip as any)?._element as Element)?.getAttribute("aria-label");
-									
-										// Prevent hiding if the tooltip is already scheduled to be shown again
-										if (!hidingTip && currentTipLabel === targetLabel) {
-											// console.log(`hide.bs.tooltip: skipping hide for ${targetLabel} because it is already being shown.`);
-											e.preventDefault(); // Prevent Bootstrap from processing the hide event
-										}
-									});
-									
-									tipTrigger.addEventListener("hidden.bs.tooltip", e => {
+								if (currentTip) {
+									if (!hidingTip) {
+										hidingTip = true;
 										/*
 										const currentTipLabel = ((currentTip as any)?._element as Element)?.getAttribute("aria-label");
-										const targetLabel = (e.target as Element).getAttribute("aria-label");
-										console.log(`hidden.bs.tooltip\r\n\thiding: ${targetLabel}\r\n\tshowing: ${currentTipLabel}`);
-										const isShown = (currentTip as any)?._isShown();
-										if (isShown === true) {
-											console.log(`Before show: _isShown=${isShown}`);
+										console.log(`setNoHover: hide ${currentTipLabel}`);
+										const isShown = (currentTip as any)._isShown();
+										if (isShown !== true) {
+											console.log(`Before hide: _isShown=${isShown}`);
 										}
-										console.trace("Call stack for hidden.bs.tooltip");
 										*/
-										currentTip?.show();
-										hidingTip = false;
-									});
+										currentTip.hide();
+									}
+									currentTip = undefined;
+								}
+								
+								currentColumn = undefined;
+							};
 
-									// If mouse over the tooptip, want to hide it if outside of chart and also move it with the mouse according to chart...
-									tipTrigger.addEventListener("inserted.bs.tooltip", e => {
-										const target = e.target as HTMLElement;
-										const tip = document.querySelector<HTMLElement>(`#${target.getAttribute("aria-describedby")}`)!;
+							const processMove = (me: MouseEvent) => {
+								if (matrix == undefined) {
+									matrix = chartSvg.getScreenCTM()!.inverse();
+									svgRect = chartSvg.getBoundingClientRect();
+								}
+								
+								// map window coords into SVG coords
+								pt.x = me.clientX;
+								pt.y = me.clientY;
+								const loc = pt.matrixTransform(matrix);
 
-										tip.addEventListener("mousemove", (event: MouseEvent) => {
-											if (!(event.clientX >= svgRect.left && event.clientX <= svgRect.right && event.clientY >= svgRect.top && event.clientY <= svgRect.bottom)) {
-												setNoHover(me);
-											}
-											else {
-												processMove(event);
+								const isInsideX = loc.x >= plotLeft && loc.x <= plotRight;
+								const isInsideY = loc.y >= plotTop && loc.y <= plotBottom;
+
+								if (!(isInsideX && isInsideY)) {
+									setNoHover(me);
+									return;
+								}
+
+								// zero‑based column index under the pointer
+								const relativeX = loc.x - plotLeft;
+								const hoverColumn = Math.max(0, Math.min(columnCount - 1, Math.floor(relativeX / columnWidth)));
+									
+								if (hoverColumn != currentColumn) {
+									currentColumn = hoverColumn;
+
+									pointMarkers.forEach(g => {
+										g.points.forEach((p, i) => {
+											const isActive = hoverColumn == i;
+											p.setAttribute("opacity", isActive ? "1" : "0");
+											if (isActive) {
+												const point = p.getAttribute("ka-chart-point")!.split(",");
+												g.glow.setAttribute("cx", point[0]);
+												g.glow.setAttribute("cy", point[1]);
 											}
 										});
+										g.glow.setAttribute("opacity", "0.2");
 									});
-						
-									HelpTips.hideVisiblePopover();
 
-									const options = this.getTooltipOptions(el, String(currentColumn));
-									new bootstrap.Tooltip(tipTrigger, options); // initialize tooltip
+									if (isStackedArea) {
+										const tipTrigger = areaTooltipMarkers[currentColumn];
+										// If current category tip is not initialized, then 
+										if (!bootstrap.Tooltip.getInstance(tipTrigger)) {
+											// Bootstrap show/hide are async, so need to wait for events to properly process
+
+											tipTrigger.addEventListener("hide.bs.tooltip", e => {
+												/*
+												I was having a race condition after moving mouse quickly that often times caused the tooltip that I stopped on
+												to flicker (after shown, there was one more hide event dispatched for the same tip that was already shown, so
+												it would show, hide, show).
+												
+												Key Observations
+												Timeout in Bootstrap:
+													- The second hidden.bs.tooltip event is triggered by executeAfterTransition in Bootstrap's internal logic. 
+														This suggests that Bootstrap is queuing a hide() operation, even though show() may have already been called for the same tooltip.
+												
+												Manual Management vs. Bootstrap's Built-in Behavior:
+													- By manually calling show() and hide(), Bootstrap's default behavior is bypassed (e.g., hover trigger). This can lead to race 
+														conditions where Bootstrap's internal state becomes inconsistent.
+												
+												Potential Redundant hide and show:
+													- When hiding and showing the same tooltip in quick succession, Bootstrap's internal logic may still process the hide event, 
+														even though the tooltip is already being shown again.
+														
+												Solution: Prevent Bootstrap from processing the hide event if the tooltip is already scheduled to be shown again.
+												*/
+
+												const targetLabel = (e.target as Element).getAttribute("aria-label");
+												const currentTipLabel = ((currentTip as any)?._element as Element)?.getAttribute("aria-label");
+											
+												// Prevent hiding if the tooltip is already scheduled to be shown again
+												if (!hidingTip && currentTipLabel === targetLabel) {
+													// console.log(`hide.bs.tooltip: skipping hide for ${targetLabel} because it is already being shown.`);
+													e.preventDefault(); // Prevent Bootstrap from processing the hide event
+												}
+											});
+											
+											tipTrigger.addEventListener("hidden.bs.tooltip", e => {
+												/*
+												const currentTipLabel = ((currentTip as any)?._element as Element)?.getAttribute("aria-label");
+												const targetLabel = (e.target as Element).getAttribute("aria-label");
+												console.log(`hidden.bs.tooltip\r\n\thiding: ${targetLabel}\r\n\tshowing: ${currentTipLabel}`);
+												const isShown = (currentTip as any)?._isShown();
+												if (isShown === true) {
+													console.log(`Before show: _isShown=${isShown}`);
+												}
+												console.trace("Call stack for hidden.bs.tooltip");
+												*/
+												currentTip?.show();
+												hidingTip = false;
+											});
+
+											// If mouse over the tooptip, want to hide it if outside of chart and also move it with the mouse according to chart...
+											tipTrigger.addEventListener("inserted.bs.tooltip", e => {
+												const target = e.target as HTMLElement;
+												const tip = document.querySelector<HTMLElement>(`#${target.getAttribute("aria-describedby")}`)!;
+
+												tip.addEventListener("mousemove", (event: MouseEvent) => {
+													if (!(event.clientX >= svgRect.left && event.clientX <= svgRect.right && event.clientY >= svgRect.top && event.clientY <= svgRect.bottom)) {
+														setNoHover(me);
+													}
+													else {
+														processMove(event);
+													}
+												});
+											});
+								
+											HelpTips.hideVisiblePopover();
+
+											const options = this.getTooltipOptions(el, String(currentColumn));
+											new bootstrap.Tooltip(tipTrigger, options); // initialize tooltip
+										}
+
+										const visibleTip = document.querySelector<HTMLElement>(".tooltip.ka-chart-tip");
+										currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
+
+										if (visibleTip) {
+											// This will show the next tip in the hide event handler...
+											if (hidingTip) {
+												// console.log(`isStackedArea: skipping hide ${tipTrigger.getAttribute("aria-label")}`);
+												return;
+											}
+											hidingTip = true;
+
+											const visibleTrigger = document.querySelector(`[aria-describedby="${visibleTip.id}"]`)!;
+											const visibleInstance = bootstrap.Tooltip.getInstance(visibleTrigger);
+											/*
+											const isShown = (visibleInstance as any)._isShown();
+											console.log(`isStackedArea: trigger hide ${visibleTrigger.getAttribute("aria-label")}`);
+											if (isShown !== true) {
+												console.log(`Before hide: _isShown=${isShown}`);
+											}
+											*/
+											visibleInstance.hide();
+										}
+										else {
+											/*
+											console.log(`isStackedArea: trigger show ${tipTrigger.getAttribute("aria-label")}`);
+											const isShown = (currentTip as any)._isShown();
+											if (isShown === true) {
+												console.log(`Before show: _isShown=${isShown}`);
+											}
+											*/
+											currentTip.show();
+										}
+									}
 								}
+							};
 
-								const visibleTip = document.querySelector<HTMLElement>(".tooltip.ka-chart-tip");
-								currentTip = bootstrap.Tooltip.getInstance(tipTrigger);
-
-								if (visibleTip) {
-									// This will show the next tip in the hide event handler...
-									if (hidingTip) {
-										// console.log(`isStackedArea: skipping hide ${tipTrigger.getAttribute("aria-label")}`);
+							this.application
+								.off(chartSvg, "mousemove.ka.chart.marker mouseleave.ka.chart.marker")
+								.on("mousemove.ka.chart.marker mouseleave.ka.chart.marker", (event: Event) => {
+									const me = event as MouseEvent;
+									if (me.type == "mouseleave") {
+										// Check if the relatedTarget is still inside the SVG (moving to a child element of chartSvg) or the rendered tip
+										const relatedTarget = me.relatedTarget as Element | null;
+										if (chartSvg.contains(relatedTarget) || relatedTarget?.closest(".ka-chart-tip")) return;
+										setNoHover(me);
 										return;
 									}
-									hidingTip = true;
 
-									const visibleTrigger = document.querySelector(`[aria-describedby="${visibleTip.id}"]`)!;
-									const visibleInstance = bootstrap.Tooltip.getInstance(visibleTrigger);
-									/*
-									const isShown = (visibleInstance as any)._isShown();
-									console.log(`isStackedArea: trigger hide ${visibleTrigger.getAttribute("aria-label")}`);
-									if (isShown !== true) {
-										console.log(`Before hide: _isShown=${isShown}`);
-									}
-									*/
-									visibleInstance.hide();
-								}
-								else {
-									/*
-									console.log(`isStackedArea: trigger show ${tipTrigger.getAttribute("aria-label")}`);
-									const isShown = (currentTip as any)._isShown();
-									if (isShown === true) {
-										console.log(`Before show: _isShown=${isShown}`);
-									}
-									*/
-									currentTip.show();
-								}
-							}
-						}
-					};
-
-					this.application
-						.off(chartSvg, "mousemove.ka.chart.marker mouseleave.ka.chart.marker")
-						.on("mousemove.ka.chart.marker mouseleave.ka.chart.marker", (event: Event) => {
-							const me = event as MouseEvent;
-							if (me.type == "mouseleave") {
-								// Check if the relatedTarget is still inside the SVG (moving to a child element of chartSvg) or the rendered tip
-								const relatedTarget = me.relatedTarget as Element | null;
-								if (chartSvg.contains(relatedTarget) || relatedTarget?.closest(".ka-chart-tip")) return;
-								setNoHover(me);
-								return;
-							}
-
-							processMove(me);
+									processMove(me);
+								});
 						});
+
+					});
 				}
 			};
 
@@ -1109,7 +1162,7 @@
 			this.application.handleEvents(
 				events => {
 					events.domUpdated = elements => {
-						const externalLegend = model.legendItemSelector != undefined ? this.application.selectElement(`.${el.kaChart.css.legend}`) : undefined
+						const externalLegend = model.legendItemSelector != undefined ? this.application.selectElement(`.${configuration.css.legend}`) : undefined
 						if (!elements.some(e => e === el || e.contains(el) || e === externalLegend || (externalLegend != undefined && e.contains(externalLegend)))) return;
 						registerEvents();
 						el.kaDomUpdated = true;
@@ -1123,12 +1176,12 @@
 			}
 		}
 
-		private getTooltipOptions(el: KaChartElement<IRblChartConfigurationDataType>, tipKey: string): BootstrapTooltipOptions {
+		private getTooltipOptions(el: Element, tipKey: string): BootstrapTooltipOptions {
 			return {
 				html: true,
 				sanitize: false,
 				trigger: "manual",
-				container: el.querySelector(".ka-chart")!,
+				container: el, // el.querySelector(".ka-chart")!,
 				template: '<div class="tooltip katapp-css ka-chart-tip" role="tooltip"><div class="tooltip-arrow arrow"></div><div class="tooltip-inner"></div></div>',
 
 				placement: (tooltip, trigger) => "top",
@@ -1161,10 +1214,9 @@
 			};
 		}
 
-		private addTooltips(model: IKaChartModel, el: KaChartElement<IRblChartConfigurationDataType>): void {
+		private addTooltips(model: IKaChartModel, el: Element, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>): void {
 			if (model.mode == "legend") return;
 
-			const configuration = el.kaChart;
 			const tipConfig = configuration.plotOptions.tip;
 
 			const tipContainer = document.createElement("div");
@@ -1331,7 +1383,7 @@
 						plotLabel = undefined;
 					}
 					lastLabelKey = labelKey;
-					
+
 					const label = plotLabel
 						? this.createText(
 							configuration.plotOptions,
@@ -1452,6 +1504,7 @@
 			const svg = document.createElementNS(this.ns, "svg");
 			svg.setAttribute("viewBox", `0 0 ${plotOptions.width} ${plotOptions.height}`);
 			svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+			svg.setAttribute("class", "ka-chart");
 			return svg;
 		}
 

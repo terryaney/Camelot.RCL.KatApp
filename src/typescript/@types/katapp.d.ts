@@ -198,7 +198,7 @@ declare namespace KatApps {
         private buildChartConfiguration;
         private generateStackedArea;
         private generateColumnChart;
-        private generateBreakpointColumnCharts;
+        private generateBreakpointCharts;
         private generateDonutChart;
         private addLegend;
         private resetContextElement;
@@ -316,9 +316,19 @@ type IRblCurrencyFormat = "c" | `c${IRblFormatDecimals}`;
 type IRblPercentFormat = "p" | `p${IRblFormatDecimals}`;
 type IRblNumberFormat = "n" | `n${IRblFormatDecimals}` | "f" | `f${IRblFormatDecimals}`;
 type IRblDateFormat = 'd' | 'g' | 's' | 't' | "trace" | "dv" | string;
-interface KaChartElement<T extends IRblChartConfigurationDataType> extends HTMLElement {
-    kaChart: IRblChartConfiguration<T>;
+interface KaChartElement extends Element {
     kaDomUpdated?: boolean;
+}
+interface KaHoverOptionsElement extends HTMLElement {
+    kaHoverOptions: IRblChartConfigurationHoverOptions;
+}
+interface IRblChartConfigurationHoverOptions {
+    columnCount: number;
+    columnWidth: number;
+    plotLeft: number;
+    plotRight: number;
+    plotBottom: number;
+    plotTop: number;
 }
 interface IRblChartConfiguration<T extends IRblChartConfigurationDataType> {
     name: string;
@@ -341,6 +351,7 @@ interface IRblChartConfigurationPlotOptions {
     font: {
         size: {
             heuristic: number;
+            fontMultiplier: number;
             base: number;
             default: number;
             yAxisLabel: number;
@@ -1012,17 +1023,24 @@ interface IKaChartModel {
     data: string;
     options?: string;
     mode?: "chart" | "legend";
-    categories?: IKaChartModelCategories;
+    from?: number;
+    to?: number;
+    breakpoints?: {
+        xs?: IKaChartModelBreakpoint;
+        sm?: IKaChartModelBreakpoint;
+        md?: IKaChartModelBreakpoint;
+        lg?: IKaChartModelBreakpoint;
+        xl?: IKaChartModelBreakpoint;
+    };
     legendItemSelector?: string;
     maxHeight?: number;
     ce?: string;
     tab?: string;
 }
-interface IKaChartModelCategories {
-    from?: number;
-    to?: number;
+interface IKaChartModelBreakpoint {
     maxHeight?: number;
-    xs?: number;
+    categories?: number;
+    fontMultiplier?: number;
 }
 interface IKaHighchartModel {
     data: string;
