@@ -479,7 +479,7 @@
 			container.appendChild(svg);
 		}
 
-		private generateColumnChart(configuration: IRblChartConfiguration<IRblChartConfigurationDataType>, container: HTMLElement, breakpointConfig?: { plotOffset: number, plotLabelColumn: "textXs", data: Array<{ name: string, data: IRblChartConfigurationDataType }>, containerClass?: string }) {
+		private generateColumnChart(configuration: IRblChartConfiguration<IRblChartConfigurationDataType>, container: HTMLElement, breakpointConfig?: { plotOffset: number, plotLabelColumn: "textXs", plotBandSegmentWidth: number, data: Array<{ name: string, data: IRblChartConfigurationDataType }>, containerClass?: string }) {
 			const svg = this.getChartSvgElement(configuration.plotOptions);
 
 			const data = breakpointConfig?.data ?? configuration.data;
@@ -488,11 +488,11 @@
 			const plotHeight = configuration.plotOptions.plotHeight;
 			const plotOffset = breakpointConfig?.plotOffset ?? 0;
 
-			this.addPlotBands(svg, configuration, plotOffset, breakpointConfig?.plotLabelColumn);
+			this.addPlotBands(svg, configuration, plotOffset, breakpointConfig?.plotLabelColumn, breakpointConfig?.plotBandSegmentWidth);
 
 			this.addYAxis(svg, configuration);
 
-			this.addPlotLines(svg, configuration, plotOffset );
+			this.addPlotLines(svg, configuration, plotOffset, breakpointConfig?.plotBandSegmentWidth );
 			
 			const yAxisMax = configuration.plotOptions.yAxis.maxValue;
 
@@ -675,7 +675,8 @@
 					el.kaChart.plotOptions.xAxis.maxCategory = plotEnd - 0.5;
 
 					const partialData = el.kaChart.data.slice(plotStart, plotEnd);
-					this.generateColumnChart(el.kaChart, xsContainerMaxHeight ?? xsContainer, { plotOffset: plotStart, plotLabelColumn: "textXs", data: partialData, containerClass: ".ka-chart-xs" });
+					const plotBandSegmentWidth = el.kaChart.plotOptions.plotWidth / (partialData.length * 2);
+					this.generateColumnChart(el.kaChart, xsContainerMaxHeight ?? xsContainer, { plotOffset: plotStart, plotLabelColumn: "textXs", plotBandSegmentWidth: plotBandSegmentWidth, data: partialData, containerClass: ".ka-chart-xs" });
 				}
 
 				if (maxHeight) {
@@ -1273,7 +1274,7 @@
 			return plotOptions.tip.headerFormatter?.replace("{x}", header) ?? header
 		}
 
-		private addPlotLines(svg: Element, config: IRblChartConfiguration<IRblChartConfigurationDataType>, plotOffset: number = 0) {
+		private addPlotLines(svg: Element, config: IRblChartConfiguration<IRblChartConfigurationDataType>, plotOffset: number = 0, plotBandSegmentWidth?: number) {
 			if (config.plotOptions.xAxis.plotLines.length == 0) return;
 			
 			const paddingConfig = config.plotOptions.padding;
@@ -1281,8 +1282,9 @@
 			const g = document.createElementNS(this.ns, "g");
 			g.setAttribute("class", "ka-chart-plot-lines");
 
+			const segmentWidth = plotBandSegmentWidth ?? config.plotOptions.xAxis.plotBandSegmentWidth;
 			const plotLines = config.plotOptions.xAxis.plotLines.filter(l => config.plotOptions.xAxis.minCategory < l.value && l.value < config.plotOptions.xAxis.maxCategory).map(line => {
-				const value = paddingConfig.left + config.plotOptions.xAxis.plotBandSegmentWidth + ((line.value - plotOffset) / 0.5) * config.plotOptions.xAxis.plotBandSegmentWidth;
+				const value = paddingConfig.left + segmentWidth + ((line.value - plotOffset) / 0.5) * segmentWidth;
 				const plotLine = this.createLine(value, paddingConfig.top, value, config.plotOptions.yAxis.baseY, line.color, 2);
 
 				// NOT TESTED/USED
@@ -1300,7 +1302,7 @@
 			svg.appendChild(g);
 		}
 
-		private addPlotBands(svg: Element, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>, plotOffset: number = 0, labelColumn?: IRblPlotColumnName): void {
+		private addPlotBands(svg: Element, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>, plotOffset: number = 0, labelColumn?: IRblPlotColumnName, plotBandSegmentWidth?: number): void {
 			if (configuration.plotOptions.xAxis.plotBands.length == 0) return;
 
 			const paddingConfig = configuration.plotOptions.padding;
@@ -1309,14 +1311,27 @@
 			const g = document.createElementNS(this.ns, "g");
 			g.setAttribute("class", "ka-chart-plot-bands");
 
+			const segmentWidth = plotBandSegmentWidth ?? configuration.plotOptions.xAxis.plotBandSegmentWidth;
+
+			// In case bands don't split exactly on line with breakpoint size, don't duplicate band labels
+			// if the same one is used for consecutive bands.
+			let lastLabelKey: string | undefined = undefined;
+
 			const plotBands = configuration.plotOptions.xAxis.plotBands
 				.filter(b => b.from < configuration.plotOptions.xAxis.maxCategory && b.to > configuration.plotOptions.xAxis.minCategory)
 				.map(band => {
-					const from = paddingConfig.left + configuration.plotOptions.xAxis.plotBandSegmentWidth + (Math.max(-0.5, band.from - plotOffset) / 0.5) * configuration.plotOptions.xAxis.plotBandSegmentWidth;
-					const to = paddingConfig.left + configuration.plotOptions.xAxis.plotBandSegmentWidth + (Math.min(band.to - plotOffset, configuration.data.length - 0.5) / 0.5) * configuration.plotOptions.xAxis.plotBandSegmentWidth;
+					const from = paddingConfig.left + segmentWidth + (Math.max(-0.5, band.from - plotOffset) / 0.5) * segmentWidth;
+					const to = paddingConfig.left + segmentWidth + (Math.min(band.to - plotOffset, configuration.data.length - 0.5) / 0.5) * segmentWidth;
 					const rect = this.createRect(from, paddingConfig.top, to - from, plotHeight, band.color);
 
-					const plotLabel = band.label?.[labelColumn ?? "text"] ?? band.label?.text;
+					let plotLabel = band.label?.[labelColumn ?? "text"] ?? band.label?.text;
+					const labelKey = `${plotLabel}|${band.color}`;
+
+					if (lastLabelKey == labelKey) {
+						plotLabel = undefined;
+					}
+					lastLabelKey = labelKey;
+					
 					const label = plotLabel
 						? this.createText(
 							configuration.plotOptions,
