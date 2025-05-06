@@ -133,7 +133,7 @@
 
 			const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", globalOptions) ?? "{}") as IRblChartConfigurationDataLabels;
 			dataLabels.show = getBooleanProperty("dataLabels.show", dataLabels.show, false);
-			dataLabels.format = this.getOptionValue<IRblCurrencyFormat | IRblNumberFormat>(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat)!;
+			dataLabels.format = this.getOptionValue(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat)!;
 
 			const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", globalOptions) ?? "{}") as IRblChartConfigurationTip;
 			tip.padding = { top: 5, left: 5 }; // Param?
@@ -235,7 +235,7 @@
 				)
 			) * (dataLabels.show ? 1.05 : 1.025); // Add 10% buffer...
 			
-			const maxDataValueString = Utils.formatNumber(maxDataValue, yAxisConfig.format) + "000"; // Just some padding to give a little more room
+			const maxDataValueString = KatApps.Utils.formatNumber(this.application.options.intl, maxDataValue, yAxisConfig.format) + "000"; // Just some padding to give a little more room
 
 			const hasAxis = chartType != "donut";
 
@@ -515,7 +515,7 @@
 					element.setAttribute("opacity", "0");
 				}
 
-				const valueFormatted = Utils.formatNumber(value, configuration.plotOptions.dataLabels.format);
+				const valueFormatted = KatApps.Utils.formatNumber(this.application.options.intl, value, configuration.plotOptions.dataLabels.format);
 				element.setAttribute("ka-chart-highlight-key", seriesConfig.text);
 				element.setAttribute("aria-label", `${seriesConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`);
 
@@ -586,7 +586,7 @@
 						configuration.plotOptions,
 						columnX + columnConfig.width / 2, // Centered above the column
 						labelY,
-						Utils.formatNumber(totalValue, configuration.plotOptions.dataLabels.format),
+						KatApps.Utils.formatNumber(this.application.options.intl, totalValue, configuration.plotOptions.dataLabels.format),
 						configuration.plotOptions.font.size.dataLabel,
 						{ "text-anchor": "middle", "font-weight": "bold" }
 					);
@@ -741,6 +741,7 @@
 			const fullAngle = configuration.plotOptions.pie.endAngle - configuration.plotOptions.pie.startAngle;
 			let currentAngle = configuration.plotOptions.pie.startAngle;
 
+			const application = this.application;
 			const segments = data.map((item, index) => {
 				if (item.data == 0) return undefined; // Skip zero data points
 
@@ -758,7 +759,7 @@
 				// Determine if the arc should take the long path or short path
 				const largeArcFlag = angle > fullAngle / 2 ? 1 : 0;
 
-				const valueFormatted = Utils.formatNumber(item.data, configuration.plotOptions.dataLabels.format);
+				const valueFormatted = KatApps.Utils.formatNumber(this.application.options.intl, item.data, configuration.plotOptions.dataLabels.format);
 
 				const path = angle >= 360
 					? this.createCircle(radius, radius, normalizedRadius, configuration.series[index].color)
@@ -780,12 +781,13 @@
 
 			svg.appendChild(this.createCircle(radius, radius, radius - strokeWidth, "white"));
 
-			const formattedTotal = Utils.formatNumber(total, configuration.plotOptions.dataLabels.format);
+			const formattedTotal = KatApps.Utils.formatNumber(this.application.options.intl, total, configuration.plotOptions.dataLabels.format);
 			const donutLabel = configuration.plotOptions.donut.labelFormatter
 				? String.formatTokens(
+					this.application.options.intl,
 					configuration.plotOptions.donut.labelFormatter.replace(/\{([^}]+)\}/g, '{{$1}}'),
 					configuration.dataColumns
-						.reduce(function (o, c, i) { o[c] = Utils.formatNumber(data[i].data, configuration.plotOptions.dataLabels.format); return o; }, { total: formattedTotal } as Record<string, string>)
+						.reduce(function (o, c, i) { o[c] = KatApps.Utils.formatNumber(application.options.intl, data[i].data, configuration.plotOptions.dataLabels.format); return o; }, { total: formattedTotal } as Record<string, string>)
 				)
 				: formattedTotal;
 
@@ -1254,7 +1256,7 @@
 				tooltipContent.className = `tooltip-${index}`;
 
 				const tooltipSvg = document.createElementNS(this.ns, "svg");
-				const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipInfo.map(tip => `${tip.name}: ${Utils.formatNumber(tip.value, configuration.plotOptions.dataLabels.format)}`.length))) * 7; // Approximate width of each character
+				const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipInfo.map(tip => `${tip.name}: ${KatApps.Utils.formatNumber(this.application.options.intl, tip.value, configuration.plotOptions.dataLabels.format)}`.length))) * 7; // Approximate width of each character
 				const svgWidth = maxTextWidth + tipConfig.padding.left * 2; // Add padding to the width
 
 				const includeTotal = tipConfig.includeTotal && tipInfo.length > 1;
@@ -1279,14 +1281,14 @@
 					const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${tip.name}: `, configuration.plotOptions.font.size.tipBody);
 					const tspan = document.createElementNS(this.ns, "tspan");
 					tspan.setAttribute("font-weight", "bold");
-					tspan.innerHTML = Utils.formatNumber(tip.value, configuration.plotOptions.dataLabels.format);
+					tspan.innerHTML = KatApps.Utils.formatNumber(this.application.options.intl, tip.value, configuration.plotOptions.dataLabels.format);
 					text.appendChild(tspan);
 					tooltipSvg.appendChild(text);
 				});
 	
 				if (includeTotal) {
 					const y = tipLineBaseY + (tipInfo.length + 1) * 20;
-					const total = Utils.formatNumber(tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
+					const total = KatApps.Utils.formatNumber(this.application.options.intl, tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
 					const text = this.createText(configuration.plotOptions, shapeXPadding, y, `Total: ${total}`, configuration.plotOptions.font.size.tipBody, { "font-weight": "bold" });
 					tooltipSvg.appendChild(text);
 				}
@@ -1311,7 +1313,7 @@
 
 			markerGroup.append(...points.map(point => {
 				const diamond = this.createPointMarker(point.x, point.y, point.seriesConfig.color);
-				const valueFormatted = Utils.formatNumber(point.value, configuration.plotOptions.dataLabels.format);
+				const valueFormatted = KatApps.Utils.formatNumber(this.application.options.intl, point.value, configuration.plotOptions.dataLabels.format);
 
 				diamond.setAttribute("aria-label", `${point.seriesConfig.text}, ${valueFormatted}. ${this.getHeader(configuration.plotOptions, point.name)}.`);
 				diamond.setAttribute("ka-chart-point", `${point.x},${point.y}`);
@@ -1464,7 +1466,7 @@
 							? this.createLine(paddingConfig.left, y, configuration.plotOptions.width - paddingConfig.right, y, "#e6e6e6")
 							: undefined;
 
-						const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, Utils.formatNumber(value, configuration.plotOptions.yAxis.format), configuration.plotOptions.font.size.yAxisTickLabels, { "text-anchor": "end", "dominant-baseline": "middle" })
+						const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, KatApps.Utils.formatNumber(this.application.options.intl, value, configuration.plotOptions.yAxis.format), configuration.plotOptions.font.size.yAxisTickLabels, { "text-anchor": "end", "dominant-baseline": "middle" })
 						return tickLine ? [tickLine!, tickLabel] : [tickLabel];
 					});
 

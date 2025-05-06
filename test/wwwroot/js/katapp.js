@@ -114,6 +114,7 @@ class KatApp {
         const id = this.id = "ka" + KatApps.Utils.generateId();
         this.applicationCss = ".katapp-" + this.id.substring(2);
         this.isCalculating = false;
+        const that = this;
         const defaultOptions = {
             inputCaching: false,
             canProcessExternalHelpTips: false,
@@ -124,13 +125,32 @@ class KatApp {
                 useTestView: KatApps.Utils.pageParameters["testview"] === "1",
                 debugResourcesDomain: KatApps.Utils.pageParameters["localserver"],
             },
-            calculationUrl: "https://btr.lifeatworkportal.com/services/evolution/CalculationFunction.ashx",
-            katDataStoreUrl: "https://btr.lifeatworkportal.com/services/camelot/datalocker/api/kat-apps/{name}/download",
-            kamlVerifyUrl: "api/katapp/verify-katapp",
-            encryptCache: data => typeof (data) == "string" ? data : JSON.stringify(data),
-            decryptCache: cipher => cipher.startsWith("{") ? JSON.parse(cipher) : cipher
+            endpoints: {
+                calculation: "https://btr.lifeatworkportal.com/services/evolution/CalculationFunction.ashx",
+                katDataStore: "https://btr.lifeatworkportal.com/services/camelot/datalocker/api/kat-apps/{name}/download",
+                kamlVerification: "api/katapp/verify-katapp"
+            },
+            delegates: {
+                encryptCache: data => typeof (data) == "string" ? data : JSON.stringify(data),
+                decryptCache: cipher => cipher.startsWith("{") ? JSON.parse(cipher) : cipher,
+                getSessionKey: key => `KatApp:${new URL(document.baseURI).pathname}:${key}`,
+                setSessionItem: function (key, value) {
+                    const cachValue = typeof value === "string" ? value : "json:" + JSON.stringify(value);
+                    sessionStorage.setItem(key, cachValue);
+                },
+                getSessionItem: function (key, oneTimeUse = false) {
+                    const cacheValue = sessionStorage.getItem(key);
+                    if (cacheValue == null)
+                        return undefined;
+                    if (oneTimeUse) {
+                        this.removeSessionItem(key);
+                    }
+                    return cacheValue.startsWith("json:") ? JSON.parse(cacheValue.substring(5)) : cacheValue;
+                },
+                removeSessionItem: key => sessionStorage.removeItem(key)
+            }
         };
-        this.options = KatApps.Utils.extend({}, defaultOptions, options);
+        this.options = KatApps.Utils.extendWithReplacer({}, (key, value) => value, defaultOptions, options);
         const nc = this.nextCalculation;
         if (nc.trace) {
             nc.originalVerbosity = this.options.debug.traceVerbosity;
@@ -192,7 +212,6 @@ class KatApp {
 </style>`;
             document.body.appendChild(kaResources);
         }
-        const that = this;
         const getTabDefKey = function (calcEngine, tab) {
             const ce = calcEngine
                 ? that.calcEngines.find(c => c.key == calcEngine)
@@ -273,7 +292,7 @@ class KatApp {
                     const currencyString = that.state.inputs[inputId];
                     if (currencyString == undefined)
                         return undefined;
-                    const decimalSeparator = window.camelot?.intl?.currencyDecimalSeparator ?? ".";
+                    const decimalSeparator = this.options.intl.currencyDecimalSeparator;
                     const numberRegEx = new RegExp(`[^\-0-9${decimalSeparator}]+`, "g");
                     var parsedValue = parseFloat(currencyString.replace(numberRegEx, "").replace(decimalSeparator, "."));
                     return !isNaN(parsedValue) ? parsedValue : undefined;
@@ -547,8 +566,8 @@ class KatApp {
                 ? [...viewElement.querySelectorAll("rbl-config > calc-engine")].map(c => calcEngineFactory(c))
                 : cloneApplication ? [...cloneApplication.calcEngines.filter(c => !c.manualResult)] : [];
             KatApps.Utils.trace(this, "KatApp", "mountAsync", `CalcEngines configured`, TraceVerbosity.Detailed);
-            if (this.options.resourceStrings == undefined && this.options.resourceStringsEndpoint != undefined) {
-                const apiUrl = this.getApiUrl(this.options.resourceStringsEndpoint);
+            if (this.options.resourceStrings == undefined && this.options.endpoints.resourceStrings != undefined) {
+                const apiUrl = this.getApiUrl(this.options.endpoints.resourceStrings);
                 try {
                     const response = await fetch(apiUrl.url, {
                         method: "GET",
@@ -562,7 +581,7 @@ class KatApp {
                     KatApps.Utils.trace(this, "KatApp", "mountAsync", `Resource Strings downloaded`, TraceVerbosity.Detailed);
                 }
                 catch (e) {
-                    KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading resourceStrings ${this.options.resourceStringsEndpoint}`, TraceVerbosity.None, e);
+                    KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading resourceStrings ${this.options.endpoints.resourceStrings}`, TraceVerbosity.None, e);
                 }
                 if (this.options.debug.debugResourcesDomain) {
                     const currentOptions = this.options;
@@ -575,8 +594,8 @@ class KatApp {
                     }
                 }
             }
-            if (this.options.manualResults == undefined && this.options.manualResultsEndpoint != undefined) {
-                const apiUrl = this.getApiUrl(this.options.manualResultsEndpoint);
+            if (this.options.manualResults == undefined && this.options.endpoints.manualResults != undefined) {
+                const apiUrl = this.getApiUrl(this.options.endpoints.manualResults);
                 try {
                     const response = await fetch(apiUrl.url, {
                         method: "GET",
@@ -590,7 +609,7 @@ class KatApp {
                     KatApps.Utils.trace(this, "KatApp", "mountAsync", `Manual Results downloaded`, TraceVerbosity.Detailed);
                 }
                 catch (e) {
-                    KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading manualResults ${this.options.manualResultsEndpoint}`, TraceVerbosity.None, e);
+                    KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading manualResults ${this.options.endpoints.manualResults}`, TraceVerbosity.None, e);
                 }
             }
             if (viewElement != undefined) {
@@ -656,7 +675,7 @@ class KatApp {
                 const manualResultTabDefs = this.toTabDefs(tabDefs);
                 if (!hasCalcEngines) {
                     const getSubmitApiConfigurationResults = await this.getSubmitApiConfigurationAsync(async (submitApiOptions) => {
-                        await this.triggerEventAsync("updateApiOptions", submitApiOptions, this.getApiUrl(this.options.calculationUrl).endpoint);
+                        await this.triggerEventAsync("updateApiOptions", submitApiOptions, this.getApiUrl(this.options.endpoints.calculation).endpoint);
                     }, {}, true);
                     await this.triggerEventAsync("resultsProcessing", manualResultTabDefs, getSubmitApiConfigurationResults.inputs, getSubmitApiConfigurationResults.configuration);
                 }
@@ -989,8 +1008,9 @@ Type 'help' to see available options displayed in the console.`;
                     ? "navigationInputs:" + navigationId.split("?")[0] + ":" + (this.options.userIdHash ?? "Everyone")
                     : "navigationInputs:" + navigationId.split("?")[0];
             KatApps.Utils.setSessionItem(this.options, cachingKey, options.inputs);
+            this.options.delegates.setSessionItem(cachingKey, options.inputs);
         }
-        await this.options.katAppNavigate?.(navigationId);
+        await this.options.delegates.katAppNavigate?.(navigationId);
     }
     async calculateAsync(customInputs, processResults = true, calcEngines, allowLogging = true) {
         const isConfigureUICalculation = customInputs?._iConfigureUI === "1";
@@ -999,7 +1019,7 @@ Type 'help' to see available options displayed in the console.`;
         }
         KatApps.Utils.trace(this, "KatApp", "calculateAsync", `Start: ${(calcEngines ?? this.calcEngines).map(c => c.name).join(", ")}`, TraceVerbosity.Detailed);
         try {
-            const apiUrl = this.getApiUrl(this.options.calculationUrl);
+            const apiUrl = this.getApiUrl(this.options.endpoints.calculation);
             const serviceUrl = apiUrl.url;
             const getSubmitApiConfigurationResults = await this.getSubmitApiConfigurationAsync(async (submitApiOptions) => {
                 await this.triggerEventAsync("updateApiOptions", submitApiOptions, apiUrl.endpoint);
@@ -1106,7 +1126,7 @@ Type 'help' to see available options displayed in the console.`;
                 }, apiOptions.calculationInputs, false);
             const calcEngine = this.calcEngines.find(c => !c.manualResult);
             const inputPropertiesToSkip = ["tables", "getNumber", "getOptionText"];
-            const optionPropertiesToSkip = ["manualResults", "manualResultsEndpoint", "resourceStrings", "resourceStringsEndpoint", "modalAppOptions", "hostApplication", "relativePathTemplates", "handlers", "nextCalculation", "katAppNavigate", "decryptCache", "encryptCache"];
+            const optionPropertiesToSkip = ["manualResults", "resourceStrings", "modalAppOptions", "hostApplication", "handlers", "nextCalculation", "delegates", "endpoints", "intl"];
             const submitData = {
                 inputs: KatApps.Utils.clone(getSubmitApiConfigurationResults.inputs ?? {}, (k, v) => inputPropertiesToSkip.indexOf(k) > -1 ? undefined : v?.toString()),
                 inputTables: getSubmitApiConfigurationResults.inputs.tables?.map(t => ({ name: t.name, rows: t.rows })),
@@ -1214,9 +1234,9 @@ Type 'help' to see available options displayed in the console.`;
         tempEl.click();
     }
     getApiUrl(endpoint) {
-        const urlParts = this.options.calculationUrl.split("?");
+        const urlParts = this.options.endpoints.calculation.split("?");
         const endpointParts = endpoint.split("?");
-        var qsAnchored = KatApps.Utils.parseQueryString(this.options.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
+        var qsAnchored = KatApps.Utils.parseQueryString(this.options.endpoints.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
         var qsEndpoint = KatApps.Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
         var qsUrl = KatApps.Utils.extend(qsAnchored, qsEndpoint, { katapp: this.selector ?? this.id });
         let url = endpointParts[0];
@@ -1227,7 +1247,7 @@ Type 'help' to see available options displayed in the console.`;
             url = "api/" + url;
         }
         return {
-            url: this.options.baseUrl ? this.options.baseUrl + url : url,
+            url: this.options.endpoints.baseUrl ? this.options.endpoints.baseUrl + url : url,
             endpoint: url.split("?")[0].substring(4)
         };
     }
@@ -1416,7 +1436,7 @@ Type 'help' to see available options displayed in the console.`;
         return cAppId == this.id ? c : undefined;
     }
     getResourceString(key) {
-        const currentUICulture = this.options.currentUICulture ?? "en-us";
+        const currentUICulture = this.options.intl.currentUICulture ?? "en-us";
         const defaultRegionStrings = this.options.resourceStrings?.["en-us"];
         const defaultLanguageStrings = this.options.resourceStrings?.["en"];
         const cultureStrings = this.options.resourceStrings?.[currentUICulture];
@@ -1473,12 +1493,12 @@ Type 'help' to see available options displayed in the console.`;
                 if (fmt) {
                     if (typeof val === "number") {
                         if (fmt.startsWith("p"))
-                            return KatApps.Utils.formatPercent(val, fmt);
+                            return KatApps.Utils.formatPercent(this.options.intl.currentCulture, val, fmt);
                         if (fmt.startsWith("c") || fmt.startsWith("n") || fmt.startsWith("f"))
-                            return KatApps.Utils.formatNumber(val, fmt);
+                            return KatApps.Utils.formatNumber(this.options.intl, val, fmt);
                         throw new Error(`Invalid getLocalizedString format string: ${fmt}, value: ${val}`);
                     }
-                    return KatApps.Utils.formatDate(val, fmt);
+                    return KatApps.Utils.formatDate(this.options.intl.currentCulture, val, fmt);
                 }
                 return String(val);
             });
@@ -1487,7 +1507,7 @@ Type 'help' to see available options displayed in the console.`;
         if (resource == undefined)
             return undefined;
         return hasFormatObject
-            ? String.formatTokens(resource, formatObject?.keyValueObject ?? formatObject)
+            ? String.formatTokens(this.options.intl, resource, formatObject?.keyValueObject ?? formatObject)
             : resource;
     }
     getTemplateContent(name) {
@@ -1573,7 +1593,7 @@ Type 'help' to see available options displayed in the console.`;
         }
     }
     cloneOptions(includeManualResults) {
-        const propertiesToSkip = ["handlers", "view", "content", "modalAppOptions", "hostApplication"].concat(includeManualResults ? [] : ["manualResults", "manualResultsEndpoint"]);
+        const propertiesToSkip = ["handlers", "view", "content", "modalAppOptions", "hostApplication"].concat(includeManualResults ? [] : ["manualResults"]);
         return KatApps.Utils.clone(this.options, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v);
     }
     getCloneHostSetting(el) {
@@ -1629,8 +1649,8 @@ Type 'help' to see available options displayed in the console.`;
                     }
                 };
                 const modalAppOptions = KatApps.Utils.extend(modalOptions.hostApplication.cloneOptions(modalOptions.content == undefined || cloneHost !== false), modalOptions, options.inputs != undefined ? { inputs: options.inputs } : undefined);
-                if (modalAppOptions.anchoredQueryStrings != undefined && modalAppOptions.inputs != undefined) {
-                    modalAppOptions.anchoredQueryStrings = KatApps.Utils.generateQueryString(KatApps.Utils.parseQueryString(modalAppOptions.anchoredQueryStrings), key => !key.startsWith("ki-") || modalAppOptions.inputs['i' + key.split('-').slice(1).map(segment => segment.charAt(0).toUpperCase() + segment.slice(1)).join("")] == undefined);
+                if (modalAppOptions.endpoints.anchoredQueryStrings != undefined && modalAppOptions.inputs != undefined) {
+                    modalAppOptions.endpoints.anchoredQueryStrings = KatApps.Utils.generateQueryString(KatApps.Utils.parseQueryString(modalAppOptions.endpoints.anchoredQueryStrings), key => !key.startsWith("ki-") || modalAppOptions.inputs['i' + key.split('-').slice(1).map(segment => segment.charAt(0).toUpperCase() + segment.slice(1)).join("")] == undefined);
                 }
                 delete modalAppOptions.inputs.iNestedApplication;
                 await KatApp.createAppAsync(".kaModal", modalAppOptions);
@@ -1675,8 +1695,8 @@ Type 'help' to see available options displayed in the console.`;
             testCE: currentOptions.debug?.useTestCalcEngine ?? false,
             currentPage: currentOptions.currentPage ?? "KatApp:" + (currentOptions.view ?? "UnknownView"),
             requestIP: currentOptions.requestIP ?? "1.1.1.1",
-            currentCulture: currentOptions.currentCulture ?? "en-US",
-            currentUICulture: currentOptions.currentUICulture ?? "en-US",
+            currentCulture: currentOptions.intl.currentCulture ?? "en-US",
+            currentUICulture: currentOptions.intl.currentUICulture ?? "en-US",
             environment: currentOptions.environment ?? "EW.PROD",
             allowLogging: true
         };
@@ -1966,7 +1986,7 @@ Type 'help' to see available options displayed in the console.`;
         const viewElement = document.createElement("div");
         if ((this.options.modalAppOptions != undefined || this.options.inputs?.iNestedApplication == "1") && this.options.view != undefined) {
             const view = this.options.view;
-            const apiUrl = this.getApiUrl(`${this.options.kamlVerifyUrl}?applicationId=${view}&currentId=${this.options.hostApplication.options.currentPage}`);
+            const apiUrl = this.getApiUrl(`${this.options.endpoints.kamlVerification}?applicationId=${view}&currentId=${this.options.hostApplication.options.currentPage}`);
             try {
                 const response = await fetch(apiUrl.url, { method: "GET" });
                 if (!response.ok) {
@@ -2085,7 +2105,7 @@ var KatApps;
                 const cachedResults = calculationResults.results.filter(r => r.cacheKey != undefined && r.result == undefined);
                 for (var i = 0; i < cachedResults.length; i++) {
                     const r = calculationResults.results[i];
-                    const cacheResult = await this.getCacheAsync(application.options, `RBLCache:${r.cacheKey}`, application.options.decryptCache);
+                    const cacheResult = await this.getCacheAsync(application.options, `RBLCache:${r.cacheKey}`, application.options.delegates.decryptCache);
                     if (cacheResult == undefined) {
                         KatApps.Utils.trace(application, "Calculation", "calculateAsync", `Cache miss for ${r.calcEngine} with key ${r.cacheKey}`, TraceVerbosity.Detailed);
                     }
@@ -2120,7 +2140,7 @@ var KatApps;
                         }
                         else {
                             KatApps.Utils.trace(application, "Calculation", "calculateAsync", `Set cache for ${r.calcEngine}`, TraceVerbosity.Detailed);
-                            await this.setCacheAsync(application.options, `RBLCache:${cacheKey}`, r.result, application.options.encryptCache);
+                            await this.setCacheAsync(application.options, `RBLCache:${cacheKey}`, r.result, application.options.delegates.encryptCache);
                         }
                     }
                 }
@@ -2342,7 +2362,7 @@ var KatApps;
                 this.bindDateEvents(application, name, label, input, removeError, inputEventAsync);
             }
             else if (type == "range") {
-                this.bindRangeEvents(name, input, refs, displayFormat, inputEventAsync);
+                this.bindRangeEvents(application, name, input, refs, displayFormat, inputEventAsync);
             }
             else {
                 this.bindInputEvents(application, name, label, input, type, hasMask, mask, maxLength, keypressRegex, inputEventAsync);
@@ -2379,7 +2399,7 @@ var KatApps;
                             const allowNegative = inputMask.startsWith("-");
                             const decimalPlacesString = inputMask.substring(allowNegative ? 7 : 6);
                             const decimalPlaces = decimalPlacesString != "" ? +decimalPlacesString : 2;
-                            const currencySeparator = window.camelot?.intl?.currencyDecimalSeparator ?? ".";
+                            const currencySeparator = application.options.intl.currencyDecimalSeparator;
                             const negRegEx = allowNegative ? `\\-` : "";
                             const sepRegEx = decimalPlaces > 0 ? `\\${currencySeparator}` : "";
                             return {
@@ -2585,7 +2605,7 @@ var KatApps;
                 }
             }
         }
-        bindRangeEvents(name, input, refs, displayFormat, inputEventAsync) {
+        bindRangeEvents(application, name, input, refs, displayFormat, inputEventAsync) {
             let bubbleTimer;
             const bubble = refs.bubble;
             const bubbleValue = refs.bubbleValue ?? bubble;
@@ -2595,9 +2615,9 @@ var KatApps;
                     return value;
                 const formatString = format.slice(3, -1);
                 if (formatString[0] == "p")
-                    return KatApps.Utils.formatPercent(+value, formatString, true);
+                    return KatApps.Utils.formatPercent(application.options.intl.currentCulture, +value, formatString, true);
                 if (formatString[0] == "c" || formatString[0] == "n" || formatString[0] == "f")
-                    return KatApps.Utils.formatNumber(+value, formatString);
+                    return KatApps.Utils.formatNumber(application.options.intl, +value, formatString);
                 throw new Error(`Unsupported format ${formatString} for range input ${name}`);
             };
             const setRangeValues = (showBubble) => {
@@ -3367,7 +3387,7 @@ var KatApps;
             const maxDataValue = Math.max(...data.map(item => Array.isArray(item.data)
                 ? Math.max(item.data.reduce((sum, v, i) => sum + (seriesConfig[i].shape != "line" ? v : 0), 0), ...item.data.map((v, i) => seriesConfig[i].shape != "line" ? v : 0))
                 : item.data)) * (dataLabels.show ? 1.05 : 1.025);
-            const maxDataValueString = KatApps.Utils.formatNumber(maxDataValue, yAxisConfig.format) + "000";
+            const maxDataValueString = KatApps.Utils.formatNumber(this.application.options.intl, maxDataValue, yAxisConfig.format) + "000";
             const hasAxis = chartType != "donut";
             const directive = this;
             const config = {
@@ -3577,7 +3597,7 @@ var KatApps;
                     element.setAttribute("data-is-tooltip", "1");
                     element.setAttribute("opacity", "0");
                 }
-                const valueFormatted = KatApps.Utils.formatNumber(value, configuration.plotOptions.dataLabels.format);
+                const valueFormatted = KatApps.Utils.formatNumber(this.application.options.intl, value, configuration.plotOptions.dataLabels.format);
                 element.setAttribute("ka-chart-highlight-key", seriesConfig.text);
                 element.setAttribute("aria-label", `${seriesConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`);
                 return element;
@@ -3622,7 +3642,7 @@ var KatApps;
                         ? item.data.reduce((sum, v) => sum + v, 0)
                         : item.data;
                     const labelY = configuration.plotOptions.yAxis.getY(totalValue) - 10;
-                    const dataLabel = this.createText(configuration.plotOptions, columnX + columnConfig.width / 2, labelY, KatApps.Utils.formatNumber(totalValue, configuration.plotOptions.dataLabels.format), configuration.plotOptions.font.size.dataLabel, { "text-anchor": "middle", "font-weight": "bold" });
+                    const dataLabel = this.createText(configuration.plotOptions, columnX + columnConfig.width / 2, labelY, KatApps.Utils.formatNumber(this.application.options.intl, totalValue, configuration.plotOptions.dataLabels.format), configuration.plotOptions.font.size.dataLabel, { "text-anchor": "middle", "font-weight": "bold" });
                     columnGroup.appendChild(dataLabel);
                 }
                 const linePoints = columnElements.filter(e => !(e instanceof Element));
@@ -3737,6 +3757,7 @@ var KatApps;
             const normalizedRadius = radius - strokeWidth / 2;
             const fullAngle = configuration.plotOptions.pie.endAngle - configuration.plotOptions.pie.startAngle;
             let currentAngle = configuration.plotOptions.pie.startAngle;
+            const application = this.application;
             const segments = data.map((item, index) => {
                 if (item.data == 0)
                     return undefined;
@@ -3748,7 +3769,7 @@ var KatApps;
                 const x2 = normalizedRadius * Math.cos((currentAngle - 90) * Math.PI / 180) + radius;
                 const y2 = normalizedRadius * Math.sin((currentAngle - 90) * Math.PI / 180) + radius;
                 const largeArcFlag = angle > fullAngle / 2 ? 1 : 0;
-                const valueFormatted = KatApps.Utils.formatNumber(item.data, configuration.plotOptions.dataLabels.format);
+                const valueFormatted = KatApps.Utils.formatNumber(this.application.options.intl, item.data, configuration.plotOptions.dataLabels.format);
                 const path = angle >= 360
                     ? this.createCircle(radius, radius, normalizedRadius, configuration.series[index].color)
                     : this.createPath(`M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`, "none", 0, configuration.series[index].color);
@@ -3762,10 +3783,10 @@ var KatApps;
             const svg = this.getChartSvgElement(configuration.plotOptions);
             svg.append(...segments);
             svg.appendChild(this.createCircle(radius, radius, radius - strokeWidth, "white"));
-            const formattedTotal = KatApps.Utils.formatNumber(total, configuration.plotOptions.dataLabels.format);
+            const formattedTotal = KatApps.Utils.formatNumber(this.application.options.intl, total, configuration.plotOptions.dataLabels.format);
             const donutLabel = configuration.plotOptions.donut.labelFormatter
-                ? String.formatTokens(configuration.plotOptions.donut.labelFormatter.replace(/\{([^}]+)\}/g, '{{$1}}'), configuration.dataColumns
-                    .reduce(function (o, c, i) { o[c] = KatApps.Utils.formatNumber(data[i].data, configuration.plotOptions.dataLabels.format); return o; }, { total: formattedTotal }))
+                ? String.formatTokens(this.application.options.intl, configuration.plotOptions.donut.labelFormatter.replace(/\{([^}]+)\}/g, '{{$1}}'), configuration.dataColumns
+                    .reduce(function (o, c, i) { o[c] = KatApps.Utils.formatNumber(application.options.intl, data[i].data, configuration.plotOptions.dataLabels.format); return o; }, { total: formattedTotal }))
                 : formattedTotal;
             svg.appendChild(this.createText(configuration.plotOptions, radius, radius, donutLabel, configuration.plotOptions.font.size.donutLabel, { "text-anchor": "middle", "dominant-baseline": "middle", "font-weight": "bold" }));
             container.appendChild(svg);
@@ -4068,7 +4089,7 @@ var KatApps;
                 const tooltipContent = document.createElement("div");
                 tooltipContent.className = `tooltip-${index}`;
                 const tooltipSvg = document.createElementNS(this.ns, "svg");
-                const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipInfo.map(tip => `${tip.name}: ${KatApps.Utils.formatNumber(tip.value, configuration.plotOptions.dataLabels.format)}`.length))) * 7;
+                const maxTextWidth = Math.max(...[(header ?? "").length].concat(tipInfo.map(tip => `${tip.name}: ${KatApps.Utils.formatNumber(this.application.options.intl, tip.value, configuration.plotOptions.dataLabels.format)}`.length))) * 7;
                 const svgWidth = maxTextWidth + tipConfig.padding.left * 2;
                 const includeTotal = tipConfig.includeTotal && tipInfo.length > 1;
                 tooltipSvg.setAttribute("viewBox", `0 0 ${svgWidth} ${(tipInfo.length + (header ? 1 : 0) + (includeTotal ? 1 : 0)) * 20 + tipConfig.padding.top * 2}`);
@@ -4087,13 +4108,13 @@ var KatApps;
                     const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${tip.name}: `, configuration.plotOptions.font.size.tipBody);
                     const tspan = document.createElementNS(this.ns, "tspan");
                     tspan.setAttribute("font-weight", "bold");
-                    tspan.innerHTML = KatApps.Utils.formatNumber(tip.value, configuration.plotOptions.dataLabels.format);
+                    tspan.innerHTML = KatApps.Utils.formatNumber(this.application.options.intl, tip.value, configuration.plotOptions.dataLabels.format);
                     text.appendChild(tspan);
                     tooltipSvg.appendChild(text);
                 });
                 if (includeTotal) {
                     const y = tipLineBaseY + (tipInfo.length + 1) * 20;
-                    const total = KatApps.Utils.formatNumber(tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
+                    const total = KatApps.Utils.formatNumber(this.application.options.intl, tipInfo.reduce((sum, tip) => sum + tip.value, 0), configuration.plotOptions.dataLabels.format);
                     const text = this.createText(configuration.plotOptions, shapeXPadding, y, `Total: ${total}`, configuration.plotOptions.font.size.tipBody, { "font-weight": "bold" });
                     tooltipSvg.appendChild(text);
                 }
@@ -4112,7 +4133,7 @@ var KatApps;
             markerGroup.appendChild(glow);
             markerGroup.append(...points.map(point => {
                 const diamond = this.createPointMarker(point.x, point.y, point.seriesConfig.color);
-                const valueFormatted = KatApps.Utils.formatNumber(point.value, configuration.plotOptions.dataLabels.format);
+                const valueFormatted = KatApps.Utils.formatNumber(this.application.options.intl, point.value, configuration.plotOptions.dataLabels.format);
                 diamond.setAttribute("aria-label", `${point.seriesConfig.text}, ${valueFormatted}. ${this.getHeader(configuration.plotOptions, point.name)}.`);
                 diamond.setAttribute("ka-chart-point", `${point.x},${point.y}`);
                 return diamond;
@@ -4210,7 +4231,7 @@ var KatApps;
                 const tickLine = i != 0
                     ? this.createLine(paddingConfig.left, y, configuration.plotOptions.width - paddingConfig.right, y, "#e6e6e6")
                     : undefined;
-                const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, KatApps.Utils.formatNumber(value, configuration.plotOptions.yAxis.format), configuration.plotOptions.font.size.yAxisTickLabels, { "text-anchor": "end", "dominant-baseline": "middle" });
+                const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, KatApps.Utils.formatNumber(this.application.options.intl, value, configuration.plotOptions.yAxis.format), configuration.plotOptions.font.size.yAxisTickLabels, { "text-anchor": "end", "dominant-baseline": "middle" });
                 return tickLine ? [tickLine, tickLabel] : [tickLabel];
             });
             if (yAxisLabel != undefined)
@@ -4367,7 +4388,7 @@ var KatApps;
     class DirectiveKaHighchart {
         name = "ka-highchart";
         cultureEnsured = false;
-        application;
+        application = undefined;
         getDefinition(application) {
             return ctx => {
                 this.application = application;
@@ -4441,21 +4462,22 @@ var KatApps;
             const seriesFormats = seriesColumns
                 .filter(seriesName => seriesConfigurationRows.filter(c => c.category === "config-visible" && c[seriesName] === "0").length === 0)
                 .map(seriesName => configFormat?.[seriesName] ?? "c0");
+            const application = this.application;
+            const currentCulture = application.options.intl.currentCulture;
             return {
                 formatter: function () {
                     let s = "";
                     let t = 0;
-                    const locales = window.camelot?.intl?.locales ?? "en-US";
-                    const pointTemplate = (locales instanceof Array ? locales : [locales]).some(l => l.startsWith("fr"))
+                    const pointTemplate = currentCulture.startsWith("fr")
                         ? "<br/>{{name}} : {{value}}"
                         : "<br/>{{name}}: {{value}}";
                     this.points.forEach((point, index) => {
                         if (point.y > 0) {
-                            s += String.formatTokens(pointTemplate, { name: point.series.name, value: KatApps.Utils.formatCurrency(point.y, seriesFormats[index]) });
+                            s += String.formatTokens(application.options.intl, pointTemplate, { name: point.series.name, value: KatApps.Utils.formatCurrency(application.options.intl, point.y, seriesFormats[index]) });
                             t += point.y;
                         }
                     });
-                    return String.formatTokens(tooltipFormat, { x: this.x, stackTotal: KatApps.Utils.formatCurrency(t, seriesFormats[0]), seriesDetail: s });
+                    return String.formatTokens(application.options.intl, tooltipFormat, { x: this.x, stackTotal: KatApps.Utils.formatCurrency(application.options.intl, t, seriesFormats[0]), seriesDetail: s });
                 },
                 shared: true
             };
@@ -4611,18 +4633,19 @@ var KatApps;
         ensureCulture() {
             if (!this.cultureEnsured) {
                 this.cultureEnsured = true;
+                const application = this.application;
                 const culture = this.application.state.rbl.value("variable", "culture") ?? "en-";
                 if (!culture.startsWith("en-")) {
                     Highcharts.setOptions({
                         yAxis: {
                             labels: {
                                 formatter: function () {
-                                    return this.value != undefined ? KatApps.Utils.formatCurrency(this.value, 'c0') : "";
+                                    return this.value != undefined ? KatApps.Utils.formatCurrency(application.options.intl, this.value, 'c0') : "";
                                 }
                             },
                             stackLabels: {
                                 formatter: function () {
-                                    return this.value != undefined ? KatApps.Utils.formatCurrency(this.value, 'c0') : "";
+                                    return this.value != undefined ? KatApps.Utils.formatCurrency(application.options.intl, this.value, 'c0') : "";
                                 }
                             }
                         }
@@ -5827,7 +5850,7 @@ var KatApps;
         }
         ;
         static async getResourceAsync(currentOptions, resourceKey, tryLocalWebServer) {
-            const relativeTemplatePath = currentOptions.relativePathTemplates?.[resourceKey];
+            const relativeTemplatePath = currentOptions.endpoints.relativePathTemplates?.[resourceKey];
             const resourceParts = relativeTemplatePath != undefined ? relativeTemplatePath.split(":") : resourceKey.split(":");
             let resourceName = resourceParts[1];
             const resourceFolders = resourceParts[0].split("|");
@@ -5855,8 +5878,8 @@ var KatApps;
                 resourceUrl = tryLocalWebServer
                     ? localServerUrl.substring(0, 4) + localServerUrl.substring(5) + location.search
                     : !isResourceInManagementSite
-                        ? currentOptions.baseUrl + resourceName.substring(1) + location.search
-                        : currentOptions.katDataStoreUrl;
+                        ? currentOptions.endpoints.baseUrl + resourceName.substring(1) + location.search
+                        : currentOptions.endpoints.katDataStore;
                 if (!tryLocalWebServer && isResourceInManagementSite) {
                     resourceUrl = resourceUrl.replace("{name}", resourceName) + `?folders=${resourceParts[0].split("|").join(",")}&preferTest=${version == "Test"}`;
                 }
@@ -6070,7 +6093,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
         };
     }
     if (String.formatTokens === undefined) {
-        String.formatTokens = function (template, parameters) {
+        String.formatTokens = function (intl, template, parameters) {
             return template.replace(/{{([^}]+)}}/g, function (match, token) {
                 const tokenParts = token.split(":");
                 const tokenName = tokenParts[0];
@@ -6084,15 +6107,15 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
                     const dateRegex = /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})(?:T.*)?/;
                     const dateMatch = tokenValue.match(dateRegex);
                     if (dateMatch != undefined) {
-                        tokenValue = KatApps.Utils.formatDate(new Date(parseInt(dateMatch.groups.year), parseInt(dateMatch.groups.month) - 1, parseInt(dateMatch.groups.day)), tokenFormat);
+                        tokenValue = KatApps.Utils.formatDate(intl.currentCulture, new Date(parseInt(dateMatch.groups.year), parseInt(dateMatch.groups.month) - 1, parseInt(dateMatch.groups.day)), tokenFormat);
                     }
                     else if (numberRegex.test(tokenValue)) {
                         const val = parseFloat(tokenValue);
                         if (!isNaN(val)) {
                             if (tokenFormat.startsWith("p"))
-                                tokenValue = KatApps.Utils.formatPercent(val, tokenFormat);
+                                tokenValue = KatApps.Utils.formatPercent(intl.currentCulture, val, tokenFormat);
                             else if (tokenFormat.startsWith("c") || tokenFormat.startsWith("n") || tokenFormat.startsWith("f"))
-                                tokenValue = KatApps.Utils.formatNumber(val, tokenFormat);
+                                tokenValue = KatApps.Utils.formatNumber(intl, val, tokenFormat);
                             else
                                 throw new Error(`Invalid String.formatTokens format string: ${tokenFormat}, value: ${val}`);
                         }
@@ -6118,6 +6141,15 @@ var KatApps;
                 if (source === undefined)
                     return;
                 this.copyProperties(target, source);
+            });
+            return target;
+        }
+        ;
+        static extendWithReplacer(target, replacer, ...sources) {
+            sources.forEach((source) => {
+                if (source === undefined)
+                    return;
+                this.copyProperties(target, source, replacer);
             });
             return target;
         }
@@ -6245,85 +6277,61 @@ var KatApps;
             return await response.text();
         }
         ;
-        static getSessionKey(options, key) {
-            const prefix = typeof options === "string" ? options : options?.sessionKeyPrefix;
-            return `KatApp:${new URL(document.baseURI).pathname}${prefix ?? ""}:${key}`;
-        }
         static setSessionItem(options, key, value) {
-            const cachValue = typeof value === "string" ? value : "json:" + JSON.stringify(value);
-            sessionStorage.setItem(Utils.getSessionKey(options, key), cachValue);
+            options.delegates.setSessionItem(options.delegates.getSessionKey(key), value);
         }
         static getSessionItem(options, key, oneTimeUse = false) {
-            const cacheKey = Utils.getSessionKey(options, key);
-            const cacheValue = sessionStorage.getItem(cacheKey);
-            if (cacheValue == undefined)
-                return undefined;
-            if (oneTimeUse) {
-                sessionStorage.removeItem(cacheKey);
-            }
-            return cacheValue.startsWith("json:") ? JSON.parse(cacheValue.substring(5)) : cacheValue;
+            const cacheKey = options.delegates.getSessionKey(key);
+            return options.delegates.getSessionItem(cacheKey, oneTimeUse);
         }
         static removeSessionItem(options, key) {
-            sessionStorage.removeItem(Utils.getSessionKey(options, key));
+            options.delegates.removeSessionItem(options.delegates.getSessionKey(key));
         }
-        static clearSession(prefix) {
-            const keyPrefix = Utils.getSessionKey(prefix, "");
-            for (let i = sessionStorage.length; i >= 0; i--) {
-                const key = sessionStorage.key(i);
-                if (key != undefined && key.startsWith(keyPrefix)) {
-                    sessionStorage.removeItem(key);
-                }
-            }
-        }
-        static formatCurrency(amount, style) {
-            const l = window.camelot?.intl?.locales ?? "en-US";
-            const currencyCode = window.camelot?.intl?.currencyCode ?? "USD";
-            return Intl.NumberFormat(l, {
+        static formatCurrency(intl, amount, format) {
+            const decimalPlaces = parseInt(format.slice(1)) || 0;
+            return Intl.NumberFormat(intl.currentCulture, {
                 style: "currency",
-                currency: currencyCode,
-                minimumFractionDigits: style == "c2" ? 2 : 0,
-                maximumFractionDigits: style == "c2" ? 2 : 0
+                currency: intl.currencyCode,
+                minimumFractionDigits: decimalPlaces,
+                maximumFractionDigits: decimalPlaces
             }).format(amount);
         }
-        static formatNumber(value, format = "n") {
+        static formatNumber(intl, value, format = "n") {
             if (format[0] == "c")
-                return this.formatCurrency(value, format);
-            const l = window.camelot?.intl?.locales ?? "en-US";
+                return this.formatCurrency(intl, value, format);
             const useGrouping = format.toLowerCase().startsWith("n");
             const decimalPlaces = parseInt(format.slice(1)) || 0;
-            return Intl.NumberFormat(l, {
+            return Intl.NumberFormat(intl.currentCulture, {
                 style: "decimal",
                 useGrouping: useGrouping,
                 minimumFractionDigits: decimalPlaces,
                 maximumFractionDigits: decimalPlaces
             }).format(value);
         }
-        static formatPercent(value, format = "p", divideBy100) {
-            const l = window.camelot?.intl?.locales ?? "en-US";
+        static formatPercent(locales, value, format = "p", divideBy100) {
             const decimalPlaces = parseInt(format.slice(1)) || 0;
             let pValue = value;
             if (divideBy100 === true || (pValue > 1 && divideBy100 == undefined)) {
                 pValue = pValue / 100;
             }
-            return Intl.NumberFormat(l, {
+            return Intl.NumberFormat(locales, {
                 style: "percent",
                 minimumFractionDigits: decimalPlaces,
                 maximumFractionDigits: decimalPlaces
             }).format(pValue);
         }
-        static formatDate(value, format = "g") {
+        static formatDate(locales, value, format = "g") {
             const dateValue = value instanceof Date ? value : new Date(value);
-            const l = window.camelot?.intl?.locales ?? "en-US";
             if (format == "s")
                 return dateValue.toISOString().slice(0, 19);
             else if (format == "dv")
                 return dateValue.toISOString().slice(0, 10);
             switch (format) {
-                case "d": return Intl.DateTimeFormat(l, { year: 'numeric', month: 'numeric', day: 'numeric' }).format(dateValue);
-                case "t": return Intl.DateTimeFormat(l, { timeStyle: "short" }).format(dateValue);
+                case "d": return Intl.DateTimeFormat(locales, { year: 'numeric', month: 'numeric', day: 'numeric' }).format(dateValue);
+                case "t": return Intl.DateTimeFormat(locales, { timeStyle: "short" }).format(dateValue);
                 case "g": {
-                    const datePart = Intl.DateTimeFormat(l, { year: 'numeric', month: 'numeric', day: 'numeric' }).format(dateValue);
-                    const timePart = Intl.DateTimeFormat(l, { timeStyle: "medium" }).format(dateValue);
+                    const datePart = Intl.DateTimeFormat(locales, { year: 'numeric', month: 'numeric', day: 'numeric' }).format(dateValue);
+                    const timePart = Intl.DateTimeFormat(locales, { timeStyle: "medium" }).format(dateValue);
                     return `${datePart} ${timePart}`;
                 }
                 case "trace": {
@@ -6346,7 +6354,7 @@ var KatApps;
                         const len = pattern.length;
                         const dayOpt = len == 1 ? "numeric" : len == 2 ? "2-digit" : undefined;
                         const weekdayOpt = len == 3 ? "short" : len == 4 ? "long" : undefined;
-                        map[pattern] = Intl.DateTimeFormat(l, {
+                        map[pattern] = Intl.DateTimeFormat(locales, {
                             year, month, day: dayOpt, weekday: weekdayOpt
                         }).formatToParts(dateValue);
                         return map;

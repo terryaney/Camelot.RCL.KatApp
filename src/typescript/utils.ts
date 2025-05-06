@@ -17,6 +17,13 @@
 			})
 			return target as T;
 		};
+		public static extendWithReplacer<T>(target: IStringAnyIndexer, replacer: IStringAnyIndexerReplacer, ...sources: (IStringAnyIndexer | undefined)[]): T {
+			sources.forEach((source) => {
+				if (source === undefined) return;
+				this.copyProperties(target, source, replacer);
+			})
+			return target as T;
+		};
 
 		public static clone<T>(source: IStringAnyIndexer, replacer?: IStringAnyIndexerReplacer): T { // eslint-disable-line @typescript-eslint/no-explicit-any
 			return this.copyProperties({}, source, replacer) as T;
@@ -177,62 +184,35 @@
 			return await response.text();
 		};
 
-		private static getSessionKey(options: string | IKatAppOptions | undefined, key: string): string {
-			const prefix = typeof options === "string" ? options : options?.sessionKeyPrefix;
-			return `KatApp:${new URL(document.baseURI).pathname}${prefix ?? ""}:${key}`;
-		}
-
 		public static setSessionItem(options: IKatAppOptions, key: string, value: any): void {
-			const cachValue = typeof value === "string" ? value : "json:" + JSON.stringify(value);
-			sessionStorage.setItem(Utils.getSessionKey(options, key), cachValue);
+			options.delegates.setSessionItem(options.delegates.getSessionKey(key), value);
 		}
 		public static getSessionItem<T = string>(options: IKatAppOptions, key: string, oneTimeUse: boolean = false ): T | undefined {
-			const cacheKey = Utils.getSessionKey(options, key);
-			const cacheValue = sessionStorage.getItem(cacheKey);
-			if (cacheValue == undefined) return undefined;
-
-			if (oneTimeUse) {
-				sessionStorage.removeItem(cacheKey);
-			}
-
-			return cacheValue.startsWith("json:") ? JSON.parse(cacheValue.substring(5)) : cacheValue as unknown as T;
+			const cacheKey = options.delegates.getSessionKey(key);
+			return options.delegates.getSessionItem(cacheKey, oneTimeUse) as T;
 		}
 		public static removeSessionItem(options: IKatAppOptions, key: string): void {
-			sessionStorage.removeItem(Utils.getSessionKey(options, key));
-		}
-		public static clearSession(prefix: string | undefined): void {
-			const keyPrefix = Utils.getSessionKey(prefix, "");
-			for (let i = sessionStorage.length; i >= 0; i--) {
-				const key = sessionStorage.key(i);
-				if (key != undefined && key.startsWith(keyPrefix)) {
-					sessionStorage.removeItem(key);
-				}
-			}
+			options.delegates.removeSessionItem(options.delegates.getSessionKey(key));
 		}
 
-		public static formatCurrency(amount: number, style: IRblCurrencyFormat): string {
-			// TODO: Should pass this in as options to application instead of camelot dependency
-			const l = (window as any).camelot?.intl?.locales ?? "en-US";
-			const currencyCode = (window as any).camelot?.intl?.currencyCode ?? "USD";
+		public static formatCurrency(intl: { currentCulture: string | Array<string>, currencyCode: string }, amount: number, format: string): string {
+			const decimalPlaces = parseInt(format.slice(1)) || 0; // Extract decimal places from format (e.g., "N2" -> 2)
 
-			return Intl.NumberFormat(l, {
+			return Intl.NumberFormat(intl.currentCulture, {
 				style: "currency",
-				currency: currencyCode,
-				minimumFractionDigits: style == "c2" ? 2 : 0,
-				maximumFractionDigits: style == "c2" ? 2 : 0
+				currency: intl.currencyCode,
+				minimumFractionDigits: decimalPlaces,
+				maximumFractionDigits: decimalPlaces
 			}).format(amount);
 		}
 		
-		public static formatNumber(value: number, format: IRblCurrencyFormat | IRblNumberFormat = "n") {
-			if (format[0] == "c") return this.formatCurrency(value, format as IRblCurrencyFormat);
-			
-			// TODO: Should pass this in as options to application instead of camelot dependency
-			const l = (window as any).camelot?.intl?.locales ?? "en-US";
+		public static formatNumber(intl: { currentCulture: string | Array<string>, currencyCode: string }, value: number, format: string = "n") {
+			if (format[0] == "c") return this.formatCurrency(intl, value, format);
 			
 			const useGrouping = format.toLowerCase().startsWith("n"); // 'N' for grouping, 'F' for fixed-point
 			const decimalPlaces = parseInt(format.slice(1)) || 0; // Extract decimal places from format (e.g., "N2" -> 2)
 		
-			return Intl.NumberFormat(l, {
+			return Intl.NumberFormat(intl.currentCulture, {
 				style: "decimal",
 				useGrouping: useGrouping,
 				minimumFractionDigits: decimalPlaces,
@@ -240,9 +220,7 @@
 			}).format(value);
 		}
 
-		public static formatPercent(value: number, format: IRblPercentFormat = "p", divideBy100?: boolean) {
-			// TODO: Should pass this in as options to application instead of camelot dependency
-			const l = (window as any).camelot?.intl?.locales ?? "en-US";
+		public static formatPercent(locales: string | Array<string>, value: number, format: string = "p", divideBy100?: boolean) {
 			const decimalPlaces = parseInt(format.slice(1)) || 0; // Extract decimal places from format (e.g., "P2" -> 2)
 			
 			let pValue = value;
@@ -251,30 +229,28 @@
 				pValue = pValue / 100;
 			}
 
-			return Intl.NumberFormat(l, {
+			return Intl.NumberFormat(locales, {
 				style: "percent",
 				minimumFractionDigits: decimalPlaces,
 				maximumFractionDigits: decimalPlaces
 			}).format(pValue);
 		}
 
-		public static formatDate(value: string | Date, format: IRblDateFormat = "g") {
+		public static formatDate(locales: string | Array<string>, value: string | Date, format: string = "g") {
 			const dateValue = value instanceof Date ? value : new Date(value);
-			// TODO: Should pass this in as options to application instead of camelot dependency
-			const l = (window as any).camelot?.intl?.locales ?? "en-US";
 
 			if (format == "s") return dateValue.toISOString().slice(0, 19); // ISO8601 sortable: yyyy-MM-ddTHH:mm:ss
 			else if (format == "dv") return dateValue.toISOString().slice(0, 10); // yyyy-MM-dd
 
 			switch (format) {						
 				// M/d/yyyy
-				case "d": return Intl.DateTimeFormat(l, { year: 'numeric', month: 'numeric', day: 'numeric' }).format(dateValue);
+				case "d": return Intl.DateTimeFormat(locales, { year: 'numeric', month: 'numeric', day: 'numeric' }).format(dateValue);
 				// h:mm tt
-				case "t": return Intl.DateTimeFormat(l, { timeStyle: "short" }).format(dateValue);
+				case "t": return Intl.DateTimeFormat(locales, { timeStyle: "short" }).format(dateValue);
 				// M/d/yyyy h:mm:ss tt
 				case "g": {
-					const datePart = Intl.DateTimeFormat(l, { year: 'numeric', month: 'numeric', day: 'numeric' }).format(dateValue);
-					const timePart = Intl.DateTimeFormat(l, { timeStyle: "medium" }).format(dateValue);
+					const datePart = Intl.DateTimeFormat(locales, { year: 'numeric', month: 'numeric', day: 'numeric' }).format(dateValue);
+					const timePart = Intl.DateTimeFormat(locales, { timeStyle: "medium" }).format(dateValue);
 					return `${datePart} ${timePart}`;
 				}
 				// yyyy-MM-dd hh:mm:ss:ff
@@ -305,7 +281,7 @@
 						const len = pattern.length;
 						const dayOpt = len == 1 ? "numeric" : len == 2 ? "2-digit" : undefined;
 						const weekdayOpt = len == 3 ? "short" : len == 4 ? "long" : undefined;
-						map[pattern] = Intl.DateTimeFormat(l, {
+						map[pattern] = Intl.DateTimeFormat(locales, {
 							year, month, day: dayOpt, weekday: weekdayOpt
 						}).formatToParts(dateValue);
 						return map;

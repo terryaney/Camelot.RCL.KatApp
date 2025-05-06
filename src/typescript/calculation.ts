@@ -47,7 +47,7 @@
 				// If any items are returned as cache, verify they are there...
 				for (var i = 0; i < cachedResults.length; i++) {
 					const r = calculationResults.results[i];
-					const cacheResult = await this.getCacheAsync(application.options, `RBLCache:${r.cacheKey}`, application.options.decryptCache);
+					const cacheResult = await this.getCacheAsync(application.options, `RBLCache:${r.cacheKey}`, application.options.delegates.decryptCache);
 					if (cacheResult == undefined) {
 						Utils.trace(application, "Calculation", "calculateAsync", `Cache miss for ${r.calcEngine} with key ${r.cacheKey}`, TraceVerbosity.Detailed);
 					}
@@ -89,7 +89,7 @@
 						}
 						else {
 							Utils.trace(application, "Calculation", "calculateAsync", `Set cache for ${r.calcEngine}`, TraceVerbosity.Detailed);
-							await this.setCacheAsync(application.options, `RBLCache:${cacheKey}`, r.result!, application.options.encryptCache);
+							await this.setCacheAsync(application.options, `RBLCache:${cacheKey}`, r.result!, application.options.delegates.encryptCache);
 						}
 					}
 				}

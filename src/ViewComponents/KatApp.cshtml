@@ -5,6 +5,13 @@
 
 <div data-id="@Model.Name" class="@Model.Css"></div>
 
+@{
+	var currentCulture = System.Globalization.CultureInfo.CurrentCulture;
+	var currentUICulture = System.Globalization.CultureInfo.CurrentUICulture;
+	var currencyCode = new System.Globalization.RegionInfo(currentCulture.Name).ISOCurrencySymbol;
+	var numberFormat = currentCulture.NumberFormat;
+}
+
 <script>
 	function ready(fn) {
 		if (@(Model.UseCamelotOnReady ? "true" : "false")) {
@@ -25,15 +32,39 @@
 			await KatApp.createAppAsync(".@Model.Name",
 				{
 					"view": "@Model.View",
+					"userIdHash": "@Model.UserIdHash",
 					"dataGroup": "@Model.DataGroup",
-					"baseUrl": "@Model.BaseUrl",
-					"calculationUrl": "@Html.Raw( Model.CalculationEndpoint )",
-					"kamlVerifyUrl": "@Model.VerifyKatAppEndpoint",
-					"katDataStoreUrl": "@Model.KatDataStoreEndpoint",
-					"manualResultsEndpoint": @Html.Raw( Model.ManualResultsEndpoint ),
-					"resourceStringsEndpoint": "api/katapp/resource-strings",
-					"anchoredQueryStrings": "@Html.Raw( Model.AnchoredQueryStrings )",
+
 					"canProcessExternalHelpTips": @(Model.Name == "katapp-footer" ? "true" : "false"),
+
+					"endpoints": {
+						"baseUrl": "@Model.BaseUrl",
+						"calculation": "@Html.Raw( Model.CalculationEndpoint )",
+						"kamlVerification": "@Model.VerifyKatAppEndpoint",
+						"katDataStore": "@Model.KatDataStoreEndpoint",
+						"manualResults": @Html.Raw( Model.ManualResultsEndpoint ),
+						"resourceStrings": "api/katapp/resource-strings",
+						"anchoredQueryStrings": "@Html.Raw( Model.AnchoredQueryStrings )",
+						"relativePathTemplates": @Html.Raw( Model.RelativePathTemplates ),
+					},
+					
+					"delegates": {
+						"katAppNavigate": @(!string.IsNullOrEmpty( Model.NavigateAction ) ? @Model.NavigateAction : "undefined" ),
+						"encryptCache": @(!string.IsNullOrEmpty( Model.EncryptAction ) ? @Model.EncryptAction : "undefined" ),
+						"decryptCache": @(!string.IsNullOrEmpty( Model.DecryptAction ) ? @Model.DecryptAction : "undefined" ),
+
+						"setSessionItem": @(!string.IsNullOrEmpty( Model.SetSessionAction ) ? @Model.SetSessionAction : "undefined" ),
+						"getSessionItem": @(!string.IsNullOrEmpty( Model.GetSessionAction ) ? @Model.GetSessionAction : "undefined" ),
+						"removeSessionItem": @(!string.IsNullOrEmpty( Model.RemoveSessionAction ) ? @Model.RemoveSessionAction : "undefined" )
+					},
+
+					"intl": {
+						"currentCulture": "@currentCulture.Name",
+						"currentUICulture": "@currentUICulture.Name",
+						"currencyCode": "@currencyCode",
+						"currencyDecimalSeparator": "@numberFormat.CurrencyDecimalSeparator"
+					},
+
 					"debug": {
 						"useTestCalcEngine": @Model.UseTestCalcEngine,
 						"traceVerbosity": @Model.TraceVerbosity,
@@ -41,18 +72,12 @@
 						"debugResourcesDomain": @Html.Raw( Model.DebugResourcesDomain ),
 						"showInspector": "@Model.ShowInspector"
 					},
-					"nextCalculation": @Html.Raw( Model.NextCalculation ),
+
 					"inputs": @Html.Raw( Model.ManualInputs ),
-					"relativePathTemplates": @Html.Raw( Model.RelativePathTemplates ),
+
 					"currentPage": "@Model.CurrentPage",
-					"userIdHash": "@Model.UserIdHash",
 					"environment": "@Model.Environment",
-					"requestIP": "@Model.RequestIP",
-					"currentCulture": "@Model.CurrentCulture",
-					"currentUICulture": "@Model.CurrentUICulture",
-					"katAppNavigate": typeof @Model.NavigateAction != "undefined" ? @Model.NavigateAction  : undefined,
-					"encryptCache": typeof @Model.EncryptAction != "undefined" ? @Model.EncryptAction : undefined,
-					"decryptCache": typeof @Model.DecryptAction != "undefined" ? @Model.DecryptAction : undefined
+					"requestIP": "@Model.RequestIP"
 				}
 			);
 		} catch (ex) {

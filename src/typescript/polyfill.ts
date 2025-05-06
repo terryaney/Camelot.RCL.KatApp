@@ -121,7 +121,7 @@
 	}
 
 	if (String.formatTokens === undefined) {
-		String.formatTokens = function (template, parameters): string {
+		String.formatTokens = function (intl, template, parameters): string {
 			// String.formatTokens( "{{greeting}} {{who}}!", {greeting: "Hello", who: "world"} )
 			return template.replace(/{{([^}]+)}}/g, function (match, token) {
 				const tokenParts = token.split(":");
@@ -142,13 +142,13 @@
 					const dateRegex = /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})(?:T.*)?/;
                     const dateMatch = tokenValue.match(dateRegex);
                     if (dateMatch != undefined) {
-                        tokenValue = KatApps.Utils.formatDate(new Date(parseInt(dateMatch.groups.year), parseInt(dateMatch.groups.month) - 1, parseInt(dateMatch.groups.day)), tokenFormat);
+                        tokenValue = KatApps.Utils.formatDate(intl.currentCulture, new Date(parseInt(dateMatch.groups.year), parseInt(dateMatch.groups.month) - 1, parseInt(dateMatch.groups.day)), tokenFormat);
                     }
                     else if (numberRegex.test(tokenValue)) {
                         const val = parseFloat(tokenValue);
                         if (!isNaN(val)) {
-							if (tokenFormat.startsWith("p")) tokenValue = KatApps.Utils.formatPercent(val, tokenFormat as IRblPercentFormat);
-							else if (tokenFormat.startsWith("c") || tokenFormat.startsWith("n") || tokenFormat.startsWith("f")) tokenValue = KatApps.Utils.formatNumber(val, tokenFormat as IRblCurrencyFormat | IRblNumberFormat);
+							if (tokenFormat.startsWith("p")) tokenValue = KatApps.Utils.formatPercent(intl.currentCulture, val, tokenFormat);
+							else if (tokenFormat.startsWith("c") || tokenFormat.startsWith("n") || tokenFormat.startsWith("f")) tokenValue = KatApps.Utils.formatNumber(intl, val, tokenFormat);
 							else throw new Error(`Invalid String.formatTokens format string: ${tokenFormat}, value: ${val}`);
                         }
                     }

@@ -59,16 +59,6 @@ public class KatApp : ViewComponent
                 }.Where( l => !string.IsNullOrEmpty( l ) )
             );
 
-        var nextCalculationLocations = !string.IsNullOrEmpty( saveCalcEngineLocation )
-            ? $", \"saveLocations\": [ {string.Join( ", " + Environment.NewLine, saveCalcEngineLocation.Split( '|' ).Distinct().Select( l => $"{{ \"location\": \"{l}\", \"serverSideOnly\": false }}" ) )} ]"
-            : "";
-
-        var nextCalculationTrace = globalSiteSettings.PageParameters[ "TraceRBLe" ] == "1" || globalSiteSettings.PageParameters[ $"TraceRBLe.{name}" ] == "1"
-            ? "true"
-            : "false";
-
-        var nextCalculation = $"{{ \"trace\": {nextCalculationTrace}{nextCalculationLocations} }}";
-
 		// No support for Kamls in Kat Data Store...
 		var katAppResourceList = Array.Empty<KAT.Camelot.Abstractions.Api.Contracts.DataLocker.V1.Responses.KatAppResourceListItem>(); // await dataLockerService.GetKatAppResourceListAsync( theKeep.KamlFolders );
 		var latestViewName = katAppHelper.GetKamlViewName( katAppResourceList, (string)view[ "view" ]! );
@@ -126,14 +116,16 @@ public class KatApp : ViewComponent
                 UserIdHash = Hash.SHA256Hash( optionsProvider.AuthId! ),
                 Environment = globalSiteSettings.EnvironmentName,
                 RequestIP = globalSiteSettings.RequestIP,
-                CurrentCulture = Thread.CurrentThread.CurrentCulture.Name,
-                CurrentUICulture = Thread.CurrentThread.CurrentUICulture.Name,
 
 				NavigateAction = optionsProvider.NavigateAction,
 				EncryptAction = optionsProvider.EncryptAction,
 				DecryptAction = optionsProvider.DecryptAction,
 
-                NextCalculation = nextCalculation,
+				GetSessionKeyAction = optionsProvider.GetSessionKeyAction,
+				GetSessionAction = optionsProvider.GetSessionAction,
+				SetSessionAction = optionsProvider.SetSessionAction,
+				RemoveSessionAction = optionsProvider.RemoveSessionAction,
+
                 UseTestCalcEngine = optionsProvider.UseTestCalcEngine ? "true" : "false",
                 TraceVerbosity = optionsProvider.Trace ? "TraceVerbosity.Detailed" : "TraceVerbosity.None",
                 UseTestView = globalSiteSettings.PageParameters[ "testview" ] == "1" ? "true" : "false",
@@ -163,11 +155,8 @@ public class KatApp : ViewComponent
         public required string UserIdHash { get; init; }
         public required string Environment { get; init; }
         public required string RequestIP { get; init; }
-        public required string CurrentCulture { get; init; }
-        public required string CurrentUICulture { get; init; }
 
         // Debug Settings
-        public required string NextCalculation { get; init; }
         public required string UseTestCalcEngine { get; init; }
         public required string TraceVerbosity { get; init; }
         public required string UseTestView { get; init; }
@@ -177,5 +166,10 @@ public class KatApp : ViewComponent
 		public required string? NavigateAction { get; init; }
 		public required string? EncryptAction { get; init; }
 		public required string? DecryptAction { get; init; }
+
+		public required string? GetSessionKeyAction { get; init; }
+		public required string? SetSessionAction { get; init; }
+		public required string? GetSessionAction { get; init; }
+		public required string? RemoveSessionAction { get; init; }
     }    
 }

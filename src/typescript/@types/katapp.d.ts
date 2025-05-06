@@ -311,11 +311,6 @@ type IRblChartConfigurationShape = "square" | "circle" | "line";
 type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
 type IRblChartColumnName = "value" | `data${number}`;
 type IRblPlotColumnName = "text" | "textXs";
-type IRblFormatDecimals = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20;
-type IRblCurrencyFormat = "c" | `c${IRblFormatDecimals}`;
-type IRblPercentFormat = "p" | `p${IRblFormatDecimals}`;
-type IRblNumberFormat = "n" | `n${IRblFormatDecimals}` | "f" | `f${IRblFormatDecimals}`;
-type IRblDateFormat = 'd' | 'g' | 's' | 't' | "trace" | "dv" | string;
 interface KaChartElement extends Element {
     kaDomUpdated?: boolean;
 }
@@ -404,7 +399,7 @@ interface IRblChartConfigurationPlotOptions {
 }
 interface IRblChartConfigurationXAxis {
     label: string | undefined;
-    format: IRblCurrencyFormat | IRblNumberFormat;
+    format: string;
     minCategory: number;
     maxCategory: number;
     plotBandSegmentWidth: number;
@@ -415,7 +410,7 @@ interface IRblChartConfigurationXAxis {
 }
 interface IRblChartConfigurationYAxis {
     label: string | undefined;
-    format: IRblCurrencyFormat | IRblNumberFormat;
+    format: string;
     tickCount: number;
     intervalSize: number;
     maxValue: number;
@@ -477,7 +472,7 @@ interface IRblChartConfigurationTip {
 }
 interface IRblChartConfigurationDataLabels {
     show: boolean;
-    format: IRblCurrencyFormat | IRblNumberFormat;
+    format: string;
 }
 interface IRblChartConfigurationChartColumn {
     maxValue: number;
@@ -617,10 +612,8 @@ interface ITraceVerbosity {
     Diagnostic: number;
 }
 interface IKatAppDefaultOptions {
-    calculationUrl: string;
-    katDataStoreUrl: string;
-    kamlVerifyUrl: string;
-    anchoredQueryStrings?: string;
+    endpoints: IKatAppEndpoints;
+    delegates: IKatAppDelegates;
     debug: {
         traceVerbosity: ITraceVerbosity;
         useTestCalcEngine: boolean;
@@ -630,33 +623,48 @@ interface IKatAppDefaultOptions {
     };
     inputCaching: boolean;
     canProcessExternalHelpTips: boolean;
+}
+interface IKatAppDelegates {
     encryptCache(data: object): string | Promise<string>;
     decryptCache(cipher: string): object | Promise<object>;
+    getSessionKey(key: string): string;
+    setSessionItem(key: string, value: any): void;
+    getSessionItem<T = string>(key: string, oneTimeUse?: boolean): T | undefined;
+    removeSessionItem(key: string): void;
+    katAppNavigate?: (id: string, props?: IModalOptions, el?: HTMLElement) => void;
+}
+interface IKatAppEndpoints {
+    baseUrl?: string;
+    calculation: string;
+    katDataStore: string;
+    kamlVerification: string;
+    anchoredQueryStrings?: string;
+    manualResults?: string;
+    resourceStrings?: string;
+    relativePathTemplates?: IStringIndexer<string>;
 }
 interface IKatAppOptions extends IKatAppDefaultOptions {
     view?: string;
     content?: string | HTMLElement;
-    baseUrl?: string;
+    modalAppOptions?: IModalAppOptions;
+    hostApplication?: IKatApp;
+    cloneHost?: boolean | string;
+    userIdHash?: string;
     dataGroup: string;
     currentPage: string;
-    userIdHash?: string;
-    sessionKeyPrefix?: string;
     environment?: string;
     requestIP?: string;
-    currentCulture?: string;
-    currentUICulture?: string;
     inputs?: ICalculationInputs;
     manualResults?: IManualTabDef[];
     resourceStrings?: IStringIndexer<IStringIndexer<string | {
         text: string;
     }>>;
-    manualResultsEndpoint?: string;
-    resourceStringsEndpoint?: string;
-    relativePathTemplates?: IStringIndexer<string>;
-    katAppNavigate?: (id: string, props?: IModalOptions, el?: HTMLElement) => void;
-    modalAppOptions?: IModalAppOptions;
-    hostApplication?: IKatApp;
-    cloneHost?: boolean | string;
+    intl: {
+        currentCulture: string;
+        currentUICulture?: string;
+        currencyDecimalSeparator: string;
+        currencyCode: string;
+    };
 }
 interface IKatAppStatic {
     getDirty(): Array<IKatApp>;
@@ -1268,6 +1276,7 @@ declare namespace KatApps {
     class Utils {
         static chunk<T>(array: Array<T>, size: number): Array<Array<T>>;
         static extend<T>(target: IStringAnyIndexer, ...sources: (IStringAnyIndexer | undefined)[]): T;
+        static extendWithReplacer<T>(target: IStringAnyIndexer, replacer: IStringAnyIndexerReplacer, ...sources: (IStringAnyIndexer | undefined)[]): T;
         static clone<T>(source: IStringAnyIndexer, replacer?: IStringAnyIndexerReplacer): T;
         private static copyProperties;
         static generateId: () => string;
@@ -1280,14 +1289,18 @@ declare namespace KatApps {
         static trace(application: KatApp, callerType: string, methodName: string, message: string, verbosity: TraceVerbosity, ...groupItems: Array<any>): void;
         static checkLocalServerAsync(currentOptions: IKatAppRepositoryOptions): Promise<boolean>;
         static downloadLocalServerAsync(debugResourcesDomain: string, relativePath: string, secure?: boolean): Promise<any | undefined>;
-        private static getSessionKey;
         static setSessionItem(options: IKatAppOptions, key: string, value: any): void;
         static getSessionItem<T = string>(options: IKatAppOptions, key: string, oneTimeUse?: boolean): T | undefined;
         static removeSessionItem(options: IKatAppOptions, key: string): void;
-        static clearSession(prefix: string | undefined): void;
-        static formatCurrency(amount: number, style: IRblCurrencyFormat): string;
-        static formatNumber(value: number, format?: IRblCurrencyFormat | IRblNumberFormat): string;
-        static formatPercent(value: number, format?: IRblPercentFormat, divideBy100?: boolean): string;
-        static formatDate(value: string | Date, format?: IRblDateFormat): string;
+        static formatCurrency(intl: {
+            currentCulture: string | Array<string>;
+            currencyCode: string;
+        }, amount: number, format: string): string;
+        static formatNumber(intl: {
+            currentCulture: string | Array<string>;
+            currencyCode: string;
+        }, value: number, format?: string): string;
+        static formatPercent(locales: string | Array<string>, value: number, format?: string, divideBy100?: boolean): string;
+        static formatDate(locales: string | Array<string>, value: string | Date, format?: string): string;
     }
 }

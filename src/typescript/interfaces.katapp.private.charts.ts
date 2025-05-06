@@ -4,11 +4,6 @@ type IRblChartConfigurationShape = "square" | "circle" | "line";
 type IRblChartSeriesType = "tooltip" | "line" | "column" | undefined;
 type IRblChartColumnName = "value" | `data${number}`;
 type IRblPlotColumnName = "text" | "textXs";
-type IRblFormatDecimals = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20;
-type IRblCurrencyFormat = "c" | `c${IRblFormatDecimals}`;
-type IRblPercentFormat = "p" | `p${IRblFormatDecimals}`;
-type IRblNumberFormat = "n" | `n${IRblFormatDecimals}` | "f" | `f${IRblFormatDecimals}`;
-type IRblDateFormat = 'd' | 'g' | 's' | 't' | "trace" | "dv" | string;
 
 interface KaChartElement extends Element {
 	kaDomUpdated?: boolean;
@@ -110,7 +105,7 @@ interface IRblChartConfigurationPlotOptions {
 
 interface IRblChartConfigurationXAxis {
 	label: string | undefined; // If present, render label
-	format: IRblCurrencyFormat | IRblNumberFormat; // Default: c0
+	format: string; // Default: c0
 	minCategory: number;
 	maxCategory: number;
 	plotBandSegmentWidth: number;
@@ -122,7 +117,7 @@ interface IRblChartConfigurationXAxis {
 
 interface IRblChartConfigurationYAxis {
 	label: string | undefined; // If present, render label
-	format: IRblCurrencyFormat | IRblNumberFormat; // Default: c0
+	format: string; // Default: c0
 	tickCount: number; // Default: 5, Number of major axis ticks to show on yAxis.
 	intervalSize: number;
 	maxValue: number;
@@ -186,7 +181,7 @@ interface IRblChartConfigurationTip {
 
 interface IRblChartConfigurationDataLabels {
 	show: boolean; // Default: true, Show data label on each category or data point.
-	format: IRblCurrencyFormat | IRblNumberFormat; // Default: c0
+	format: string; // Default: c0
 }
 
 interface IRblChartConfigurationChartColumn {

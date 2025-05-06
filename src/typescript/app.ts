@@ -157,6 +157,7 @@ class KatApp implements IKatApp {
 		// From debug.options
 		`refreshCalcEngine` | `boolean` | Whether or not the RBLe Framework should check for an updated CalcEngine every single calculation.  By default, the RBLe Framework only checks every 5 minutes.  A `boolean` value can be passed in or using the querystring of `expireCE=1` will enable the settings.  The default value is `false`.
 		*/
+		const that = this;
 		const defaultOptions: IKatAppDefaultOptions = {
 			inputCaching: false,
 			canProcessExternalHelpTips: false,
@@ -169,15 +170,38 @@ class KatApp implements IKatApp {
 				useTestView: KatApps.Utils.pageParameters["testview"] === "1",
 				debugResourcesDomain: KatApps.Utils.pageParameters["localserver"],
 			},
-			calculationUrl: "https://btr.lifeatworkportal.com/services/evolution/CalculationFunction.ashx",
-			katDataStoreUrl: "https://btr.lifeatworkportal.com/services/camelot/datalocker/api/kat-apps/{name}/download",
-			kamlVerifyUrl: "api/katapp/verify-katapp",
-			encryptCache: data => typeof (data) == "string" ? data : JSON.stringify(data),
-			decryptCache: cipher => cipher.startsWith("{") ? JSON.parse(cipher) : cipher
-		};
+			endpoints: {
+				calculation: "https://btr.lifeatworkportal.com/services/evolution/CalculationFunction.ashx",
+				katDataStore: "https://btr.lifeatworkportal.com/services/camelot/datalocker/api/kat-apps/{name}/download",
+				kamlVerification: "api/katapp/verify-katapp"
+			},
+			delegates: {
+				encryptCache: data => typeof (data) == "string" ? data : JSON.stringify(data),
+				decryptCache: cipher => cipher.startsWith("{") ? JSON.parse(cipher) : cipher,
+				
+				getSessionKey: key => `KatApp:${new URL(document.baseURI).pathname}:${key}`,
+				setSessionItem: function(key, value) {
+					const cachValue = typeof value === "string" ? value : "json:" + JSON.stringify(value);
+					sessionStorage.setItem(key, cachValue);
+				},
+				getSessionItem: function<T = string>(key: string, oneTimeUse: boolean = false) {
+					const cacheValue = sessionStorage.getItem(key);
+					if (cacheValue == null) return undefined;
 
-		this.options = KatApps.Utils.extend<IKatAppOptions>(
+					if (oneTimeUse) {
+						this.removeSessionItem(key);
+					}
+					
+					return cacheValue.startsWith("json:") ? JSON.parse(cacheValue.substring(5)) : cacheValue as unknown as T;
+				},
+				removeSessionItem: key => sessionStorage.removeItem(key)
+			}
+		};
+		
+		this.options = KatApps.Utils.extendWithReplacer<IKatAppOptions>(
 			{},
+			// simply passing in a replacer will not copy 'undefined' over top of existing default options
+			(key, value) => value,
 			defaultOptions,
 			options,
 			// for now, I want inspector disabled
@@ -262,8 +286,6 @@ class KatApp implements IKatApp {
 		
 			document.body.appendChild(kaResources);
 		}
-
-		const that = this;
 
 		const getTabDefKey = function(calcEngine?: string, tab?: string) {
 			const ce = calcEngine
@@ -377,8 +399,7 @@ class KatApp implements IKatApp {
 						const currencyString = that.state.inputs[inputId] as string;
 						if (currencyString == undefined) return undefined;
 
-						// TODO: Should pass this in as options to application instead of camelot dependency
-						const decimalSeparator = (window as any).camelot?.intl?.currencyDecimalSeparator ?? ".";
+						const decimalSeparator = this.options.intl.currencyDecimalSeparator;
 						const numberRegEx = new RegExp(`[^\-0-9${decimalSeparator}]+`, "g");
 						// Parse the cleaned string as a float, replacing the French decimal separator with a dot
 						var parsedValue = parseFloat(currencyString.replace(numberRegEx, "").replace(decimalSeparator, "."));
@@ -746,8 +767,8 @@ class KatApp implements IKatApp {
 
 			 KatApps.Utils.trace(this, "KatApp", "mountAsync", `CalcEngines configured`, TraceVerbosity.Detailed);
 
-			if (this.options.resourceStrings == undefined && this.options.resourceStringsEndpoint != undefined) {
-				const apiUrl = this.getApiUrl(this.options.resourceStringsEndpoint);
+			if (this.options.resourceStrings == undefined && this.options.endpoints.resourceStrings != undefined) {
+				const apiUrl = this.getApiUrl(this.options.endpoints.resourceStrings);
 
 				try {
 					const response = await fetch(apiUrl.url, {
@@ -763,7 +784,7 @@ class KatApp implements IKatApp {
 					this.options.resourceStrings = await response.json();
 					 KatApps.Utils.trace(this, "KatApp", "mountAsync", `Resource Strings downloaded`, TraceVerbosity.Detailed);
 				} catch (e) {
-					 KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading resourceStrings ${this.options.resourceStringsEndpoint}`, TraceVerbosity.None, e);
+					 KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading resourceStrings ${this.options.endpoints.resourceStrings}`, TraceVerbosity.None, e);
 				}
 
 				if (this.options.debug.debugResourcesDomain) {
@@ -778,8 +799,8 @@ class KatApp implements IKatApp {
 				}
 			}
 
-			if (this.options.manualResults == undefined && this.options.manualResultsEndpoint != undefined) {
-				const apiUrl = this.getApiUrl(this.options.manualResultsEndpoint);
+			if (this.options.manualResults == undefined && this.options.endpoints.manualResults != undefined) {
+				const apiUrl = this.getApiUrl(this.options.endpoints.manualResults);
 
 				try {
 					const response = await fetch(apiUrl.url, {
@@ -795,7 +816,7 @@ class KatApp implements IKatApp {
 					this.options.manualResults = await response.json();
 					KatApps.Utils.trace(this, "KatApp", "mountAsync", `Manual Results downloaded`, TraceVerbosity.Detailed);
 				} catch (e) {
-					KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading manualResults ${this.options.manualResultsEndpoint}`, TraceVerbosity.None, e);
+					KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading manualResults ${this.options.endpoints.manualResults}`, TraceVerbosity.None, e);
 				}
 			}
 
@@ -900,7 +921,7 @@ class KatApp implements IKatApp {
 							await this.triggerEventAsync(
 								"updateApiOptions",
 								submitApiOptions,
-								this.getApiUrl(this.options.calculationUrl).endpoint
+								this.getApiUrl(this.options.endpoints.calculation).endpoint
 							);
 						},
 						{},
@@ -1324,9 +1345,10 @@ Type 'help' to see available options displayed in the console.`;
 			KatApps.Utils.setSessionItem(this.options, cachingKey, currentInputs);
 			*/
 			KatApps.Utils.setSessionItem(this.options, cachingKey, options.inputs);
+			this.options.delegates.setSessionItem(cachingKey, options.inputs);
 		}
 
-		await this.options.katAppNavigate?.(navigationId);
+		await this.options.delegates.katAppNavigate?.(navigationId);
 	}
 
 	public async calculateAsync(
@@ -1343,7 +1365,7 @@ Type 'help' to see available options displayed in the console.`;
 		 KatApps.Utils.trace(this, "KatApp", "calculateAsync", `Start: ${(calcEngines ?? this.calcEngines).map( c => c.name ).join(", ")}`, TraceVerbosity.Detailed);
 
 		try {
-			const apiUrl = this.getApiUrl(this.options.calculationUrl);
+			const apiUrl = this.getApiUrl(this.options.endpoints.calculation);
 			const serviceUrl = /* this.options.registerDataWithService 
 				? this.options.{what url should this be} 
 				: */ apiUrl.url;
@@ -1518,7 +1540,7 @@ Type 'help' to see available options displayed in the console.`;
 			const calcEngine = this.calcEngines.find(c => !c.manualResult);
 
 			const inputPropertiesToSkip = ["tables", "getNumber", "getOptionText"];
-			const optionPropertiesToSkip = ["manualResults", "manualResultsEndpoint", "resourceStrings", "resourceStringsEndpoint", "modalAppOptions", "hostApplication", "relativePathTemplates", "handlers", "nextCalculation", "katAppNavigate", "decryptCache", "encryptCache"];
+			const optionPropertiesToSkip = ["manualResults", "resourceStrings", "modalAppOptions", "hostApplication", "handlers", "nextCalculation", "delegates", "endpoints", "intl"];
 
 			const submitData: ISubmitApiData = {
 				inputs: KatApps.Utils.clone(getSubmitApiConfigurationResults.inputs ?? {}, (k, v) => inputPropertiesToSkip.indexOf(k) > -1 ? undefined : v?.toString()),
@@ -1657,10 +1679,10 @@ Type 'help' to see available options displayed in the console.`;
 	}
 
 	private getApiUrl(endpoint: string): { url: string, endpoint: string } {
-		const urlParts = this.options.calculationUrl.split("?");
+		const urlParts = this.options.endpoints.calculation.split("?");
 		const endpointParts = endpoint.split("?");
 
-		var qsAnchored = KatApps.Utils.parseQueryString(this.options.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
+		var qsAnchored = KatApps.Utils.parseQueryString(this.options.endpoints.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
 		var qsEndpoint = KatApps.Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
 		var qsUrl = KatApps.Utils.extend<IStringIndexer<string>>(qsAnchored, qsEndpoint, { katapp: this.selector ?? this.id });
 
@@ -1675,7 +1697,7 @@ Type 'help' to see available options displayed in the console.`;
 		}
 
 		return {
-			url: this.options.baseUrl ? this.options.baseUrl + url : url,
+			url: this.options.endpoints.baseUrl ? this.options.endpoints.baseUrl + url : url,
 			endpoint: url.split("?")[0].substring(4)
 		};
 	}
@@ -1931,7 +1953,7 @@ Type 'help' to see available options displayed in the console.`;
 	}
 
 	private getResourceString(key: string): string | undefined {
-		const currentUICulture = this.options.currentUICulture ?? "en-us";
+		const currentUICulture = this.options.intl.currentUICulture ?? "en-us";
 		const defaultRegionStrings = this.options.resourceStrings?.["en-us"];
 		const defaultLanguageStrings = this.options.resourceStrings?.["en"];
 		const cultureStrings = this.options.resourceStrings?.[currentUICulture];
@@ -2006,13 +2028,13 @@ Type 'help' to see available options displayed in the console.`;
 				if (fmt) {
 					// fmt example: "p2", "MM/dd/yyyy"
 					if (typeof val === "number") {
-						if (fmt.startsWith("p")) return KatApps.Utils.formatPercent(val, fmt as IRblPercentFormat);
-						if (fmt.startsWith("c") || fmt.startsWith("n") || fmt.startsWith("f")) return KatApps.Utils.formatNumber(val, fmt as IRblCurrencyFormat | IRblNumberFormat);
+						if (fmt.startsWith("p")) return KatApps.Utils.formatPercent(this.options.intl.currentCulture, val, fmt);
+						if (fmt.startsWith("c") || fmt.startsWith("n") || fmt.startsWith("f")) return KatApps.Utils.formatNumber(this.options.intl, val, fmt);
 
 						throw new Error(`Invalid getLocalizedString format string: ${fmt}, value: ${val}`);
 					}
 
-			        return KatApps.Utils.formatDate(val as Date, fmt as IRblDateFormat);
+			        return KatApps.Utils.formatDate(this.options.intl.currentCulture, val as Date, fmt);
 			    }
 			    
 				return String(val);
@@ -2024,7 +2046,7 @@ Type 'help' to see available options displayed in the console.`;
 		if (resource == undefined) return undefined;
 		
 		return hasFormatObject
-			? String.formatTokens(resource, (formatObject?.keyValueObject as unknown as IStringIndexer<string>) ?? formatObject)
+			? String.formatTokens(this.options.intl, resource, (formatObject?.keyValueObject as unknown as IStringIndexer<string>) ?? formatObject)
 			: resource;
 	}
 
@@ -2137,7 +2159,7 @@ Type 'help' to see available options displayed in the console.`;
 
 	// public so HelpTips can call when needed
 	public cloneOptions(includeManualResults: boolean): IKatAppOptions {
-		const propertiesToSkip = ["handlers", "view", "content", "modalAppOptions", "hostApplication"].concat(includeManualResults ? [] : ["manualResults", "manualResultsEndpoint"]);
+		const propertiesToSkip = ["handlers", "view", "content", "modalAppOptions", "hostApplication"].concat(includeManualResults ? [] : ["manualResults"]);
 		return KatApps.Utils.clone<IKatAppOptions>( this.options, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v );
 	}
 	
@@ -2197,7 +2219,7 @@ Type 'help' to see available options displayed in the console.`;
 			return new Promise<IModalResponse>(async (resolve, reject) => {
 				const propertiesToSkip = ["content", "view"];
 				// Omitting properties that will be picked up from the .extend<> below
-				const modalOptions: Omit<IKatAppOptions, 'debug' | 'dataGroup' | 'calculationUrl' | 'katDataStoreUrl' | 'kamlVerifyUrl' | 'inputCaching' | 'canProcessExternalHelpTips' | 'encryptCache' | 'decryptCache'> = {
+				const modalOptions: Omit<IKatAppOptions, 'debug' | 'dataGroup' | 'inputCaching' | 'canProcessExternalHelpTips' | 'endpoints' | 'delegates' | 'intl'> = {
 					view: options.view,
 					content: selectorContent ?? options.content,
 					currentPage: options.view ?? this.options.currentPage,
@@ -2220,9 +2242,9 @@ Type 'help' to see available options displayed in the console.`;
 					options.inputs != undefined ? { inputs: options.inputs } : undefined
 				);
 	
-				if (modalAppOptions.anchoredQueryStrings != undefined && modalAppOptions.inputs != undefined) {
-					modalAppOptions.anchoredQueryStrings = KatApps.Utils.generateQueryString(
-						KatApps.Utils.parseQueryString(modalAppOptions.anchoredQueryStrings),
+				if (modalAppOptions.endpoints.anchoredQueryStrings != undefined && modalAppOptions.inputs != undefined) {
+					modalAppOptions.endpoints.anchoredQueryStrings = KatApps.Utils.generateQueryString(
+						KatApps.Utils.parseQueryString(modalAppOptions.endpoints.anchoredQueryStrings),
 						// If showing modal and the url has an input with same name as input passed in, then don't include it...
 						key => !key.startsWith("ki-") || modalAppOptions.inputs![ 'i' + key.split('-').slice(1).map(segment => segment.charAt(0).toUpperCase() + segment.slice(1)).join("") ] == undefined
 					);
@@ -2281,8 +2303,8 @@ Type 'help' to see available options displayed in the console.`;
 			testCE: currentOptions.debug?.useTestCalcEngine ?? false,
 			currentPage: currentOptions.currentPage ?? "KatApp:" + (currentOptions.view ?? "UnknownView"),
 			requestIP: currentOptions.requestIP ?? "1.1.1.1",
-			currentCulture: currentOptions.currentCulture ?? "en-US",
-			currentUICulture: currentOptions.currentUICulture ?? "en-US",
+			currentCulture: currentOptions.intl.currentCulture ?? "en-US",
+			currentUICulture: currentOptions.intl.currentUICulture ?? "en-US",
 			environment: currentOptions.environment ?? "EW.PROD",
 			// RefreshCalcEngine: this.nextCalculation.expireCache || (currentOptions.debug?.refreshCalcEngine ?? false),
 			allowLogging: true // default, calculateAsync will set this appropriately
@@ -2728,7 +2750,7 @@ Type 'help' to see available options displayed in the console.`;
 		if ((this.options.modalAppOptions != undefined || this.options.inputs?.iNestedApplication == "1") && this.options.view != undefined ) {
 			const view = this.options.view;
 
-			const apiUrl = this.getApiUrl(`${this.options.kamlVerifyUrl}?applicationId=${view}&currentId=${this.options.hostApplication!.options.currentPage}` );
+			const apiUrl = this.getApiUrl(`${this.options.endpoints.kamlVerification}?applicationId=${view}&currentId=${this.options.hostApplication!.options.currentPage}` );
 
 			try {
 				const response = await fetch(apiUrl.url, { method: "GET" });

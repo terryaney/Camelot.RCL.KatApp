@@ -144,7 +144,7 @@ namespace KatApps {
 				this.bindDateEvents(application, name, label, input, removeError, inputEventAsync);
 			}
 			else if (type == "range") {
-				this.bindRangeEvents(name, input, refs, displayFormat, inputEventAsync);
+				this.bindRangeEvents(application, name, input, refs, displayFormat, inputEventAsync);
 			}
 			else {
 				this.bindInputEvents(application, name, label, input, type, hasMask, mask, maxLength, keypressRegex, inputEventAsync);
@@ -203,8 +203,7 @@ namespace KatApps {
 							const decimalPlacesString = inputMask.substring(allowNegative ? 7 : 6);
 							const decimalPlaces = decimalPlacesString != "" ? +decimalPlacesString : 2;
 
-							// TODO: Should pass this in as options to application instead of camelot dependency
-							const currencySeparator = (window as any).camelot?.intl?.currencyDecimalSeparator ?? ".";
+							const currencySeparator = application.options.intl.currencyDecimalSeparator;
 							const negRegEx = allowNegative ? `\\-` : "";
 							const sepRegEx = decimalPlaces > 0 ? `\\${currencySeparator}` : "";
 
@@ -455,7 +454,7 @@ namespace KatApps {
 			}
 		}
 
-		private bindRangeEvents(name: string, input: HTMLInputElement, refs: IStringIndexer<HTMLElement>, displayFormat: (name: string) => string | undefined, inputEventAsync: (calculate: boolean, calculateOnDelay?: boolean) => Promise<void>): void {
+		private bindRangeEvents(application: KatApp, name: string, input: HTMLInputElement, refs: IStringIndexer<HTMLElement>, displayFormat: (name: string) => string | undefined, inputEventAsync: (calculate: boolean, calculateOnDelay?: boolean) => Promise<void>): void {
 			// https://css-tricks.com/value-bubbles-for-range-inputs/
 			let bubbleTimer: number | undefined;
 			const bubble = refs.bubble;
@@ -468,8 +467,8 @@ namespace KatApps {
 				// format is {0:formatString} and I want just format string...
 				const formatString = format.slice(3, -1);
 
-				if (formatString[0] == "p") return Utils.formatPercent(+value, formatString as IRblPercentFormat, true);
-				if (formatString[0] == "c" || formatString[0] == "n" || formatString[0] == "f") return Utils.formatNumber(+value, formatString as IRblCurrencyFormat | IRblNumberFormat);
+				if (formatString[0] == "p") return KatApps.Utils.formatPercent(application.options.intl.currentCulture, +value, formatString, true);
+				if (formatString[0] == "c" || formatString[0] == "n" || formatString[0] == "f") return KatApps.Utils.formatNumber(application.options.intl, +value, formatString);
 					
 				throw new Error(`Unsupported format ${formatString} for range input ${name}`);
 			};

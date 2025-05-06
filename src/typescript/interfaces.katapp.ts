@@ -9,10 +9,8 @@
 
 // KatApp options interfaces
 interface IKatAppDefaultOptions {
-	calculationUrl: string;
-	katDataStoreUrl: string;
-	kamlVerifyUrl: string;
-	anchoredQueryStrings?: string;
+	endpoints: IKatAppEndpoints;
+	delegates: IKatAppDelegates;
 
 	debug: {
 		traceVerbosity: ITraceVerbosity;
@@ -26,39 +24,59 @@ interface IKatAppDefaultOptions {
 	// Not really used yet, no one setting to 'true', only defaults to false
 	inputCaching: boolean; // Whether or not inputs are cached to/restored from LocalStorage,
 	canProcessExternalHelpTips: boolean; // If help tip is outside a KatApp but will be rendered via KatApps, indicates if KatApp can be used when cloning is necessary (v-pre)
+}
 
+interface IKatAppDelegates {
 	encryptCache(data: object): string | Promise<string>;
 	decryptCache(cipher: string): object | Promise<object>;
+
+	getSessionKey(key: string): string;
+	
+	setSessionItem(key: string, value: any): void;
+	getSessionItem<T = string>(key: string, oneTimeUse?: boolean): T | undefined;
+	removeSessionItem(key: string): void;
+
+	katAppNavigate?: (id: string, props?: IModalOptions, el?: HTMLElement) => void;
 }
+
+interface IKatAppEndpoints {
+	baseUrl?: string;
+	calculation: string;
+	katDataStore: string;
+	kamlVerification: string;
+	anchoredQueryStrings?: string;
+	manualResults?: string;
+	resourceStrings?: string;
+	relativePathTemplates?: IStringIndexer<string>;
+}
+
 interface IKatAppOptions extends IKatAppDefaultOptions {
 	// Only missing when showModalAsync called 'createAppAsync' and modal was built with 'content' instead of a view
 	view?: string;
 	// Only present when showModalAsync called 'createAppAsync' and modal was built with 'content' instead of a view
 	content?: string | HTMLElement;
-
-	baseUrl?: string;
-	dataGroup: string;
-	currentPage: string;
-	userIdHash?: string; // User ID hashed to be used in different caching scenarios
-	sessionKeyPrefix?: string; // If multi tenant system and need to distinguish cache items by more than just PathBase
-	environment?: string;
-	requestIP?: string;
-	currentCulture?: string;
-	currentUICulture?: string;
-
-	inputs?: ICalculationInputs;
-	manualResults?: IManualTabDef[];
-	resourceStrings?: IStringIndexer<IStringIndexer<string | { text: string }>>;
-	manualResultsEndpoint?: string;
-	resourceStringsEndpoint?: string;
-	relativePathTemplates?: IStringIndexer<string>;
-
-	katAppNavigate?: (id: string, props?: IModalOptions, el?: HTMLElement) => void;
-
 	// Set by framework when nested/modal app
 	modalAppOptions?: IModalAppOptions;
 	hostApplication?: IKatApp;
 	cloneHost?: boolean | string;
+
+	// Settings
+	userIdHash?: string; // User ID hashed to be used in different caching scenarios
+	dataGroup: string;
+	currentPage: string;
+	environment?: string;
+	requestIP?: string;
+
+	inputs?: ICalculationInputs;
+	manualResults?: IManualTabDef[];
+	resourceStrings?: IStringIndexer<IStringIndexer<string | { text: string }>>;
+	
+	intl: {
+		currentCulture: string;
+		currentUICulture?: string;
+		currencyDecimalSeparator: string;
+		currencyCode: string;
+	}
 }
 
 // KatApp interfaces

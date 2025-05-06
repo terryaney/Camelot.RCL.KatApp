@@ -19,6 +19,10 @@ public interface IKatAppOptionsProvider
 	string? NavigateAction { get; }
 	string? EncryptAction { get; }
 	string? DecryptAction { get; }
+	string? GetSessionKeyAction { get; }
+	string? GetSessionAction { get; }
+	string? SetSessionAction { get; }
+	string? RemoveSessionAction { get; }	
 
 	JsonObject AppResourceStrings { get; }
 	Dictionary<string, string> GetManualInputs( JsonObject viewDefinition );

@@ -4,7 +4,7 @@
 
 		private cultureEnsured = false;
 		// private appReflowAdded = false;
-		private application: KatApp | undefined;
+		private application: KatApp = undefined!;
 
 		// Automatic reflow...
 		// 1. After app is originally displayed, all application charts are reflowed (via processDomElementsAsync)
@@ -112,24 +112,25 @@
 				.filter(seriesName => seriesConfigurationRows.filter(c => c.category === "config-visible" && c[seriesName] === "0").length === 0)
 				.map(seriesName => configFormat?.[seriesName] ?? "c0");
 
+			const application = this.application;
+			const currentCulture: string | Array<string> = application.options.intl.currentCulture;
+			
 			return {
 				formatter: function () {
 					let s = "";
 					let t = 0;
 
-					// TODO: Should pass this in as options to application instead of camelot dependency
-					const locales: string | Array<string> = (window as any).camelot?.intl?.locales ?? "en-US";
-					const pointTemplate = (locales instanceof Array ? locales : [locales]).some(l => l.startsWith("fr"))
+					const pointTemplate = currentCulture.startsWith("fr")
 						? "<br/>{{name}} : {{value}}"
 						: "<br/>{{name}}: {{value}}";
 
 					this.points.forEach((point, index) => {
 						if (point.y > 0) {
-							s += String.formatTokens(pointTemplate, { name: point.series.name, value: Utils.formatCurrency(point.y, seriesFormats[index] as IRblCurrencyFormat) });
+							s += String.formatTokens(application.options.intl, pointTemplate, { name: point.series.name, value: KatApps.Utils.formatCurrency(application.options.intl, point.y, seriesFormats[index]) });
 							t += point.y;
 						}
 					});
-					return String.formatTokens(tooltipFormat, { x: this.x, stackTotal: Utils.formatCurrency(t, seriesFormats[0] as IRblCurrencyFormat), seriesDetail: s });
+					return String.formatTokens(application.options.intl, tooltipFormat, { x: this.x, stackTotal: KatApps.Utils.formatCurrency(application.options.intl, t, seriesFormats[0]), seriesDetail: s });
 				},
 				shared: true
 			};
@@ -349,18 +350,19 @@
 		private ensureCulture(): void {
 			if (!this.cultureEnsured) {
 				this.cultureEnsured = true;
+				const application = this.application;
 				const culture = this.application!.state.rbl.value("variable", "culture") ?? "en-";
 				if (!culture.startsWith("en-")) {
 					Highcharts.setOptions({
 						yAxis: {
 							labels: {
 								formatter: function (this: HighchartsDataPoint): string {
-									return this.value != undefined ? Utils.formatCurrency(this.value, 'c0') : "";
+									return this.value != undefined ? KatApps.Utils.formatCurrency(application.options.intl, this.value, 'c0') : "";
 								}
 							},
 							stackLabels: {
 								formatter: function (this: HighchartsDataPoint): string {
-									return this.value != undefined ? Utils.formatCurrency(this.value, 'c0') : "";
+									return this.value != undefined ? KatApps.Utils.formatCurrency(application.options.intl, this.value, 'c0') : "";
 								}
 							}
 						}

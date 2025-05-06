@@ -36,7 +36,7 @@ declare global {
 
 	interface StringConstructor {
 		compare: (strA: string | undefined, strB: string | undefined, ignoreCase?: boolean) => number;
-		formatTokens(template: string, parameters: IStringAnyIndexer): string;
+		formatTokens(intl: { currentCulture: string, currencyCode: string }, template: string, parameters: IStringAnyIndexer): string;
 	}
 	interface EventTarget {
 		_addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;

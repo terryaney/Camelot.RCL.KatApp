@@ -156,7 +156,7 @@ namespace KatApps {
 		};
 
 		private static async getResourceAsync(currentOptions: IKatAppRepositoryOptions, resourceKey: string, tryLocalWebServer: boolean): Promise<IKamlResourceResponse> {
-			const relativeTemplatePath = currentOptions.relativePathTemplates?.[resourceKey];
+			const relativeTemplatePath = currentOptions.endpoints.relativePathTemplates?.[resourceKey];
 			const resourceParts = relativeTemplatePath != undefined ? relativeTemplatePath.split(":") : resourceKey.split(":");
 
 			let resourceName = resourceParts[1];
@@ -201,8 +201,8 @@ namespace KatApps {
 				resourceUrl = tryLocalWebServer
 					? localServerUrl.substring(0, 4) + localServerUrl.substring(5) + location.search
 					: !isResourceInManagementSite
-						? currentOptions.baseUrl + resourceName.substring(1) + location.search
-						: currentOptions.katDataStoreUrl;
+						? currentOptions.endpoints.baseUrl + resourceName.substring(1) + location.search
+						: currentOptions.endpoints.katDataStore;
 
 				if (!tryLocalWebServer && isResourceInManagementSite) {
 					resourceUrl = resourceUrl.replace("{name}", resourceName) + `?folders=${resourceParts[0].split("|").join(",")}&preferTest=${version == "Test"}`;
