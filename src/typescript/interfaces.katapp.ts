@@ -527,7 +527,7 @@ interface IKaChartModel {
 		xl?: IKaChartModelBreakpoint;
 	}
 
-	// If provided, Legend needs to have .ka-chart-legend-{name.toLower()} class.  Then each item needs to have ka-chart-highlight-key="series.name" attribute.
+	// If provided, rendered legend needs to have .ka-chart-legend-{name.toLower()} class.  Then each item needs to have ka-chart-highlight-key="series.name" attribute.
 	// Then each 'text' element containing info that should be opaque needs to be provided via selector (i.e. div.legend-hover)
 	legendItemSelector?: string;
 	maxHeight?: number;
