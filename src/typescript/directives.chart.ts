@@ -28,7 +28,7 @@
 				});
 
 				return () => {
-					this.application.removeEvents(el.getAttribute("ka-chart-id")!);
+					this.application.removeDirectiveEvents(el.getAttribute("ka-chart-id")!);
 				}
 			};
 		}
@@ -84,24 +84,39 @@
 			const dataSource = this.application.state.rbl.source(model.data, model.ce, model.tab) as any as Array<IRblChartDataRow>;
 			const dataRows = dataSource.filter(r => r.id == "category").slice(model.from ?? 0, model.to ?? dataSource.length);
 			const chartOptions = dataSource.filter(r => r.id != "category");
-			const globalOptions = this.application.state.rbl.source(model.options ?? "chartOptions", model.ce, model.tab) as any as Array<IRblChartDataRow>;
 
+			const dataColumns = (Object.keys(dataRows[0]) as Array<IRblChartColumnName>).filter(c => c.startsWith("data"));
 			const chartType = this.getOptionValue<IRblChartConfigurationType>(chartOptions, "type")!;
 			const chartIsStacked = !["column", "donut"].includes(chartType);
 
-			// Ideas for 'config' settings when needed: https://api.highcharts.com/highcharts
+			const sharedOptionsTable = this.getOptionValue<IRblChartConfigurationType>(chartOptions, "options")!;
+			const sharedOptions = sharedOptionsTable != undefined
+				? this.application.state.rbl.source(sharedOptionsTable, model.ce, model.tab) as any as Array<IRblChartDataRow>
+				: [];
+			const globalOptions = this.application.state.rbl.source("chartOptions", model.ce, model.tab) as any as Array<IRblChartDataRow>;
 
-			function configRow<T = string>(id: string): IRblChartDataRow<T> {
-				return (chartOptions.find(r => r.id == id) ?? {}) as IRblChartDataRow<T>; 
-			}
-			function configRows<T = string>(id: string): Array<IRblChartDataRow<T>> {
-				return chartOptions.filter(r => r.id == id) as Array<IRblChartDataRow<T>>;
-			}
+			const getSharedConfigValue = (id: string): string | undefined =>
+				sharedOptions.find(r => r.id == id)?.value ?? globalOptions.find(r => r.id == id)?.value;
 
-			const dataColumns = (Object.keys(dataRows[0]) as Array<IRblChartColumnName>).filter(c => c.startsWith("data"));
+			const configRow = <T = string>(id: string): IRblChartDataRow<T> => (chartOptions.find(r => r.id == id) ?? {}) as IRblChartDataRow<T>; 
+			const configRows = <T = string>(id: string): Array<IRblChartDataRow<T>> => chartOptions.filter(r => r.id == id) as Array<IRblChartDataRow<T>>;
+
+			const getBooleanProperty = <T>(property: string, parsedValue: T | undefined, defaultValue: boolean): boolean => {
+				return String.compare(
+					this.getOptionValue(chartOptions, property, getSharedConfigValue, ((parsedValue ?? defaultValue) ? "true" : "false")),
+					"true",
+					true
+				) === 0;
+			};
 
 			const text = configRow("text");
+			const colors = configRow("color");
+			const types = configRow<IRblChartSeriesType>("type");
+			const defaultShape = this.getOptionValue<IRblChartConfigurationShape>(chartOptions, "shape", getSharedConfigValue, "square") as IRblChartConfigurationShape;
+			const shapes = configRow<IRblChartConfigurationShape>("shape");
+
 			let data: Array<{ name: string, data: IRblChartConfigurationDataType }> = []
+			
 			switch (chartType) {
 				// Data 'point' charts with single 'series'
 				case "column":
@@ -116,47 +131,39 @@
 					break;
 			}
 
-			const colors = configRow("color");
-			const types = configRow<IRblChartSeriesType>("type");
-			const globalColors = globalOptions.find(r => r.id == "colors")?.value.split(",") ?? [];
-			const globalFormat = globalOptions.find(r => r.id == "format")?.value ?? "c0";
-			const shapes = configRow<IRblChartConfigurationShape>("shape");
-			const defaultShape = this.getOptionValue<IRblChartConfigurationShape>(chartOptions, "shape", globalOptions, "square") as IRblChartConfigurationShape;
-			
-			const getBooleanProperty = <T>(property: string, parsedValue: T | undefined, defaultValue: boolean): boolean => {
-				return String.compare(
-					this.getOptionValue(chartOptions, property, globalOptions, ((parsedValue ?? defaultValue) ? "true" : "false")),
-					"true",
-					true
-				) === 0;
-			}
+			const globalColors = getSharedConfigValue("colors")?.split(",") ?? [];
+			const globalFormat = getSharedConfigValue("format") ?? "c0";
 
-			const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", globalOptions) ?? "{}") as IRblChartConfigurationDataLabels;
+			const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", getSharedConfigValue) ?? "{}") as IRblChartConfigurationDataLabels;
 			dataLabels.show = getBooleanProperty("dataLabels.show", dataLabels.show, false);
-			dataLabels.format = this.getOptionValue(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat)!;
+			dataLabels.format = this.getOptionValue(chartOptions, "dataLabels.format", getSharedConfigValue, dataLabels.format ?? globalFormat)!;
 
-			const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", globalOptions) ?? "{}") as IRblChartConfigurationTip;
+			const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", getSharedConfigValue) ?? "{}") as IRblChartConfigurationTip;
 			tip.padding = { top: 5, left: 5 }; // Param?
 			tip.show = getBooleanProperty("tip.show", tip.show, true);
-			tip.headerFormatter = this.getOptionValue(chartOptions, "tip.headerFormatter", globalOptions, tip.headerFormatter);
+			tip.headerFormatter = this.getOptionValue(chartOptions, "tip.headerFormatter", getSharedConfigValue, tip.headerFormatter);
 			tip.includeShape = getBooleanProperty("tip.includeShape", tip.includeShape, true);
 			tip.includeTotal = getBooleanProperty("tip.includeTotal", tip.includeTotal, chartIsStacked && !dataLabels.show);
 
-			const aspectRatioValue = this.getOptionValue(chartOptions, "aspectRatio", globalOptions, "1:1")!;
+			const aspectRatioValue = this.getOptionValue(chartOptions, "aspectRatio", getSharedConfigValue, "1:1")!;
 			const aspectRatioConfig = JSON.parse(aspectRatioValue.startsWith("{") ? aspectRatioValue : `{ "value": "${aspectRatioValue}" }`);
 			
 			const calcAspectRatio = (ratio: string) => {
 				const parts = ratio.split(":");
 				return +parts[0] / +parts[1];
 			};
-			aspectRatioConfig.current = "value";
+			aspectRatioConfig.current = "value"; // This value is toggled through the 'currently rendering' chart (if breakpoints are used)
 			aspectRatioConfig.value = calcAspectRatio(aspectRatioConfig.value);
+
+			const fontMultiplier = this.getOptionNumber(chartOptions, "font.multiplier", getSharedConfigValue, 1)!;
+
 			if (aspectRatioConfig.xs) aspectRatioConfig.xs = calcAspectRatio(aspectRatioConfig.xs);
 
 			const plotBands = configRows("xAxis.plotBand").map(r => JSON.parse(r.value) as IRblChartPlotBand);
 			const plotLines = configRows("xAxis.plotLine").map(r => JSON.parse(r.value) as IRblChartPlotLine);
 
-			const sharkfin = this.getOptionJson<IRblChartConfigurationSharkfin>(chartOptions, "sharkfin", globalOptions);
+			const sharkfin = this.getOptionJson<IRblChartConfigurationSharkfin>(chartOptions, "sharkfin", getSharedConfigValue);
+
 			if (sharkfin != undefined) {
 				const retireAge = sharkfin.retirementAge;
 				const plotValue = data.findIndex(i => +i.name == retireAge);
@@ -165,7 +172,7 @@
 			}
 
 			const xAxisConfig = {
-				label: this.getOptionValue(chartOptions, "xAxis.label", globalOptions),
+				label: this.getOptionValue(chartOptions, "xAxis.label", getSharedConfigValue),
 				format: "c0",
 				minCategory: -0.5,
 				maxCategory: dataRows.length - 0.5,
@@ -178,9 +185,9 @@
 			} as IRblChartConfigurationXAxis;
 
 			const yAxisConfig: IRblChartConfigurationYAxis = {
-				label: this.getOptionValue(chartOptions, "yAxis.label", globalOptions),
-				format: "c0",
-				tickCount: +this.getOptionValue(chartOptions, "yAxis.tickCount", globalOptions, "5")!,
+				label: this.getOptionValue(chartOptions, "yAxis.label", getSharedConfigValue),
+				format: dataLabels.format, // param?
+				tickCount: +this.getOptionValue(chartOptions, "yAxis.tickCount", getSharedConfigValue, "5")!,
 				get baseY() {
 					return this._parent.height - this._parent.padding.bottom;
 				},
@@ -214,6 +221,7 @@
 		
 				}
 			} as IRblChartConfigurationYAxis;
+			
 			const seriesConfig = dataColumns.map<IRblChartConfigurationSeries>((c, i) => {
 				return {
 					text: text[c]!,
@@ -259,7 +267,7 @@
 						size: {
 							heuristic: 0.6,
 							base: 16,
-							fontMultiplier: directive.getOptionNumber(chartOptions, "font.multiplier", globalOptions, 1)!,
+							fontMultiplier: fontMultiplier,
 							get default() { return this.base * this.fontMultiplier; },
 							get yAxisLabel() { return this.default * 0.9; },
 							get yAxisTickLabels() { return this.default * 0.8; },
@@ -282,11 +290,11 @@
 					get plotHeight() { return this.height - this.padding.top - this.padding.bottom; },
 					
 					pie: {
-						startAngle: +this.getOptionValue(chartOptions, "pie.startAngle", globalOptions, "0")!,
-						endAngle: +this.getOptionValue(chartOptions, "pie.endAngle", globalOptions, "360")!,
+						startAngle: +this.getOptionValue(chartOptions, "pie.startAngle", getSharedConfigValue, "0")!,
+						endAngle: +this.getOptionValue(chartOptions, "pie.endAngle", getSharedConfigValue, "360")!,
 					},
 					donut: {
-						labelFormatter: this.getOptionValue(chartOptions, "donut.labelFormatter", globalOptions)
+						labelFormatter: this.getOptionValue(chartOptions, "donut.labelFormatter", getSharedConfigValue)
 					},
 
 					padding: {
@@ -1161,7 +1169,7 @@
 
 			// If external legends are used, the legend isn't guaranteed to be rendered before chart is,
 			// so need to wait for domUpdated event to do all the DOM selections for events.
-			this.application.handleEvents(
+			this.application.handleDirectiveEvents(
 				events => {
 					events.domUpdated = elements => {
 						const externalLegend = model.legendItemSelector != undefined ? this.application.selectElement(`.${configuration.css.legend}`) : undefined
@@ -1249,7 +1257,7 @@
 
 				let header = item.data instanceof Array ? item.name : undefined;
 				if (header) {
-					header = configuration.plotOptions.tip.headerFormatter?.replace("{x}", header) ?? header;
+					this.getHeader(configuration.plotOptions, header)
 				}
 
 				const tooltipContent = document.createElement("div");
@@ -1626,20 +1634,29 @@
 			return rect;
 		}
 
-		private getOptionJson<T>(configRows: Array<IRblChartDataRow>, name: string, globalOptions?: IRblChartOptionRow[]): T | undefined {
-			const json = (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
-				globalOptions?.find(r => r.id == name)?.value);
+		private getOptionJson<T>(configRows: Array<IRblChartDataRow>, name: string, getSharedConfigValue?: (id: string) => string | undefined): T | undefined {
+			const json = (
+				configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
+				(getSharedConfigValue ? getSharedConfigValue(name) : undefined)
+			);
 			
 			return json ? JSON.parse(json) as T : undefined;
 		}
 
-		private getOptionValue<T = string>(configRows: Array<IRblChartDataRow>, name: string, globalOptions?: IRblChartOptionRow[], defaultValue?: string): T | undefined {
-			return (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
-				globalOptions?.find(r => r.id == name)?.value ?? defaultValue) as T;
+		private getOptionValue<T = string>(configRows: Array<IRblChartDataRow>, name: string, getSharedConfigValue?: (id: string) => string | undefined, defaultValue?: string): T | undefined {
+			return (
+				configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
+				(getSharedConfigValue ? getSharedConfigValue(name) : undefined) ??
+				defaultValue
+			) as T;
 		}
-		private getOptionNumber(configRows: Array<IRblChartDataRow>, name: string, globalOptions?: IRblChartOptionRow[], defaultValue?: number): number | undefined {
-			const value = (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
-				globalOptions?.find(r => r.id == name)?.value ?? String(defaultValue));
+
+		private getOptionNumber(configRows: Array<IRblChartDataRow>, name: string, getSharedConfigValue?: (id: string) => string | undefined, defaultValue?: number): number | undefined {
+			const value = (
+				configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
+				(getSharedConfigValue ? getSharedConfigValue(name) : undefined) ??
+				String(defaultValue)
+			);
 			
 			if (value == undefined) return undefined;
 			

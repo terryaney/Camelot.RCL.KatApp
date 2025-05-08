@@ -40,8 +40,9 @@ declare class KatApp implements IKatApp {
     private getCloneApplication;
     triggerEventAsync(eventName: string, ...args: (object | string | undefined | unknown)[]): Promise<boolean | undefined>;
     configure(configAction: (config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
-    handleEvents(configAction: (config: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void, directiveId?: string): IKatApp;
-    removeEvents(directiveId: string): IKatApp;
+    handleEvents(configAction: (config: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
+    handleDirectiveEvents(configAction: (config: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void, directiveId: string): IKatApp;
+    removeDirectiveEvents(directiveId: string): IKatApp;
     private appendAndExecuteScripts;
     private mountAsync;
     private initializeInspector;
@@ -682,8 +683,7 @@ interface IKatApp {
     state: IState;
     selector: string;
     configure(configAction: (config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
-    handleEvents(configAction: (events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void, directiveId?: string): IKatApp;
-    removeEvents(directiveId: string): IKatApp;
+    handleEvents(configAction: (events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
     allowCalculation(ceKey: string, enabled: boolean): void;
     checkValidity(): boolean;
     calculateAsync(customInputs?: ICalculationInputs, processResults?: boolean, calcEngines?: ICalcEngine[], allowLogging?: boolean): Promise<ITabDef[] | void>;
@@ -1029,7 +1029,6 @@ interface IKaApiModel extends IApiOptions {
 }
 interface IKaChartModel {
     data: string;
-    options?: string;
     mode?: "chart" | "legend";
     from?: number;
     to?: number;

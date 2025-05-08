@@ -98,8 +98,7 @@ interface IKatApp {
 	selector: string;
 
 	configure(configAction: (config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
-	handleEvents(configAction: (events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void, directiveId?: string): IKatApp;
-	removeEvents(directiveId: string): IKatApp;
+	handleEvents(configAction: (events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
 	allowCalculation(ceKey: string, enabled: boolean): void;
 
 	checkValidity(): boolean;
@@ -510,7 +509,6 @@ interface IKaApiModel extends IApiOptions {
 }
 interface IKaChartModel {
 	data: string;
-	options?: string; // Default: chartOptions
 	mode?: "chart" | "legend"; // Default: both (but legend could be turned off via CalcEngine options if mode not provided, otherwise mode overrides legend.show)
 
 	// If from/to are provided, the chart will be sliced to only show the range of categories.  If not provided, all categories will be shown.

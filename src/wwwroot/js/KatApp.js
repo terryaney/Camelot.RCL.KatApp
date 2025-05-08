@@ -491,16 +491,20 @@ class KatApp {
         this.configureOptions = config;
         return this;
     }
-    handleEvents(configAction, directiveId) {
+    handleEvents(configAction) {
         const config = {};
         configAction(config, this.state.rbl, this.state.model, this.state.inputs, this.state.handlers);
-        if (directiveId) {
-            this.removeEvents(directiveId);
-        }
+        this.eventConfigurations.push({ directiveId: undefined, events: config });
+        return this;
+    }
+    handleDirectiveEvents(configAction, directiveId) {
+        const config = {};
+        configAction(config, this.state.rbl, this.state.model, this.state.inputs, this.state.handlers);
+        this.removeDirectiveEvents(directiveId);
         this.eventConfigurations.push({ directiveId, events: config });
         return this;
     }
-    removeEvents(directiveId) {
+    removeDirectiveEvents(directiveId) {
         this.eventConfigurations = this.eventConfigurations.filter(e => e.directiveId != directiveId);
         return this;
     }
@@ -3232,7 +3236,7 @@ var KatApps;
                     }
                 });
                 return () => {
-                    this.application.removeEvents(el.getAttribute("ka-chart-id"));
+                    this.application.removeDirectiveEvents(el.getAttribute("ka-chart-id"));
                 };
             };
         }
@@ -3279,17 +3283,25 @@ var KatApps;
             const dataSource = this.application.state.rbl.source(model.data, model.ce, model.tab);
             const dataRows = dataSource.filter(r => r.id == "category").slice(model.from ?? 0, model.to ?? dataSource.length);
             const chartOptions = dataSource.filter(r => r.id != "category");
-            const globalOptions = this.application.state.rbl.source(model.options ?? "chartOptions", model.ce, model.tab);
+            const dataColumns = Object.keys(dataRows[0]).filter(c => c.startsWith("data"));
             const chartType = this.getOptionValue(chartOptions, "type");
             const chartIsStacked = !["column", "donut"].includes(chartType);
-            function configRow(id) {
-                return (chartOptions.find(r => r.id == id) ?? {});
-            }
-            function configRows(id) {
-                return chartOptions.filter(r => r.id == id);
-            }
-            const dataColumns = Object.keys(dataRows[0]).filter(c => c.startsWith("data"));
+            const sharedOptionsTable = this.getOptionValue(chartOptions, "options");
+            const sharedOptions = sharedOptionsTable != undefined
+                ? this.application.state.rbl.source(sharedOptionsTable, model.ce, model.tab)
+                : [];
+            const globalOptions = this.application.state.rbl.source("chartOptions", model.ce, model.tab);
+            const getSharedConfigValue = (id) => sharedOptions.find(r => r.id == id)?.value ?? globalOptions.find(r => r.id == id)?.value;
+            const configRow = (id) => (chartOptions.find(r => r.id == id) ?? {});
+            const configRows = (id) => chartOptions.filter(r => r.id == id);
+            const getBooleanProperty = (property, parsedValue, defaultValue) => {
+                return String.compare(this.getOptionValue(chartOptions, property, getSharedConfigValue, ((parsedValue ?? defaultValue) ? "true" : "false")), "true", true) === 0;
+            };
             const text = configRow("text");
+            const colors = configRow("color");
+            const types = configRow("type");
+            const defaultShape = this.getOptionValue(chartOptions, "shape", getSharedConfigValue, "square");
+            const shapes = configRow("shape");
             let data = [];
             switch (chartType) {
                 case "column":
@@ -3301,25 +3313,18 @@ var KatApps;
                     data = dataRows.map(r => ({ name: r.value, data: dataColumns.map(c => +r[c]) }));
                     break;
             }
-            const colors = configRow("color");
-            const types = configRow("type");
-            const globalColors = globalOptions.find(r => r.id == "colors")?.value.split(",") ?? [];
-            const globalFormat = globalOptions.find(r => r.id == "format")?.value ?? "c0";
-            const shapes = configRow("shape");
-            const defaultShape = this.getOptionValue(chartOptions, "shape", globalOptions, "square");
-            const getBooleanProperty = (property, parsedValue, defaultValue) => {
-                return String.compare(this.getOptionValue(chartOptions, property, globalOptions, ((parsedValue ?? defaultValue) ? "true" : "false")), "true", true) === 0;
-            };
-            const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", globalOptions) ?? "{}");
+            const globalColors = getSharedConfigValue("colors")?.split(",") ?? [];
+            const globalFormat = getSharedConfigValue("format") ?? "c0";
+            const dataLabels = JSON.parse(this.getOptionValue(chartOptions, "dataLabels", getSharedConfigValue) ?? "{}");
             dataLabels.show = getBooleanProperty("dataLabels.show", dataLabels.show, false);
-            dataLabels.format = this.getOptionValue(chartOptions, "dataLabels.format", globalOptions, dataLabels.format ?? globalFormat);
-            const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", globalOptions) ?? "{}");
+            dataLabels.format = this.getOptionValue(chartOptions, "dataLabels.format", getSharedConfigValue, dataLabels.format ?? globalFormat);
+            const tip = JSON.parse(this.getOptionValue(chartOptions, "tip", getSharedConfigValue) ?? "{}");
             tip.padding = { top: 5, left: 5 };
             tip.show = getBooleanProperty("tip.show", tip.show, true);
-            tip.headerFormatter = this.getOptionValue(chartOptions, "tip.headerFormatter", globalOptions, tip.headerFormatter);
+            tip.headerFormatter = this.getOptionValue(chartOptions, "tip.headerFormatter", getSharedConfigValue, tip.headerFormatter);
             tip.includeShape = getBooleanProperty("tip.includeShape", tip.includeShape, true);
             tip.includeTotal = getBooleanProperty("tip.includeTotal", tip.includeTotal, chartIsStacked && !dataLabels.show);
-            const aspectRatioValue = this.getOptionValue(chartOptions, "aspectRatio", globalOptions, "1:1");
+            const aspectRatioValue = this.getOptionValue(chartOptions, "aspectRatio", getSharedConfigValue, "1:1");
             const aspectRatioConfig = JSON.parse(aspectRatioValue.startsWith("{") ? aspectRatioValue : `{ "value": "${aspectRatioValue}" }`);
             const calcAspectRatio = (ratio) => {
                 const parts = ratio.split(":");
@@ -3327,11 +3332,12 @@ var KatApps;
             };
             aspectRatioConfig.current = "value";
             aspectRatioConfig.value = calcAspectRatio(aspectRatioConfig.value);
+            const fontMultiplier = this.getOptionNumber(chartOptions, "font.multiplier", getSharedConfigValue, 1);
             if (aspectRatioConfig.xs)
                 aspectRatioConfig.xs = calcAspectRatio(aspectRatioConfig.xs);
             const plotBands = configRows("xAxis.plotBand").map(r => JSON.parse(r.value));
             const plotLines = configRows("xAxis.plotLine").map(r => JSON.parse(r.value));
-            const sharkfin = this.getOptionJson(chartOptions, "sharkfin", globalOptions);
+            const sharkfin = this.getOptionJson(chartOptions, "sharkfin", getSharedConfigValue);
             if (sharkfin != undefined) {
                 const retireAge = sharkfin.retirementAge;
                 const plotValue = data.findIndex(i => +i.name == retireAge);
@@ -3339,7 +3345,7 @@ var KatApps;
                 plotBands.push({ from: plotValue, to: data.length - 0.5, color: sharkfin.fill.color });
             }
             const xAxisConfig = {
-                label: this.getOptionValue(chartOptions, "xAxis.label", globalOptions),
+                label: this.getOptionValue(chartOptions, "xAxis.label", getSharedConfigValue),
                 format: "c0",
                 minCategory: -0.5,
                 maxCategory: dataRows.length - 0.5,
@@ -3351,9 +3357,9 @@ var KatApps;
                 }
             };
             const yAxisConfig = {
-                label: this.getOptionValue(chartOptions, "yAxis.label", globalOptions),
-                format: "c0",
-                tickCount: +this.getOptionValue(chartOptions, "yAxis.tickCount", globalOptions, "5"),
+                label: this.getOptionValue(chartOptions, "yAxis.label", getSharedConfigValue),
+                format: dataLabels.format,
+                tickCount: +this.getOptionValue(chartOptions, "yAxis.tickCount", getSharedConfigValue, "5"),
                 get baseY() {
                     return this._parent.height - this._parent.padding.bottom;
                 },
@@ -3406,7 +3412,7 @@ var KatApps;
                         size: {
                             heuristic: 0.6,
                             base: 16,
-                            fontMultiplier: directive.getOptionNumber(chartOptions, "font.multiplier", globalOptions, 1),
+                            fontMultiplier: fontMultiplier,
                             get default() { return this.base * this.fontMultiplier; },
                             get yAxisLabel() { return this.default * 0.9; },
                             get yAxisTickLabels() { return this.default * 0.8; },
@@ -3426,11 +3432,11 @@ var KatApps;
                     get plotWidth() { return this.width - this.padding.left - this.padding.right; },
                     get plotHeight() { return this.height - this.padding.top - this.padding.bottom; },
                     pie: {
-                        startAngle: +this.getOptionValue(chartOptions, "pie.startAngle", globalOptions, "0"),
-                        endAngle: +this.getOptionValue(chartOptions, "pie.endAngle", globalOptions, "360"),
+                        startAngle: +this.getOptionValue(chartOptions, "pie.startAngle", getSharedConfigValue, "0"),
+                        endAngle: +this.getOptionValue(chartOptions, "pie.endAngle", getSharedConfigValue, "360"),
                     },
                     donut: {
-                        labelFormatter: this.getOptionValue(chartOptions, "donut.labelFormatter", globalOptions)
+                        labelFormatter: this.getOptionValue(chartOptions, "donut.labelFormatter", getSharedConfigValue)
                     },
                     padding: {
                         get top() {
@@ -4026,7 +4032,7 @@ var KatApps;
                     }
                 });
             };
-            this.application.handleEvents(events => {
+            this.application.handleDirectiveEvents(events => {
                 events.domUpdated = elements => {
                     const externalLegend = model.legendItemSelector != undefined ? this.application.selectElement(`.${configuration.css.legend}`) : undefined;
                     if (!elements.some(e => e === el || e.contains(el) || e === externalLegend || (externalLegend != undefined && e.contains(externalLegend))))
@@ -4084,7 +4090,7 @@ var KatApps;
                     return undefined;
                 let header = item.data instanceof Array ? item.name : undefined;
                 if (header) {
-                    header = configuration.plotOptions.tip.headerFormatter?.replace("{x}", header) ?? header;
+                    this.getHeader(configuration.plotOptions, header);
                 }
                 const tooltipContent = document.createElement("div");
                 tooltipContent.className = `tooltip-${index}`;
@@ -4364,18 +4370,20 @@ var KatApps;
             }
             return rect;
         }
-        getOptionJson(configRows, name, globalOptions) {
+        getOptionJson(configRows, name, getSharedConfigValue) {
             const json = (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
-                globalOptions?.find(r => r.id == name)?.value);
+                (getSharedConfigValue ? getSharedConfigValue(name) : undefined));
             return json ? JSON.parse(json) : undefined;
         }
-        getOptionValue(configRows, name, globalOptions, defaultValue) {
+        getOptionValue(configRows, name, getSharedConfigValue, defaultValue) {
             return (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
-                globalOptions?.find(r => r.id == name)?.value ?? defaultValue);
+                (getSharedConfigValue ? getSharedConfigValue(name) : undefined) ??
+                defaultValue);
         }
-        getOptionNumber(configRows, name, globalOptions, defaultValue) {
+        getOptionNumber(configRows, name, getSharedConfigValue, defaultValue) {
             const value = (configRows.find(r => String.compare(r.id, name, true) === 0)?.value ??
-                globalOptions?.find(r => r.id == name)?.value ?? String(defaultValue));
+                (getSharedConfigValue ? getSharedConfigValue(name) : undefined) ??
+                String(defaultValue));
             if (value == undefined)
                 return undefined;
             return Number(value);

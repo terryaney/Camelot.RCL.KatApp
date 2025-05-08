@@ -667,22 +667,33 @@ class KatApp implements IKatApp {
 		return this;
 	}
 
-	public handleEvents(
+	public handleEvents(configAction: (config: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void ): IKatApp {
+		const config: IKatAppEventsConfiguration = {};
+		configAction(config, this.state.rbl, this.state.model, this.state.inputs, this.state.handlers);
+		this.eventConfigurations.push({ directiveId: undefined, events: config });
+		return this;
+	}
+
+	public handleDirectiveEvents(
 		configAction: (config: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void,
-		directiveId?: string
+		directiveId: string
 	): IKatApp {
+		// v-ka-chart needed ability to perform processing after domUpdated event was raised.
+		// It needed to handle it specifically for the chart being processed (instead of the same handler for all charts)
+		// I could have maybe made a static object that contained all configurations for charts, then one handler might
+		// have been able to process each instance of a chart, but currently I made it this way.  When the chart is destroyed/processed
+		// it has to remove any events tied to itself via the removeDirectiveEvents method.
+
 		const config: IKatAppEventsConfiguration = {};
 		configAction(config, this.state.rbl, this.state.model, this.state.inputs, this.state.handlers);
 		
-		if (directiveId) {
-			this.removeEvents(directiveId);
-		}
+		this.removeDirectiveEvents(directiveId);
 
 		this.eventConfigurations.push({ directiveId, events: config });
 		return this;
 	}
 
-	public removeEvents(directiveId: string): IKatApp {
+	public removeDirectiveEvents(directiveId: string): IKatApp {
 		this.eventConfigurations = this.eventConfigurations.filter(e => e.directiveId != directiveId);
 		return this;	
 	}
