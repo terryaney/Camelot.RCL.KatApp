@@ -2020,7 +2020,7 @@ Type 'help' to see available options displayed in the console.`;
 				const index = +match[1];
 				const arg = templateArgs[index] as string;
 
-				const dateMatch = arg.match(dateRegex);
+				const dateMatch = String(arg).match(dateRegex);
 				if (dateMatch != undefined) {
 					templateArgs[index] = new Date(parseInt(dateMatch.groups!.year), parseInt(dateMatch.groups!.month) - 1, parseInt(dateMatch.groups!.day));
 				}
