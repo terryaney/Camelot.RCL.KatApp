@@ -1012,7 +1012,6 @@ Type 'help' to see available options displayed in the console.`;
                     ? "navigationInputs:" + navigationId.split("?")[0] + ":" + (this.options.userIdHash ?? "Everyone")
                     : "navigationInputs:" + navigationId.split("?")[0];
             KatApps.Utils.setSessionItem(this.options, cachingKey, options.inputs);
-            this.options.delegates.setSessionItem(cachingKey, options.inputs);
         }
         await this.options.delegates.katAppNavigate?.(navigationId);
     }

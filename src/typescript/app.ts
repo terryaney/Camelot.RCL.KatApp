@@ -1356,7 +1356,6 @@ Type 'help' to see available options displayed in the console.`;
 			KatApps.Utils.setSessionItem(this.options, cachingKey, currentInputs);
 			*/
 			KatApps.Utils.setSessionItem(this.options, cachingKey, options.inputs);
-			this.options.delegates.setSessionItem(cachingKey, options.inputs);
 		}
 
 		await this.options.delegates.katAppNavigate?.(navigationId);
