@@ -1622,7 +1622,7 @@ Type 'help' to see available options displayed in the console.`;
                 if (disposition && disposition.indexOf('attachment') !== -1) {
                     filename = disposition.split('filename=')[1].split(';')[0].replace(/"/g, '');
                 }
-                this.downloadBlob(blob);
+                this.downloadBlob(blob, filename);
             }
 			else if ( apiOptions.calculateOnSuccess != undefined ) {
 				const calculateOnSuccess = (typeof apiOptions.calculateOnSuccess == 'boolean') ? apiOptions.calculateOnSuccess : true;
@@ -1677,11 +1677,13 @@ Type 'help' to see available options displayed in the console.`;
 		);
 	}
 
-	private downloadBlob(blob: Blob): void {
+	private downloadBlob(blob: Blob, fileName: string): void {
 		const tempEl = document.createElement("a");
 		tempEl.classList.add("d-none");
 		const url = window.URL.createObjectURL(blob);
 		tempEl.href = url;
+		// Explicitly tells browsers to download it instead of navigating to it.
+		// tempEl.download = fileName;
 		tempEl.target = "_blank";
 		tempEl.click();
 		// Android Webviews throw when revokeObjectURL is called
@@ -2747,7 +2749,7 @@ Type 'help' to see available options displayed in the console.`;
 					const base64 = r.content!;
 					const contentType = r["content-type"];
 					const blob = base64toBlob(base64, contentType);
-					this.downloadBlob(blob);
+					this.downloadBlob(blob, fileName!);
 				}
 			});
 			 KatApps.Utils.trace(this, "KatApp", "processDocGenResults", `Complete`, TraceVerbosity.Detailed);
