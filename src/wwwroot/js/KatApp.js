@@ -1229,8 +1229,7 @@ Type 'help' to see available options displayed in the console.`;
             : { id: "System", text: this.getLocalizedString("KatApps.AddUnexpectedError", undefined, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.") });
     }
     downloadBlob(blob, fileName) {
-        const tempEl = document.createElement("a");
-        tempEl.classList.add("d-none");
+		const tempEl = document.createElement("a");
         const url = window.URL.createObjectURL(blob);
         tempEl.href = url;
         tempEl.target = "_blank";

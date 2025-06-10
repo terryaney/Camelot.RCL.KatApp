@@ -1678,9 +1678,17 @@ Type 'help' to see available options displayed in the console.`;
 	}
 
 	private downloadBlob(blob: Blob, fileName: string): void {
+        const url = window.URL.createObjectURL(blob);
+
+		/*
+		const tab = window.open(url, '_blank');
+		tab?.document.title = fileName;
+		*/
+		
 		const tempEl = document.createElement("a");
-		tempEl.classList.add("d-none");
-		const url = window.URL.createObjectURL(blob);
+		// Never appended to DOM so not needed...
+		// tempEl.classList.add("d-none");
+
 		tempEl.href = url;
 		// Explicitly tells browsers to download it instead of navigating to it.
 		// tempEl.download = fileName;
