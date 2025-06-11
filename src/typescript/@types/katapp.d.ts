@@ -639,6 +639,7 @@ interface IKatAppEndpoints {
     calculation: string;
     katDataStore: string;
     kamlVerification: string;
+    jwtDataUpdates?: string;
     anchoredQueryStrings?: string;
     manualResults?: string;
     resourceStrings?: string;

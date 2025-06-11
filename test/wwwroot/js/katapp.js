@@ -1173,7 +1173,7 @@ Type 'help' to see available options displayed in the console.`;
             if (!response.ok) {
                 throw await response.json();
             }
-            let successResponse = isDownload ? await response.blob() : undefined;
+            successResponse = isDownload ? await response.blob() : undefined;
             if (!isDownload) {
                 const responseText = await response.text();
                 successResponse = JSON.parse(responseText == "" ? "{}" : responseText);
@@ -1229,9 +1229,8 @@ Type 'help' to see available options displayed in the console.`;
             : { id: "System", text: this.getLocalizedString("KatApps.AddUnexpectedError", undefined, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.") });
     }
     downloadBlob(blob, fileName) {
-        const tempEl = document.createElement("a");
-        tempEl.classList.add("d-none");
         const url = window.URL.createObjectURL(blob);
+        const tempEl = document.createElement("a");
         tempEl.href = url;
         tempEl.target = "_blank";
         tempEl.click();
@@ -1946,7 +1945,7 @@ Type 'help' to see available options displayed in the console.`;
         });
         if (jwtPayload.DataTokens.length > 0) {
             KatApps.Utils.trace(this, "KatApp", "processDataUpdateResultsAsync", `Start (${jwtPayload.DataTokens.length} jwt-data items)`, TraceVerbosity.Detailed);
-            await this.apiAsync("rble/jwtupdate", { apiParameters: jwtPayload }, undefined, calculationSubmitApiConfiguration);
+            await this.apiAsync(this.options.endpoints.jwtDataUpdates, { apiParameters: jwtPayload }, undefined, calculationSubmitApiConfiguration);
             KatApps.Utils.trace(this, "KatApp", "processDataUpdateResultsAsync", `Complete`, TraceVerbosity.Detailed);
         }
     }

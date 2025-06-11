@@ -33,21 +33,23 @@ public class KatApp : ViewComponent
         var view = optionsProvider.GetViewById( viewId )!;
         viewId = (string)view[ "id" ]!;
         
-        // TODO: Put these into MyKeep schema and properties
+        // TODO: Put these into IKatAppOptionsProvider
         var calculationEndpoint = "api/rble/calculation";
-        var verifyKatAppEndpoint = "api/katapp/verify";
+		var jwtDataUpdatesEndpoint = "api/rble/jwtupdate";
+		var verifyKatAppEndpoint = "api/katapp/verify";
+        var manualResultsEndpoint = optionsProvider.GetManualResults( katAppId ) != null 
+			? $"\"api/katapp/manual-results/{katAppId}\"" 
+			: "undefined";
+
 		// KatApp Framework expects to find a 'name' token
-        var katDataStoreEndpoint = katDataStoreEndpointRegex.Replace( $"{optionsProvider.KatDataStoreEndpoint}{KAT.Camelot.Abstractions.Api.Contracts.DataLocker.V1.ApiEndpoints.KatApps.Download}", "{name}" );
+        var katDataStoreEndpoint = katDataStoreEndpointRegex.Replace( $"{optionsProvider.KatDataStoreEndpoint}{Abstractions.Api.Contracts.DataLocker.V1.ApiEndpoints.KatApps.Download}", "{name}" );
 		
-		var anchoredQueryString = !string.IsNullOrEmpty( httpContextAccessor.HttpContext!.Request.QueryString.ToString() )
+		var anchoredQueryStrings = !string.IsNullOrEmpty( httpContextAccessor.HttpContext!.Request.QueryString.ToString() )
 			? QueryHelpers.ParseQuery( httpContextAccessor.HttpContext!.Request.QueryString.Value )
 				.SelectMany( x => x.Value, ( col, value ) => $"{col.Key}={WebUtility.UrlDecode( value )}" )
 				.Aggregate( ( x, y ) => $"{x}&{y}" )
 			: "";
 		var inputs = optionsProvider.GetManualInputs( view );
-        var manualResultsEndpoint = optionsProvider.GetManualResults( katAppId ) != null 
-			? $"\"api/katapp/manual-results/{katAppId}\"" 
-			: "undefined";
 
         var saveCalcEngineLocation =
             string.Join( "|",
@@ -60,7 +62,7 @@ public class KatApp : ViewComponent
             );
 
 		// No support for Kamls in Kat Data Store...
-		var katAppResourceList = Array.Empty<KAT.Camelot.Abstractions.Api.Contracts.DataLocker.V1.Responses.KatAppResourceListItem>(); // await dataLockerService.GetKatAppResourceListAsync( theKeep.KamlFolders );
+		var katAppResourceList = Array.Empty<Abstractions.Api.Contracts.DataLocker.V1.Responses.KatAppResourceListItem>(); // await dataLockerService.GetKatAppResourceListAsync( theKeep.KamlFolders );
 		var latestViewName = katAppHelper.GetKamlViewName( katAppResourceList, (string)view[ "view" ]! );
 
         var localTemplates =
@@ -106,9 +108,10 @@ public class KatApp : ViewComponent
                 Css = $"{katAppId} {css}".Trim(),
                 CalculationEndpoint = calculationEndpoint,
                 VerifyKatAppEndpoint = verifyKatAppEndpoint,
+				JwtDataUpdatesEndpoint = jwtDataUpdatesEndpoint,
                 ManualResultsEndpoint = manualResultsEndpoint,
                 KatDataStoreEndpoint = katDataStoreEndpoint,
-                AnchoredQueryStrings = anchoredQueryString,
+                AnchoredQueryStrings = anchoredQueryStrings,
                 ManualInputs = inputs.ToJsonString(),
                 RelativePathTemplates = localTemplates.ToJsonString(),
 
@@ -145,6 +148,7 @@ public class KatApp : ViewComponent
         public string? Css { get; init; }
         public required string CalculationEndpoint { get; init; }
         public required string VerifyKatAppEndpoint { get; init; }
+		public required string JwtDataUpdatesEndpoint { get; init; }
         public required string KatDataStoreEndpoint { get; init; }
         public required string ManualResultsEndpoint { get; init; }
         public required string AnchoredQueryStrings { get; init; }

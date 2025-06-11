@@ -1608,7 +1608,7 @@ Type 'help' to see available options displayed in the console.`;
 				throw await response.json();
             }
     
-			let successResponse = isDownload ? await response.blob() : undefined;
+			successResponse = isDownload ? await response.blob() : undefined;
 
 			if (!isDownload) {
 				const responseText = await response.text();
@@ -1616,7 +1616,7 @@ Type 'help' to see available options displayed in the console.`;
 			}
 				
             if (isDownload) {
-                const blob = successResponse!;
+                const blob = successResponse! as Blob;
                 let filename = "Download.pdf";
                 const disposition = response.headers.get('Content-Disposition');
                 if (disposition && disposition.indexOf('attachment') !== -1) {
@@ -1684,7 +1684,7 @@ Type 'help' to see available options displayed in the console.`;
 		const tab = window.open(url, '_blank');
 		tab?.document.title = fileName;
 		*/
-		
+
 		const tempEl = document.createElement("a");
 		// Never appended to DOM so not needed...
 		// tempEl.classList.add("d-none");
@@ -2712,7 +2712,7 @@ Type 'help' to see available options displayed in the console.`;
 
 		if (jwtPayload.DataTokens.length > 0) {
 			 KatApps.Utils.trace(this, "KatApp", "processDataUpdateResultsAsync", `Start (${jwtPayload.DataTokens.length} jwt-data items)`, TraceVerbosity.Detailed);
-			await this.apiAsync("rble/jwtupdate", { apiParameters: jwtPayload }, undefined, calculationSubmitApiConfiguration);
+			await this.apiAsync(this.options.endpoints.jwtDataUpdates!, { apiParameters: jwtPayload }, undefined, calculationSubmitApiConfiguration);
 			 KatApps.Utils.trace(this, "KatApp", "processDataUpdateResultsAsync", `Complete`, TraceVerbosity.Detailed);
 		}
     }
