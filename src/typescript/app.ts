@@ -965,7 +965,7 @@ class KatApp implements IKatApp {
 			if (isModalApplication) {
 				const modalAppInitialized = await this.triggerEventAsync("modalAppInitialized") ?? true;
 				if (!modalAppInitialized) {
-					this.options.modalAppOptions!.promise.resolve({ confirmed: false, response: undefined, modalApp: this });
+					this.options.modalAppOptions!.promise.resolve({ confirmed: false, data: undefined, modalApp: this });
 					this.el.remove();
 					KatApp.remove(this);
 					this.options.hostApplication!.unblockUI();
@@ -1225,9 +1225,9 @@ Type 'help' to see available options displayed in the console.`;
 				options.triggerLink?.focus();
 			}
 	
-			// If response if of type Event, 'confirmedAsync/cancelled' was just attached to a button and default processing occurred and the first param was
-			// click event object.  Just pass undefined back as a response in that scenario.		
-			options.confirmedAsync = async response => {
+			// If data if of type Event, 'confirmedAsync/cancelled' was just attached to a button and default processing occurred and the first param was
+			// click event object.  Just pass undefined back as a data in that scenario.		
+			options.confirmedAsync = async data => {
 				closeModal();
 	
 				if (options.calculateOnConfirm != undefined) {
@@ -1238,11 +1238,11 @@ Type 'help' to see available options displayed in the console.`;
 					}
 				}
 	
-				options.promise.resolve({ confirmed: true, response: response instanceof Event ? undefined : response, modalApp: that });
+				options.promise.resolve({ confirmed: true, data: data instanceof Event ? undefined : data, modalApp: that });
 			};
-			options.cancelled = response => {
+			options.cancelled = data => {
 				closeModal();
-				options.promise.resolve({ confirmed: false, response: response instanceof Event ? undefined : response, modalApp: that });
+				options.promise.resolve({ confirmed: false, data: data instanceof Event ? undefined : data, modalApp: that });
 			};
 	
 			// if any errors during initialized event or during iConfigureUI calculation, modal is probably 'dead', show a 'close' button and

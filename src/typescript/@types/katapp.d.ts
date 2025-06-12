@@ -930,14 +930,14 @@ interface IModalAppOptions extends IModalOptions {
         resolve: (response: IModalResponse | PromiseLike<IModalResponse>) => void;
         reject: (reason?: unknown) => void;
     };
-    confirmedAsync?: (response?: unknown) => Promise<void>;
-    cancelled?: (response?: unknown) => void;
+    confirmedAsync?: (data?: unknown) => Promise<void>;
+    cancelled?: (data?: unknown) => void;
     triggerLink?: HTMLElement;
     closeButtonTrigger?: string;
 }
 interface IModalResponse {
     confirmed: boolean;
-    response: unknown;
+    data: unknown;
     modalApp: IKatApp;
 }
 interface IApiOptions {
@@ -1011,8 +1011,8 @@ interface IKaNavigateModel {
 }
 interface IKaModalModel extends IModalOptions {
     beforeOpenAsync?: (hostApplication: IKatApp) => Promise<void>;
-    confirmedAsync?: (response: unknown | undefined, application: IKatApp) => Promise<void>;
-    cancelledAsync?: (response: unknown | undefined, application: IKatApp) => Promise<void>;
+    confirmedAsync?: (data: unknown | undefined, application: IKatApp) => Promise<void>;
+    cancelledAsync?: (data: unknown | undefined, application: IKatApp) => Promise<void>;
     catchAsync?: (e: unknown | undefined, application: IKatApp) => Promise<void>;
     closed?: (application: IKatApp) => void;
     model?: string;

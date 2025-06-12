@@ -20,18 +20,18 @@
 
 						if (response.confirmed) {
 							if (scope.confirmedAsync != undefined) {
-								await scope.confirmedAsync(response.response, application);
+								await scope.confirmedAsync(response.data, application);
 							}
 							else {
-								Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} confirmed.`, TraceVerbosity.Normal, response.response);
+								Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} confirmed.`, TraceVerbosity.Normal, response.data);
 							}
 						}
 						else {
 							if (scope.cancelledAsync != undefined) {
-								await scope.cancelledAsync(response.response, application);
+								await scope.cancelledAsync(response.data, application);
 							}
 							else {
-								Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} cancelled.`, TraceVerbosity.Normal, response.response);
+								Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} cancelled.`, TraceVerbosity.Normal, response.data);
 							}
 						}
 					} catch (e) {

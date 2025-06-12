@@ -701,7 +701,7 @@ class KatApp {
             if (isModalApplication) {
                 const modalAppInitialized = await this.triggerEventAsync("modalAppInitialized") ?? true;
                 if (!modalAppInitialized) {
-                    this.options.modalAppOptions.promise.resolve({ confirmed: false, response: undefined, modalApp: this });
+                    this.options.modalAppOptions.promise.resolve({ confirmed: false, data: undefined, modalApp: this });
                     this.el.remove();
                     KatApp.remove(this);
                     this.options.hostApplication.unblockUI();
@@ -913,7 +913,7 @@ Type 'help' to see available options displayed in the console.`;
                 KatApp.remove(that);
                 options.triggerLink?.focus();
             };
-            options.confirmedAsync = async (response) => {
+            options.confirmedAsync = async (data) => {
                 closeModal();
                 if (options.calculateOnConfirm != undefined) {
                     const calculateOnConfirm = (typeof options.calculateOnConfirm == 'boolean') ? options.calculateOnConfirm : true;
@@ -922,11 +922,11 @@ Type 'help' to see available options displayed in the console.`;
                         await that.options.hostApplication.calculateAsync(calculationInputs, true, undefined, false);
                     }
                 }
-                options.promise.resolve({ confirmed: true, response: response instanceof Event ? undefined : response, modalApp: that });
+                options.promise.resolve({ confirmed: true, data: data instanceof Event ? undefined : data, modalApp: that });
             };
-            options.cancelled = response => {
+            options.cancelled = data => {
                 closeModal();
-                options.promise.resolve({ confirmed: false, response: response instanceof Event ? undefined : response, modalApp: that });
+                options.promise.resolve({ confirmed: false, data: data instanceof Event ? undefined : data, modalApp: that });
             };
             const isInvalid = this.state.errors.length > 0;
             const hasCustomHeader = options.headerTemplate != undefined;
@@ -4724,18 +4724,18 @@ var KatApps;
                         const response = await application.showModalAsync(KatApps.Utils.clone(scope, (k, v) => ["beforeOpenAsync", "confirmedAsync", "cancelledAsync", "catchAsync"].indexOf(k) > -1 ? undefined : v), e.currentTarget);
                         if (response.confirmed) {
                             if (scope.confirmedAsync != undefined) {
-                                await scope.confirmedAsync(response.response, application);
+                                await scope.confirmedAsync(response.data, application);
                             }
                             else {
-                                KatApps.Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} confirmed.`, TraceVerbosity.Normal, response.response);
+                                KatApps.Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} confirmed.`, TraceVerbosity.Normal, response.data);
                             }
                         }
                         else {
                             if (scope.cancelledAsync != undefined) {
-                                await scope.cancelledAsync(response.response, application);
+                                await scope.cancelledAsync(response.data, application);
                             }
                             else {
-                                KatApps.Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} cancelled.`, TraceVerbosity.Normal, response.response);
+                                KatApps.Utils.trace(application, "DirectiveKaModal", "showModal", `Modal App ${scope.view} cancelled.`, TraceVerbosity.Normal, response.data);
                             }
                         }
                     }

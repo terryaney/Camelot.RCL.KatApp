@@ -389,8 +389,8 @@ interface IModalAppOptions extends IModalOptions {
 
 	// These methods are used when the modal needs to return more than just true/false to the caller
 	// in conjunction with creating their own toolbar
-	confirmedAsync?: (response?: unknown) => Promise<void>;
-	cancelled?: (response?: unknown) => void;
+	confirmedAsync?: (data?: unknown) => Promise<void>;
+	cancelled?: (data?: unknown) => void;
 	triggerLink?: HTMLElement;
 
 	// If a dialog does its own buttons and is a 'step' based dialog and at the final step hides all but 'ok', the 'X' at the top of the dialog needs to trigger 'confirm' as well.
@@ -398,10 +398,9 @@ interface IModalAppOptions extends IModalOptions {
 }
 interface IModalResponse {
 	confirmed: boolean;
-	response: unknown;
+	data: unknown;
 	modalApp: IKatApp;
 }
-
 
 // apiAsync interfaces
 interface IApiOptions {
@@ -491,8 +490,8 @@ interface IKaNavigateModel {
 }
 interface IKaModalModel extends IModalOptions {
 	beforeOpenAsync?: (hostApplication: IKatApp) => Promise<void>;
-	confirmedAsync?: (response: unknown | undefined, application: IKatApp) => Promise<void>;
-	cancelledAsync?: (response: unknown | undefined, application: IKatApp) => Promise<void>;
+	confirmedAsync?: (data: unknown | undefined, application: IKatApp) => Promise<void>;
+	cancelledAsync?: (data: unknown | undefined, application: IKatApp) => Promise<void>;
 	catchAsync?: (e: unknown | undefined, application: IKatApp) => Promise<void>;
 	closed?: (application: IKatApp) => void;
 	model?: string;
