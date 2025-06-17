@@ -1,5 +1,5 @@
 using KAT.Camelot.Abstractions.Api.Contracts.DataLocker.V1.Responses;
-using KAT.Camelot.Domain.Configuration;
+using KAT.Camelot.Domain.Web.Configuration;
 using KAT.Camelot.Domain.Web.KatApps;
 
 namespace KAT.Camelot.RCL.KatApp;
@@ -8,7 +8,7 @@ public class KatAppHelper
 {
 	private readonly string kamlRoot;
 
-	public KatAppHelper( KatAppConfigurationOptions options, IGlobalSiteSettings globalSiteSettings )
+	public KatAppHelper( KatAppConfigurationOptions options, GlobalSiteSettings globalSiteSettings )
 	{
 		kamlRoot = options.KamlRootPath;
 		KamlRootPath = Path.Combine( globalSiteSettings.ContentRootPath, "wwwroot", kamlRoot );

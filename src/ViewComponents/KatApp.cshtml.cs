@@ -1,6 +1,6 @@
-using KAT.Camelot.Domain.Configuration;
 using KAT.Camelot.Domain.Extensions;
 using KAT.Camelot.Domain.Security.Cryptography;
+using KAT.Camelot.Domain.Web.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -13,10 +13,10 @@ public class KatApp : ViewComponent
 {
 	private readonly KatAppHelper katAppHelper;
 	private readonly IKatAppOptionsProvider optionsProvider;
-	private readonly IGlobalSiteSettings globalSiteSettings;
+	private readonly GlobalSiteSettings globalSiteSettings;
 	private readonly IHttpContextAccessor httpContextAccessor;
 
-	public KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, IGlobalSiteSettings globalSiteSettings, IHttpContextAccessor httpContextAccessor )
+	public KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, GlobalSiteSettings globalSiteSettings, IHttpContextAccessor httpContextAccessor )
     {
 		this.katAppHelper = katAppHelper;
 		this.optionsProvider = optionsProvider;
