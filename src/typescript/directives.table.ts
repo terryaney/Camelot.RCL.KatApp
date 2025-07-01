@@ -102,9 +102,9 @@
 							return spanItems;
 						};
 						const addClass = (el: HTMLElement, css: string) => {
-							if (css.trim() != "") {
-								el.classList.add(...css.trim().split(' '));
-							}
+							const classes = css.trim().split(' ').map(c => c.trim()).filter(c => c !== "");
+							if (classes.length === 0) return;
+							el.classList.add(...classes);
 						};
 
 						const useBootstrapColumnWidths = hasBootstrapTableWidths && !hasResponsiveTable;

@@ -4946,9 +4946,10 @@ var KatApps;
                             return spanItems;
                         };
                         const addClass = (el, css) => {
-                            if (css.trim() != "") {
-                                el.classList.add(...css.trim().split(' '));
-                            }
+                            const classes = css.trim().split(' ').map(c => c.trim()).filter(c => c !== "");
+                            if (classes.length === 0)
+                                return;
+                            el.classList.add(...classes);
                         };
                         const useBootstrapColumnWidths = hasBootstrapTableWidths && !hasResponsiveTable;
                         if (useBootstrapColumnWidths) {
