@@ -93,7 +93,8 @@
 									const colSpan = +parts[p + 1];
 									const colSpanName = parts[p];
 									const spanConfig = columnConfiguration[colSpanName];
-									const _class = `${spanConfig.isTextColumn ? "text" : "value"} ${spanConfig.cssClass ?? ""} span-${scope.name}-${colSpan} ${getBootstrapSpanColumnCss?.(currentCol, colSpan - 1) ?? ""}`;
+									const spanClass = ( spanConfig.cssClass ?? "" ).trim();
+									const _class = `${spanConfig.isTextColumn ? "text" : "value"} ${spanClass.length > 0 ? spanClass + " " : ""}span-${scope.name}-${colSpan} ${getBootstrapSpanColumnCss?.(currentCol, colSpan - 1) ?? ""}`;
 
 									spanItems.push({ Value: row[colSpanName] ?? "", Class: _class, Span: colSpan });
 								}
