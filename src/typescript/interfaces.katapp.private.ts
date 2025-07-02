@@ -1,8 +1,13 @@
 ﻿interface IKatAppCalculationResponse {
+	results: Array<IKatAppCalculationResponseCalcEngine>;
+	endpointDiagnostics?: string[];
+}
+interface IKatAppCalculationResponseCalcEngine {
 	calcEngine: string;
 	diagnostics?: IRblCalculationDiagnostics;
 	tabDefs: Array<IRbleTabDef>;
 }
+
 interface IKaTableColumnConfiguration {
 	name: string;
 	cssClass: string | undefined;
@@ -45,6 +50,7 @@ interface IRbleTabDef extends IStringIndexer<string | ITabDefRow | ITabDefTable>
 
 // Interfaces for responses from RBL Framework
 interface IRblCalculationSuccessResponses {
+	endpointDiagnostics?: string[];
 	results: Array<{
 		calcEngine: string;
 		cacheKey?: string;

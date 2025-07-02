@@ -180,6 +180,9 @@
                             if (lastCalculation.diagnostics != undefined) {
                                 console.log("Diagnostics", lastCalculation.diagnostics);
                             }
+                            if (lastCalculation.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0) {
+                                console.log("EndpointDiagnostics", lastCalculation.endpointDiagnostics);
+                            }
                         }
                         console.groupEnd();
                     }

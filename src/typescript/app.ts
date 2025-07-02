@@ -1391,7 +1391,7 @@ Type 'help' to see available options displayed in the console.`;
 			getSubmitApiConfigurationResults.configuration.allowLogging = allowLogging;
 
 			if (!processResults) {
-				const calculationResults = await KatApps.Calculation.calculateAsync(
+				const calculationResponse = await KatApps.Calculation.calculateAsync(
 					this,
 					serviceUrl,
 					calcEngines ?? this.calcEngines,
@@ -1399,6 +1399,7 @@ Type 'help' to see available options displayed in the console.`;
 					getSubmitApiConfigurationResults.configuration as ISubmitApiConfiguration
 				);
 
+				const calculationResults = calculationResponse.results;
 				return this.toTabDefs(
 					calculationResults.flatMap(r => r.tabDefs.map(t => ({ calcEngine: r.calcEngine, tabDef: t })))
 				) as Array<ITabDef>;
@@ -1420,7 +1421,7 @@ Type 'help' to see available options displayed in the console.`;
 						return;
 					}
 
-					const calculationResults = await KatApps.Calculation.calculateAsync(
+					const calculationResponse = await KatApps.Calculation.calculateAsync(
 						this,
 						serviceUrl,
 						isConfigureUICalculation
@@ -1430,6 +1431,8 @@ Type 'help' to see available options displayed in the console.`;
 						submitApiConfiguration as ISubmitApiConfiguration
 					);
 
+					const calculationResults = calculationResponse.results;
+					
 					const results = this.toTabDefs(
 						calculationResults.flatMap(r => r.tabDefs.map(t => ({ calcEngine: r.calcEngine, tabDef: t })))
 					);
@@ -1446,6 +1449,7 @@ Type 'help' to see available options displayed in the console.`;
 						diagnostics: calculationResults.find(r => r.diagnostics != undefined)
 							? calculationResults.flatMap(r => r.diagnostics)
 							: undefined,
+						endpointDiagnostics: calculationResponse.endpointDiagnostics,
 						configuration: submitApiConfiguration as ISubmitApiConfiguration
 					};
 

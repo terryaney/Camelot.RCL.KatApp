@@ -451,6 +451,7 @@ interface ILastCalculation {
 	inputs: ICalculationInputs;
 	results: Array<ITabDef>;
 	diagnostics?: Array<IRblCalculationDiagnostics | undefined>;
+	endpointDiagnostics?: Array<string>;
 	configuration: ISubmitApiConfiguration;
 }
 // Calculation failure interfaces

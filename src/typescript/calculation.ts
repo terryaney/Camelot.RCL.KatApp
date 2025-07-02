@@ -7,7 +7,7 @@
 			calcEngines: ICalcEngine[],
 			inputs: ICalculationInputs,
 			configuration: ISubmitApiConfiguration | undefined
-		): Promise<Array<IKatAppCalculationResponse>> {
+		): Promise<IKatAppCalculationResponse> {
 			Utils.trace(application, "Calculation", "calculateAsync", "Start", TraceVerbosity.Detailed);
 	
 			const submitConfiguration =
@@ -36,7 +36,7 @@
 			};
 	
 			const failedResponses: Array<ICalculationFailedResponse> = [];
-			const successResponses: Array<IKatAppCalculationResponse> = [];
+			const successResponses: Array<IKatAppCalculationResponseCalcEngine> = [];
 	
 			try {
 				Utils.trace(application, "Calculation", "calculateAsync", "Posting Data", TraceVerbosity.Detailed);
@@ -124,18 +124,17 @@
 					.filter(r => r.result.exception == undefined)
 					.forEach(r => {
 						const tabDefs = r.result.RBL.Profile.Data.TabDef;
-						successResponses.push(
-							{
-								calcEngine: r.calcEngine,
-								diagnostics: r.result.diagnostics,
-								tabDefs: tabDefs instanceof Array ? tabDefs : [tabDefs]
-							});
+						successResponses.push({
+							calcEngine: r.calcEngine,
+							diagnostics: r.result.diagnostics,
+							tabDefs: tabDefs instanceof Array ? tabDefs : [tabDefs]
+						});
 					});
 	
 				if (failedResponses.length > 0) {
 					throw new CalculationError("Unable to complete calculation(s)", failedResponses);
 				}
-				return successResponses;
+				return { results: successResponses, endpointDiagnostics: calculationResults.endpointDiagnostics };
 			} catch (e) {
 				if (e instanceof CalculationError) {
 					throw e;

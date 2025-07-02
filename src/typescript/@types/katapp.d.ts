@@ -112,7 +112,7 @@ declare class CalculationError extends Error {
 }
 declare namespace KatApps {
     class Calculation {
-        static calculateAsync(application: KatApp, serviceUrl: string, calcEngines: ICalcEngine[], inputs: ICalculationInputs, configuration: ISubmitApiConfiguration | undefined): Promise<Array<IKatAppCalculationResponse>>;
+        static calculateAsync(application: KatApp, serviceUrl: string, calcEngines: ICalcEngine[], inputs: ICalculationInputs, configuration: ISubmitApiConfiguration | undefined): Promise<IKatAppCalculationResponse>;
         static submitCalculationAsync(application: KatApp, serviceUrl: string, inputs: ICalculationInputs, submitData: ISubmitApiData): Promise<IRblCalculationSuccessResponses>;
         static setCacheAsync(options: IKatAppOptions, key: string, data: object, encryptCache: (data: object) => string | Promise<string>): Promise<void>;
         static getCacheAsync(options: IKatAppOptions, key: string, decryptCache: (cipher: string) => object | Promise<object>): Promise<object | undefined>;
@@ -521,6 +521,10 @@ interface IHighChartsPlotConfigurationRow {
     plotBand: string;
 }
 interface IKatAppCalculationResponse {
+    results: Array<IKatAppCalculationResponseCalcEngine>;
+    endpointDiagnostics?: string[];
+}
+interface IKatAppCalculationResponseCalcEngine {
     calcEngine: string;
     diagnostics?: IRblCalculationDiagnostics;
     tabDefs: Array<IRbleTabDef>;
@@ -562,6 +566,7 @@ interface IRbleTabDef extends IStringIndexer<string | ITabDefRow | ITabDefTable>
     "@name": string;
 }
 interface IRblCalculationSuccessResponses {
+    endpointDiagnostics?: string[];
     results: Array<{
         calcEngine: string;
         cacheKey?: string;
@@ -978,6 +983,7 @@ interface ILastCalculation {
     inputs: ICalculationInputs;
     results: Array<ITabDef>;
     diagnostics?: Array<IRblCalculationDiagnostics | undefined>;
+    endpointDiagnostics?: Array<string>;
     configuration: ISubmitApiConfiguration;
 }
 interface ICalculationFailedResponse {

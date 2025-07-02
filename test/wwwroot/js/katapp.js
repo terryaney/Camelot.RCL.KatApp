@@ -1029,7 +1029,8 @@ Type 'help' to see available options displayed in the console.`;
             }, customInputs, true);
             getSubmitApiConfigurationResults.configuration.allowLogging = allowLogging;
             if (!processResults) {
-                const calculationResults = await KatApps.Calculation.calculateAsync(this, serviceUrl, calcEngines ?? this.calcEngines, getSubmitApiConfigurationResults.inputs, getSubmitApiConfigurationResults.configuration);
+                const calculationResponse = await KatApps.Calculation.calculateAsync(this, serviceUrl, calcEngines ?? this.calcEngines, getSubmitApiConfigurationResults.inputs, getSubmitApiConfigurationResults.configuration);
+                const calculationResults = calculationResponse.results;
                 return this.toTabDefs(calculationResults.flatMap(r => r.tabDefs.map(t => ({ calcEngine: r.calcEngine, tabDef: t }))));
             }
             else {
@@ -1046,9 +1047,10 @@ Type 'help' to see available options displayed in the console.`;
                     if (!calcStartResult) {
                         return;
                     }
-                    const calculationResults = await KatApps.Calculation.calculateAsync(this, serviceUrl, isConfigureUICalculation
+                    const calculationResponse = await KatApps.Calculation.calculateAsync(this, serviceUrl, isConfigureUICalculation
                         ? this.calcEngines.filter(c => c.allowConfigureUi)
                         : this.calcEngines, inputs, submitApiConfiguration);
+                    const calculationResults = calculationResponse.results;
                     const results = this.toTabDefs(calculationResults.flatMap(r => r.tabDefs.map(t => ({ calcEngine: r.calcEngine, tabDef: t }))));
                     await this.cacheInputsAsync(inputs);
                     await this.triggerEventAsync("resultsProcessing", results, inputs, submitApiConfiguration);
@@ -1059,6 +1061,7 @@ Type 'help' to see available options displayed in the console.`;
                         diagnostics: calculationResults.find(r => r.diagnostics != undefined)
                             ? calculationResults.flatMap(r => r.diagnostics)
                             : undefined,
+                        endpointDiagnostics: calculationResponse.endpointDiagnostics,
                         configuration: submitApiConfiguration
                     };
                     if (!isConfigureUICalculation) {
@@ -2176,7 +2179,7 @@ var KatApps;
                 if (failedResponses.length > 0) {
                     throw new CalculationError("Unable to complete calculation(s)", failedResponses);
                 }
-                return successResponses;
+                return { results: successResponses, endpointDiagnostics: calculationResults.endpointDiagnostics };
             }
             catch (e) {
                 if (e instanceof CalculationError) {
