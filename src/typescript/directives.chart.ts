@@ -16,9 +16,11 @@
 
 					const configuration = this.buildChartConfiguration(scope);
 
-					this.resetContextElement(el, configuration);
+					this.resetContextElement(el);
 
-					if (configuration.data.length > 0) {
+					if (configuration != undefined && configuration.data.length > 0) {
+						el.classList.add(configuration.css.chart);
+
 						this.addChart(scope, el, configuration)
 						this.generateBreakpointCharts(scope, el, configuration);
 						this.addLegend(el, configuration);
@@ -62,7 +64,7 @@
 					break;
 				
 				case "sharkfin":
-					this.generateStackedArea(configuration, chartContainer);
+					this.generateStackedAreaChart(configuration, chartContainer);
 					break;
 				
 				case "column":
@@ -80,16 +82,18 @@
 			}
 		}
 		
-		private buildChartConfiguration(model: IKaChartModel): IRblChartConfiguration<IRblChartConfigurationDataType> {
+		private buildChartConfiguration(model: IKaChartModel): IRblChartConfiguration<IRblChartConfigurationDataType> | undefined {
 			const dataSource = this.application.state.rbl.source(model.data, model.ce, model.tab) as any as Array<IRblChartDataRow>;
 			const dataRows = dataSource.filter(r => r.id == "category").slice(model.from ?? 0, model.to ?? dataSource.length);
 			const chartOptions = dataSource.filter(r => r.id != "category");
+
+			if (dataRows.length == 0) return undefined;
 
 			const dataColumns = (Object.keys(dataRows[0]) as Array<IRblChartColumnName>).filter(c => c.startsWith("data"));
 			const chartType = this.getOptionValue<IRblChartConfigurationType>(chartOptions, "type")!;
 			const chartIsStacked = !["column", "donut"].includes(chartType);
 
-			const sharedOptionsTable = this.getOptionValue<IRblChartConfigurationType>(chartOptions, "options")!;
+			const sharedOptionsTable = this.getOptionValue<IRblChartConfigurationType>(chartOptions, "options");
 			const sharedOptions = sharedOptionsTable != undefined
 				? this.application.state.rbl.source(sharedOptionsTable, model.ce, model.tab) as any as Array<IRblChartDataRow>
 				: [];
@@ -237,7 +241,7 @@
 					Array.isArray(item.data)
 						? Math.max(
 							item.data.reduce((sum, v, i) => sum + (seriesConfig[i].shape != "line" ? v : 0), 0),
-							...item.data.map((v, i) => seriesConfig[i].shape != "line" ? v : 0)
+							...item.data.map((v, i) => seriesConfig[i].shape == "line" ? v : 0)
 						)
 						: item.data
 				)
@@ -376,7 +380,7 @@
 			return config;
 		}
 
-		private generateStackedArea(configuration: IRblChartConfiguration<IRblChartConfigurationDataType>, container: HTMLElement) {
+		private generateStackedAreaChart(configuration: IRblChartConfiguration<IRblChartConfigurationDataType>, container: HTMLElement) {
 			const paddingConfig = configuration.plotOptions.padding;
 			const svg = this.getChartSvgElement(configuration.plotOptions);
 			const data = configuration.data as Array<{ name: string, data: Array<number> }>;
@@ -532,7 +536,7 @@
 
 			// KAT put stackedColumn series in order in CE that needs to be reversed when rendering chart
 			const colStart = configuration.type == "columnStacked" ? (data[0].data as []).length - 1 : 0;
-			const colEnd = configuration.type == "columnStacked" ? -1 : (data[0].data as []).length;
+			const colEnd = configuration.type == "columnStacked" ? -1 : data.length;
 			const colStep = configuration.type == "columnStacked" ? -1 : 1;
 
 			const columns = data.map((item, columnIndex) => {
@@ -653,8 +657,9 @@
 
 					lineSeries.append(path, markerPoints);					
 					lines.appendChild(lineSeries);
-					svg.appendChild(lines);
 				}
+
+				svg.appendChild(lines);
 			}
 
 			this.addXAxis(svg, configuration, data);
@@ -803,7 +808,7 @@
 				configuration.plotOptions,
 				radius, radius, donutLabel,
 				configuration.plotOptions.font.size.donutLabel,
-				{ "text-anchor": "middle", "dominant-baseline": "middle", "font-weight": "bold" },
+				{ "text-anchor": "middle", "dominant-baseline": "middle", "font-weight": "bold" }
 			));
 
 			container.appendChild(svg);
@@ -838,7 +843,7 @@
 					
 					const text = document.createElement("span");
 					text.className = "ps-2 nowrap ka-chart-legend-text";
-					text.innerHTML = s.text;
+					text.textContent = s.text;
 
 					item.append(svg, text);
 					legend.appendChild(item);
@@ -847,7 +852,7 @@
 			legendContainer.appendChild(legend);
 		}
 
-		private resetContextElement(el: Element, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>): void {
+		private resetContextElement(el: Element): void {
 			// empty the element
 			el.replaceChildren();
 			
@@ -856,8 +861,6 @@
 					el.classList.remove(cls);
 				}
 			});
-			
-			el.classList.add(configuration.css.chart);
 		}
 		
 		private addHoverEvents(model: IKaChartModel, el: KaChartElement, configuration: IRblChartConfiguration<IRblChartConfigurationDataType>) {
@@ -1289,7 +1292,7 @@
 					const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${tip.name}: `, configuration.plotOptions.font.size.tipBody);
 					const tspan = document.createElementNS(this.ns, "tspan");
 					tspan.setAttribute("font-weight", "bold");
-					tspan.innerHTML = KatApps.Utils.formatNumber(this.application.options.intl, tip.value, configuration.plotOptions.dataLabels.format);
+					tspan.textContent = KatApps.Utils.formatNumber(this.application.options.intl, tip.value, configuration.plotOptions.dataLabels.format);
 					text.appendChild(tspan);
 					tooltipSvg.appendChild(text);
 				});
@@ -1551,12 +1554,12 @@
 					const tspan = document.createElementNS(this.ns, "tspan");
 					tspan.setAttribute("x", String(x));
 					tspan.setAttribute("dy", String(index === 0 ? 0 : plotOptions.font.size.xAxisTickLabels + 5));
-					tspan.innerHTML = line;
+					tspan.textContent = line;
 					textSvg.appendChild(tspan);
 				});
 			}
 			else {
-				textSvg.innerHTML = text;
+				textSvg.textContent = text;
 			}
 
 			return textSvg;

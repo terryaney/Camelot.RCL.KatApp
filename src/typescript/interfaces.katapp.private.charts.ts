@@ -122,7 +122,7 @@ interface IRblChartConfigurationYAxis {
 	intervalSize: number;
 	maxValue: number;
 	baseY: number;
-	getY: (index: number) => number; // Function to get the x position of a column based on its index.
+	getY: (index: number) => number; // Function to get the Y position of a column based on its index.
 	_parent: IRblChartConfigurationPlotOptions;
 }
 
@@ -159,16 +159,6 @@ interface IRblChartConfigurationPadding {
 	bottom: number;
 	left: number;
 	_parent: IRblChartConfigurationPlotOptions
-}
-
-interface IRblChartConfigurationSharkfin {
-	retirementAge: number;
-	line: {
-		color: string;
-	}
-	fill: {
-		color: string;
-	}
 }
 
 interface IRblChartConfigurationTip {

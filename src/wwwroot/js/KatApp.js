@@ -3227,8 +3227,9 @@ var KatApps;
                 ctx.effect(() => {
                     const scope = ctx.get();
                     const configuration = this.buildChartConfiguration(scope);
-                    this.resetContextElement(el, configuration);
-                    if (configuration.data.length > 0) {
+                    this.resetContextElement(el);
+                    if (configuration != undefined && configuration.data.length > 0) {
+                        el.classList.add(configuration.css.chart);
                         this.addChart(scope, el, configuration);
                         this.generateBreakpointCharts(scope, el, configuration);
                         this.addLegend(el, configuration);
@@ -3266,7 +3267,7 @@ var KatApps;
                     this.generateDonutChart(configuration, chartContainer);
                     break;
                 case "sharkfin":
-                    this.generateStackedArea(configuration, chartContainer);
+                    this.generateStackedAreaChart(configuration, chartContainer);
                     break;
                 case "column":
                 case "columnStacked":
@@ -3284,6 +3285,8 @@ var KatApps;
             const dataSource = this.application.state.rbl.source(model.data, model.ce, model.tab);
             const dataRows = dataSource.filter(r => r.id == "category").slice(model.from ?? 0, model.to ?? dataSource.length);
             const chartOptions = dataSource.filter(r => r.id != "category");
+            if (dataRows.length == 0)
+                return undefined;
             const dataColumns = Object.keys(dataRows[0]).filter(c => c.startsWith("data"));
             const chartType = this.getOptionValue(chartOptions, "type");
             const chartIsStacked = !["column", "donut"].includes(chartType);
@@ -3392,7 +3395,7 @@ var KatApps;
                 };
             });
             const maxDataValue = Math.max(...data.map(item => Array.isArray(item.data)
-                ? Math.max(item.data.reduce((sum, v, i) => sum + (seriesConfig[i].shape != "line" ? v : 0), 0), ...item.data.map((v, i) => seriesConfig[i].shape != "line" ? v : 0))
+                ? Math.max(item.data.reduce((sum, v, i) => sum + (seriesConfig[i].shape != "line" ? v : 0), 0), ...item.data.map((v, i) => seriesConfig[i].shape == "line" ? v : 0))
                 : item.data)) * (dataLabels.show ? 1.05 : 1.025);
             const maxDataValueString = KatApps.Utils.formatNumber(this.application.options.intl, maxDataValue, yAxisConfig.format) + "000";
             const hasAxis = chartType != "donut";
@@ -3499,7 +3502,7 @@ var KatApps;
             config.plotOptions.yAxis._parent = config.plotOptions;
             return config;
         }
-        generateStackedArea(configuration, container) {
+        generateStackedAreaChart(configuration, container) {
             const paddingConfig = configuration.plotOptions.padding;
             const svg = this.getChartSvgElement(configuration.plotOptions);
             const data = configuration.data;
@@ -3610,7 +3613,7 @@ var KatApps;
                 return element;
             };
             const colStart = configuration.type == "columnStacked" ? data[0].data.length - 1 : 0;
-            const colEnd = configuration.type == "columnStacked" ? -1 : data[0].data.length;
+            const colEnd = configuration.type == "columnStacked" ? -1 : data.length;
             const colStep = configuration.type == "columnStacked" ? -1 : 1;
             const columns = data.map((item, columnIndex) => {
                 const columnX = columnConfig.getX(columnIndex);
@@ -3690,8 +3693,8 @@ var KatApps;
                     path.setAttribute("ka-chart-highlight-key", lineConfig.text);
                     lineSeries.append(path, markerPoints);
                     lines.appendChild(lineSeries);
-                    svg.appendChild(lines);
                 }
+                svg.appendChild(lines);
             }
             this.addXAxis(svg, configuration, data);
             container.appendChild(svg);
@@ -3822,20 +3825,19 @@ var KatApps;
                 svg.appendChild(shape);
                 const text = document.createElement("span");
                 text.className = "ps-2 nowrap ka-chart-legend-text";
-                text.innerHTML = s.text;
+                text.textContent = s.text;
                 item.append(svg, text);
                 legend.appendChild(item);
             });
             legendContainer.appendChild(legend);
         }
-        resetContextElement(el, configuration) {
+        resetContextElement(el) {
             el.replaceChildren();
             Array.from(el.classList).forEach(cls => {
                 if (cls.startsWith('ka-chart-')) {
                     el.classList.remove(cls);
                 }
             });
-            el.classList.add(configuration.css.chart);
         }
         addHoverEvents(model, el, configuration) {
             const registerTipEvents = () => {
@@ -4115,7 +4117,7 @@ var KatApps;
                     const text = this.createText(configuration.plotOptions, shapeXPadding, y, `${tip.name}: `, configuration.plotOptions.font.size.tipBody);
                     const tspan = document.createElementNS(this.ns, "tspan");
                     tspan.setAttribute("font-weight", "bold");
-                    tspan.innerHTML = KatApps.Utils.formatNumber(this.application.options.intl, tip.value, configuration.plotOptions.dataLabels.format);
+                    tspan.textContent = KatApps.Utils.formatNumber(this.application.options.intl, tip.value, configuration.plotOptions.dataLabels.format);
                     text.appendChild(tspan);
                     tooltipSvg.appendChild(text);
                 });
@@ -4302,12 +4304,12 @@ var KatApps;
                     const tspan = document.createElementNS(this.ns, "tspan");
                     tspan.setAttribute("x", String(x));
                     tspan.setAttribute("dy", String(index === 0 ? 0 : plotOptions.font.size.xAxisTickLabels + 5));
-                    tspan.innerHTML = line;
+                    tspan.textContent = line;
                     textSvg.appendChild(tspan);
                 });
             }
             else {
-                textSvg.innerHTML = text;
+                textSvg.textContent = text;
             }
             return textSvg;
         }

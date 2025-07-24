@@ -197,7 +197,7 @@ declare namespace KatApps {
         getDefinition(application: KatApp): Directive<Element>;
         private addChart;
         private buildChartConfiguration;
-        private generateStackedArea;
+        private generateStackedAreaChart;
         private generateColumnChart;
         private generateBreakpointCharts;
         private generateDonutChart;
@@ -451,15 +451,6 @@ interface IRblChartConfigurationPadding {
     bottom: number;
     left: number;
     _parent: IRblChartConfigurationPlotOptions;
-}
-interface IRblChartConfigurationSharkfin {
-    retirementAge: number;
-    line: {
-        color: string;
-    };
-    fill: {
-        color: string;
-    };
 }
 interface IRblChartConfigurationTip {
     show: boolean;
