@@ -4209,7 +4209,7 @@ var KatApps;
             const xAxisTicks = data.map((item, i) => {
                 const columnX = columnConfig.getX(i);
                 if (i % configuration.plotOptions.xAxis.skipInterval == 0) {
-                    const xAxisTickLabel = this.createText(configuration.plotOptions, columnX + columnConfig.width / 2, configuration.plotOptions.yAxis.baseY + 2, item.name, configuration.plotOptions.font.size.xAxisTickLabels, { "text-anchor": "middle", "dominant-baseline": "text-before-edge" }, true);
+                    const xAxisTickLabel = this.createText(configuration.plotOptions, columnX + columnConfig.width / 2, configuration.plotOptions.yAxis.baseY + 2 + configuration.plotOptions.font.size.xAxisTickLabels, item.name, configuration.plotOptions.font.size.xAxisTickLabels, { "text-anchor": "middle" }, true);
                     return xAxisTickLabel;
                 }
             });
@@ -4240,7 +4240,7 @@ var KatApps;
                 const tickLine = i != 0
                     ? this.createLine(paddingConfig.left, y, configuration.plotOptions.width - paddingConfig.right, y, "#e6e6e6")
                     : undefined;
-                const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y, KatApps.Utils.formatNumber(this.application.options.intl, value, configuration.plotOptions.yAxis.format), configuration.plotOptions.font.size.yAxisTickLabels, { "text-anchor": "end", "dominant-baseline": "middle" });
+                const tickLabel = this.createText(configuration.plotOptions, paddingConfig.left - 7, y + configuration.plotOptions.font.size.yAxisTickLabels * 0.25, KatApps.Utils.formatNumber(this.application.options.intl, value, configuration.plotOptions.yAxis.format), configuration.plotOptions.font.size.yAxisTickLabels, { "text-anchor": "end" });
                 return tickLine ? [tickLine, tickLabel] : [tickLabel];
             });
             if (yAxisLabel != undefined)
