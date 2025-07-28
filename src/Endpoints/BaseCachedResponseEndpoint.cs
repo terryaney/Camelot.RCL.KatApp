@@ -35,7 +35,7 @@ public abstract class BaseCachedResponseEndpoint<TRequest, TResponse> : Endpoint
 
 	protected async Task SendCachedGetAsync( string id, DateTime lastModifiedDate, Func<Task> sendUpdatedResponse )
 	{
-		LogContext.PushProperty( "cacheId", id );
+		using var _p1 = LogContext.PushProperty( "cacheId", id );
 		
 		var context = httpContextAccessor.HttpContext!;
 
