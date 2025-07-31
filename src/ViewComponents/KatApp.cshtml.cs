@@ -37,7 +37,7 @@ public class KatApp : ViewComponent
         var calculationEndpoint = "api/rble/calculation";
 		var jwtDataUpdatesEndpoint = "api/rble/jwtupdate";
 		var verifyKatAppEndpoint = "api/katapp/verify";
-        var manualResultsEndpoint = optionsProvider.GetManualResults( katAppId ) != null 
+        var manualResultsEndpoint = optionsProvider.GetManualResultsLastModified( katAppId ) != null 
 			? $"\"api/katapp/manual-results/{katAppId}\"" 
 			: "undefined";
 

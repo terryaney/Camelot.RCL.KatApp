@@ -27,6 +27,7 @@ public interface IKatAppOptionsProvider
 	JsonObject AppResourceStrings { get; }
 	Dictionary<string, string> GetManualInputs( JsonObject viewDefinition );
 	JsonArray? GetManualResults( string key );
+	DateTime? GetManualResultsLastModified( string key );
 
 	JsonObject? GetViewById( string id );
 	JsonObject? GetViewByFile( string relativePath, string fileName );

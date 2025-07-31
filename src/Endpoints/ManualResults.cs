@@ -28,16 +28,15 @@ public class Endpoint : BaseCachedResponseEndpointWithoutRequest<JsonNode?>
 	public override async Task HandleAsync( CancellationToken c )
 	{
 		var id = Route<string>( "id" )!;
-		var manualResults = optionsProvider.GetManualResults( id );
+		var lastModifiedDate = optionsProvider.GetManualResultsLastModified( id );
 
-		if ( manualResults == null || manualResults.Count == 0 )
+		if ( lastModifiedDate == null )
 		{
 			await SendOkAsync( c );
 		}
 		else
 		{
-			var lastModifiedDate = DateTime.Parse( (string)manualResults[0]![ "LastModified" ]! ).ToUniversalTime();
-			await SendCachedGetAsync( id, lastModifiedDate, async () => await SendAsync( manualResults, cancellation: c ) );
+			await SendCachedGetAsync( id, lastModifiedDate.Value, async () => await SendAsync( optionsProvider.GetManualResults( id ), cancellation: c ) );
 		}
 	}
 }
