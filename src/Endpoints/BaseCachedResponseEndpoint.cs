@@ -41,7 +41,7 @@ public abstract class BaseCachedResponseEndpoint<TRequest, TResponse> : Endpoint
 
 		// https://www.geekytidbits.com/efficient-caching-dynamic-resources-asp-net-304-not-modified/
 		var rawIfModifiedSince = context.Request.Headers[ "If-Modified-Since" ].ToString();
-		
+
 		var requestIfModified = !string.IsNullOrEmpty( rawIfModifiedSince )
 			? DateTime.Parse( rawIfModifiedSince ).ToUniversalTime()
 			: DateTime.MinValue;
@@ -58,7 +58,7 @@ public abstract class BaseCachedResponseEndpoint<TRequest, TResponse> : Endpoint
 		}
 
 		context.Response.Headers.LastModified = lastModifiedDate.ToString( "r" );
-		var expires = dateTimeService.UtcNow.ToString( "r" );
+		var expires = dateTimeService.Now.ToString( "r" );
 		context.Response.Headers.Expires = expires;
 		context.Response.Headers.CacheControl = "public,max-age=0,must-revalidate,proxy-revalidate";
 

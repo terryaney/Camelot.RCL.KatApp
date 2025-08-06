@@ -546,11 +546,12 @@ class KatApp {
             const cloneApplication = this.getCloneApplication(this.options);
             this.options.hostApplication = this.options.hostApplication ?? cloneApplication;
             function calcEngineFactory(c, pipelineIndex) {
-                var enabled = processInputTokens(c.getAttribute("enabled"));
+                const enabled = processInputTokens(c.getAttribute("enabled"));
+                const name = processInputTokens(c.getAttribute("name")) ?? c.getAttribute("key") ?? "UNAVAILABLE";
                 return pipelineIndex == undefined
                     ? {
                         key: c.getAttribute("key") ?? "default",
-                        name: processInputTokens(c.getAttribute("name")) ?? "UNAVAILABLE",
+                        name: name,
                         inputTab: c.getAttribute("input-tab") ?? "RBLInput",
                         resultTabs: processInputTokens(c.getAttribute("result-tabs"))?.split(",") ?? ["RBLResult"],
                         pipeline: [...c.querySelectorAll("pipeline")].map((p, i) => calcEngineFactory(p, i + 1)),
@@ -560,7 +561,7 @@ class KatApp {
                     }
                     : {
                         key: `pipeline${pipelineIndex}`,
-                        name: processInputTokens(c.getAttribute("name")) ?? "UNAVAILABLE",
+                        name: name,
                         inputTab: c.getAttribute("input-tab"),
                         resultTab: processInputTokens(c.getAttribute("result-tab"))
                     };
@@ -609,7 +610,8 @@ class KatApp {
                     if (!response.ok) {
                         throw await response.json();
                     }
-                    this.options.manualResults = await response.json();
+                    const manualResults = await response.json();
+                    this.options.manualResults = manualResults[this.selector];
                     KatApps.Utils.trace(this, "KatApp", "mountAsync", `Manual Results downloaded`, TraceVerbosity.Detailed);
                 }
                 catch (e) {
@@ -679,7 +681,7 @@ class KatApp {
                 const manualResultTabDefs = this.toTabDefs(tabDefs);
                 if (!hasCalcEngines) {
                     const getSubmitApiConfigurationResults = await this.getSubmitApiConfigurationAsync(async (submitApiOptions) => {
-                        await this.triggerEventAsync("updateApiOptions", submitApiOptions, this.getApiUrl(this.options.endpoints.calculation).endpoint);
+                        await this.triggerEventAsync("updateApiOptions", submitApiOptions, this.getApiUrl(this.options.endpoints.calculation, true).endpoint);
                     }, {}, true);
                     await this.triggerEventAsync("resultsProcessing", manualResultTabDefs, getSubmitApiConfigurationResults.inputs, getSubmitApiConfigurationResults.configuration);
                 }
@@ -1022,7 +1024,7 @@ Type 'help' to see available options displayed in the console.`;
         }
         KatApps.Utils.trace(this, "KatApp", "calculateAsync", `Start: ${(calcEngines ?? this.calcEngines).map(c => c.name).join(", ")}`, TraceVerbosity.Detailed);
         try {
-            const apiUrl = this.getApiUrl(this.options.endpoints.calculation);
+            const apiUrl = this.getApiUrl(this.options.endpoints.calculation, true);
             const serviceUrl = apiUrl.url;
             const getSubmitApiConfigurationResults = await this.getSubmitApiConfigurationAsync(async (submitApiOptions) => {
                 await this.triggerEventAsync("updateApiOptions", submitApiOptions, apiUrl.endpoint);
@@ -1238,12 +1240,12 @@ Type 'help' to see available options displayed in the console.`;
         tempEl.target = "_blank";
         tempEl.click();
     }
-    getApiUrl(endpoint) {
+    getApiUrl(endpoint, includeSelector = false) {
         const urlParts = this.options.endpoints.calculation.split("?");
         const endpointParts = endpoint.split("?");
         var qsAnchored = KatApps.Utils.parseQueryString(this.options.endpoints.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
         var qsEndpoint = KatApps.Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
-        var qsUrl = KatApps.Utils.extend(qsAnchored, qsEndpoint, { katapp: this.selector ?? this.id });
+        var qsUrl = KatApps.Utils.extend(qsAnchored, qsEndpoint, includeSelector ? { katapp: this.selector ?? this.id } : {});
         let url = endpointParts[0];
         Object.keys(qsUrl).forEach((key, index) => {
             url += `${(index == 0 ? "?" : "&")}${key}=${qsUrl[key]}`;

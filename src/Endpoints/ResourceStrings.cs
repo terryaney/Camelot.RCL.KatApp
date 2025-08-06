@@ -36,8 +36,11 @@ public class Endpoint : BaseCachedResponseEndpointWithoutRequest<JsonNode?>
 		else
 		{
 			var lastModifiedDate = DateTime.Parse( (string)appResourceStrings[ "lastModified" ]! ).ToUniversalTime();
-
-			await SendCachedGetAsync( "resource", lastModifiedDate, async () => await SendAsync( appResourceStrings, cancellation: c ) );
+			await SendCachedGetAsync( 
+				"ResourceStrings", 
+				lastModifiedDate, 
+				async () => await SendAsync( appResourceStrings, cancellation: c ) 
+			);
 		}
 	}
 }

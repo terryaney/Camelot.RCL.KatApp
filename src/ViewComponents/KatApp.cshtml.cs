@@ -37,8 +37,8 @@ public class KatApp : ViewComponent
         var calculationEndpoint = "api/rble/calculation";
 		var jwtDataUpdatesEndpoint = "api/rble/jwtupdate";
 		var verifyKatAppEndpoint = "api/katapp/verify";
-        var manualResultsEndpoint = optionsProvider.GetManualResultsLastModified( katAppId ) != null 
-			? $"\"api/katapp/manual-results/{katAppId}\"" 
+        var manualResultsEndpoint = optionsProvider.ManualResultsLastModified != null 
+			? "\"api/katapp/manual-results\"" 
 			: "undefined";
 
 		// KatApp Framework expects to find a 'name' token

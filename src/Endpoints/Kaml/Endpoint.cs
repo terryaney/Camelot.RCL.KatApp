@@ -42,7 +42,8 @@ public partial class Endpoint : BaseCachedResponseEndpoint<Request>
 				return;
 			}
 
-			if ( !request.ViewName.Contains( "Templates", StringComparison.OrdinalIgnoreCase ) )
+			var isTemplate = request.ViewName.Contains( "Templates", StringComparison.OrdinalIgnoreCase );
+			if ( !isTemplate )
 			{
 				var relativePath =
 					kaml.Directory!.FullName[ ( katAppHelper.KamlRootPath.Length + 1 ).. ]
@@ -70,7 +71,7 @@ public partial class Endpoint : BaseCachedResponseEndpoint<Request>
 
 			var lastModifiedDate = new[] { kaml.LastWriteTimeUtc }.Concat( supportingFiles.Select( f => f.LastWriteTimeUtc ) ).Max();
 
-			await SendCachedGetAsync( kaml.Name, lastModifiedDate, async () =>
+			await SendCachedGetAsync( $"Kaml:{request.ViewName}", lastModifiedDate, async () =>
 			{
 				if ( supportingFiles.Any() )
 				{

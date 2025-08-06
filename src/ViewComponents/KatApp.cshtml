@@ -27,9 +27,8 @@
 	}
 	ready(async () => {
 		try {
-			// console.log("Creating KatApp: @Model.Name");
-			
-			await KatApp.createAppAsync(".@Model.Name",
+			// console.log("Creating KatApp: @Model.Name");			
+			await KatApp.createAppAsync(".@Model.Name", // BRD expect . before model name
 				{
 					"view": "@Model.View",
 					"userIdHash": "@Model.UserIdHash",

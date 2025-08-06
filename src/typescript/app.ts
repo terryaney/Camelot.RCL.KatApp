@@ -751,12 +751,12 @@ class KatApp implements IKatApp {
 
 			function calcEngineFactory(c: Element, pipelineIndex?: number): ICalcEngine | IPipelineCalcEngine
 			{
-				var enabled = processInputTokens(c.getAttribute("enabled"));
-
+				const enabled = processInputTokens(c.getAttribute("enabled"));
+				const name = processInputTokens(c.getAttribute("name")) ?? c.getAttribute("key") ?? "UNAVAILABLE";
 				return pipelineIndex == undefined
 					? {
 						key: c.getAttribute("key") ?? "default",
-						name: processInputTokens(c.getAttribute("name")) ?? "UNAVAILABLE",
+						name: name,
 						inputTab: c.getAttribute("input-tab") ?? "RBLInput",
 						resultTabs: processInputTokens(c.getAttribute("result-tabs"))?.split(",") ?? ["RBLResult"],
 						pipeline: [...c.querySelectorAll("pipeline")].map((p, i) => calcEngineFactory(p, i + 1)),
@@ -766,7 +766,7 @@ class KatApp implements IKatApp {
 					} as ICalcEngine
 					: {
 						key: `pipeline${pipelineIndex}`,
-						name: processInputTokens(c.getAttribute("name")) ?? "UNAVAILABLE",
+						name: name,
 						inputTab: c.getAttribute("input-tab"),
 						resultTab: processInputTokens(c.getAttribute("result-tab"))
 					} as IPipelineCalcEngine;
@@ -823,8 +823,8 @@ class KatApp implements IKatApp {
 					if (!response.ok) {
 						throw await response.json();
 					}
-	
-					this.options.manualResults = await response.json();
+					const manualResults = await response.json();
+					this.options.manualResults = manualResults[ this.selector ];
 					KatApps.Utils.trace(this, "KatApp", "mountAsync", `Manual Results downloaded`, TraceVerbosity.Detailed);
 				} catch (e) {
 					KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading manualResults ${this.options.endpoints.manualResults}`, TraceVerbosity.None, e);
@@ -932,7 +932,7 @@ class KatApp implements IKatApp {
 							await this.triggerEventAsync(
 								"updateApiOptions",
 								submitApiOptions,
-								this.getApiUrl(this.options.endpoints.calculation).endpoint
+								this.getApiUrl(this.options.endpoints.calculation, true).endpoint
 							);
 						},
 						{},
@@ -1375,7 +1375,7 @@ Type 'help' to see available options displayed in the console.`;
 		 KatApps.Utils.trace(this, "KatApp", "calculateAsync", `Start: ${(calcEngines ?? this.calcEngines).map( c => c.name ).join(", ")}`, TraceVerbosity.Detailed);
 
 		try {
-			const apiUrl = this.getApiUrl(this.options.endpoints.calculation);
+			const apiUrl = this.getApiUrl(this.options.endpoints.calculation, true);
 			const serviceUrl = /* this.options.registerDataWithService 
 				? this.options.{what url should this be} 
 				: */ apiUrl.url;
@@ -1702,14 +1702,13 @@ Type 'help' to see available options displayed in the console.`;
 		// window.URL.revokeObjectURL(url);
 	}
 
-	private getApiUrl(endpoint: string): { url: string, endpoint: string } {
+	private getApiUrl(endpoint: string, includeSelector: boolean = false): { url: string, endpoint: string } {
 		const urlParts = this.options.endpoints.calculation.split("?");
 		const endpointParts = endpoint.split("?");
 
 		var qsAnchored = KatApps.Utils.parseQueryString(this.options.endpoints.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
 		var qsEndpoint = KatApps.Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
-		var qsUrl = KatApps.Utils.extend<IStringIndexer<string>>(qsAnchored, qsEndpoint, { katapp: this.selector ?? this.id });
-
+		var qsUrl = KatApps.Utils.extend<IStringIndexer<string>>(qsAnchored, qsEndpoint, includeSelector ? { katapp: this.selector ?? this.id } : {});
 
 		let url = endpointParts[0];
 		Object.keys(qsUrl).forEach((key, index) => {

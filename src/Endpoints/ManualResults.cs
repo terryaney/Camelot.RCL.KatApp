@@ -27,8 +27,7 @@ public class Endpoint : BaseCachedResponseEndpointWithoutRequest<JsonNode?>
 
 	public override async Task HandleAsync( CancellationToken c )
 	{
-		var id = Route<string>( "id" )!;
-		var lastModifiedDate = optionsProvider.GetManualResultsLastModified( id );
+		var lastModifiedDate = optionsProvider.ManualResultsLastModified;
 
 		if ( lastModifiedDate == null )
 		{
@@ -36,7 +35,11 @@ public class Endpoint : BaseCachedResponseEndpointWithoutRequest<JsonNode?>
 		}
 		else
 		{
-			await SendCachedGetAsync( id, lastModifiedDate.Value, async () => await SendAsync( optionsProvider.GetManualResults( id ), cancellation: c ) );
+			await SendCachedGetAsync( 
+				"ManualResults", 
+				lastModifiedDate.Value, 
+				async () => await SendAsync( await optionsProvider.GetManualResultsAsync( c ), cancellation: c ) 
+			);
 		}
 	}
 }
