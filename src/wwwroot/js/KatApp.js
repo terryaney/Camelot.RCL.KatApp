@@ -572,7 +572,7 @@ class KatApp {
                 : cloneApplication ? [...cloneApplication.calcEngines.filter(c => !c.manualResult)] : [];
             KatApps.Utils.trace(this, "KatApp", "mountAsync", `CalcEngines configured`, TraceVerbosity.Detailed);
             if (this.options.resourceStrings == undefined && this.options.endpoints.resourceStrings != undefined) {
-                const apiUrl = this.getApiUrl(this.options.endpoints.resourceStrings, false, false);
+                const apiUrl = this.getApiUrl(this.options.endpoints.resourceStrings, true);
                 try {
                     const response = await fetch(apiUrl.url, {
                         method: "GET",
@@ -600,7 +600,7 @@ class KatApp {
                 }
             }
             if (this.options.manualResults == undefined && this.options.endpoints.manualResults != undefined) {
-                const apiUrl = this.getApiUrl(this.options.endpoints.manualResults, false, false);
+                const apiUrl = this.getApiUrl(this.options.endpoints.manualResults, true);
                 try {
                     const response = await fetch(apiUrl.url, {
                         method: "GET",
@@ -681,7 +681,7 @@ class KatApp {
                 const manualResultTabDefs = this.toTabDefs(tabDefs);
                 if (!hasCalcEngines) {
                     const getSubmitApiConfigurationResults = await this.getSubmitApiConfigurationAsync(async (submitApiOptions) => {
-                        await this.triggerEventAsync("updateApiOptions", submitApiOptions, this.getApiUrl(this.options.endpoints.calculation, true).endpoint);
+                        await this.triggerEventAsync("updateApiOptions", submitApiOptions, this.getApiUrl(this.options.endpoints.calculation, false).endpoint);
                     }, {}, true);
                     await this.triggerEventAsync("resultsProcessing", manualResultTabDefs, getSubmitApiConfigurationResults.inputs, getSubmitApiConfigurationResults.configuration);
                 }
@@ -1024,7 +1024,7 @@ Type 'help' to see available options displayed in the console.`;
         }
         KatApps.Utils.trace(this, "KatApp", "calculateAsync", `Start: ${(calcEngines ?? this.calcEngines).map(c => c.name).join(", ")}`, TraceVerbosity.Detailed);
         try {
-            const apiUrl = this.getApiUrl(this.options.endpoints.calculation, true);
+            const apiUrl = this.getApiUrl(this.options.endpoints.calculation, false);
             const serviceUrl = apiUrl.url;
             const getSubmitApiConfigurationResults = await this.getSubmitApiConfigurationAsync(async (submitApiOptions) => {
                 await this.triggerEventAsync("updateApiOptions", submitApiOptions, apiUrl.endpoint);
@@ -1126,7 +1126,7 @@ Type 'help' to see available options displayed in the console.`;
         this.state.warnings = [];
         let successResponse = undefined;
         let errorResponse = undefined;
-        const apiUrl = this.getApiUrl(endpoint);
+        const apiUrl = this.getApiUrl(endpoint, false);
         try {
             const getSubmitApiConfigurationResults = calculationSubmitApiConfiguration ??
                 await this.getSubmitApiConfigurationAsync(async (submitApiOptions) => {
@@ -1240,22 +1240,21 @@ Type 'help' to see available options displayed in the console.`;
         tempEl.target = "_blank";
         tempEl.click();
     }
-    getApiUrl(endpoint, includeSelector = false, includeQueryStrings = true) {
-        const urlParts = this.options.endpoints.calculation.split("?");
+    getApiUrl(endpoint, isCacheableApi) {
+        const defaultApiParts = this.options.endpoints.calculation.split("?");
         const endpointParts = endpoint.split("?");
-        let url = endpoint;
-        if (includeQueryStrings) {
-            url = endpointParts[0];
-            var qsAnchored = KatApps.Utils.parseQueryString(this.options.endpoints.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
-            var qsEndpoint = KatApps.Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
-            var qsUrl = KatApps.Utils.extend(qsAnchored, qsEndpoint, includeSelector ? { katapp: this.selector ?? this.id } : {});
-            Object.keys(qsUrl).forEach((key, index) => {
-                url += `${(index == 0 ? "?" : "&")}${key}=${qsUrl[key]}`;
-            });
-        }
+        let url = endpointParts[0];
         if (!url.startsWith("api/")) {
             url = "api/" + url;
         }
+        var qsEndpoint = KatApps.Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
+        var queryStringOptions = isCacheableApi ? this.options.endpoints.cacheableQueryStrings : this.options.endpoints.anchoredQueryStrings;
+        var qsAnchored = KatApps.Utils.parseQueryString(queryStringOptions ?? (defaultApiParts.length == 2 ? defaultApiParts[1] : undefined));
+        var qsSelector = !isCacheableApi ? { katapp: this.selector ?? this.id } : {};
+        var qsUrl = KatApps.Utils.extend(qsEndpoint, qsAnchored, qsSelector);
+        Object.keys(qsUrl).forEach((key, index) => {
+            url += `${(index == 0 ? "?" : "&")}${key}=${qsUrl[key]}`;
+        });
         return {
             url: this.options.endpoints.baseUrl ? this.options.endpoints.baseUrl + url : url,
             endpoint: url.split("?")[0].substring(4)
@@ -1996,7 +1995,7 @@ Type 'help' to see available options displayed in the console.`;
         const viewElement = document.createElement("div");
         if ((this.options.modalAppOptions != undefined || this.options.inputs?.iNestedApplication == "1") && this.options.view != undefined) {
             const view = this.options.view;
-            const apiUrl = this.getApiUrl(`${this.options.endpoints.kamlVerification}?applicationId=${view}&currentId=${this.options.hostApplication.options.currentPage}`);
+            const apiUrl = this.getApiUrl(`${this.options.endpoints.kamlVerification}?applicationId=${view}`, true);
             try {
                 const response = await fetch(apiUrl.url, { method: "GET" });
                 if (!response.ok) {
@@ -2012,7 +2011,7 @@ Type 'help' to see available options displayed in the console.`;
             }
         }
         if (this.options.view != undefined) {
-            const viewResource = await KatApps.KamlRepository.getViewResourceAsync(this.options, this.options.view);
+            const viewResource = await KatApps.KamlRepository.getViewResourceAsync(this);
             KatApps.Utils.trace(this, "KatApp", "getViewElementAsync", `Resource Returned`, TraceVerbosity.Detailed);
             const viewContent = viewResource[this.options.view]
                 .replace(/{id}/g, this.id)
@@ -2039,7 +2038,7 @@ Type 'help' to see available options displayed in the console.`;
             }
             return resourceName;
         });
-        const viewTemplateResults = await KatApps.KamlRepository.getTemplateResourcesAsync(this.options, requiredViewTemplates);
+        const viewTemplateResults = await KatApps.KamlRepository.getTemplateResourcesAsync(this, requiredViewTemplates);
         const kamlCompiler = new KatApps.KamlCompiler(this);
         Object.keys(viewTemplateResults).forEach(k => {
             const templateContent = document.createElement("kaml-template");
@@ -5757,16 +5756,16 @@ var KatApps;
 (function (KatApps) {
     class KamlRepository {
         static resourceRequests = {};
-        static async getViewResourceAsync(options, view) {
-            return this.getKamlResourcesAsync(options, [view], true);
+        static async getViewResourceAsync(application) {
+            return this.getKamlResourcesAsync(application, [application.options.view], true);
         }
-        static async getTemplateResourcesAsync(options, resourceArray) {
-            return this.getKamlResourcesAsync(options, resourceArray, false);
+        static async getTemplateResourcesAsync(application, resourceArray) {
+            return this.getKamlResourcesAsync(application, resourceArray, false);
         }
-        static async getKamlResourcesAsync(options, resourceArray, isView) {
-            const currentOptions = options;
-            const useLocalWebServer = currentOptions.debug.debugResourcesDomain != undefined &&
-                (currentOptions.useLocalRepository ?? (currentOptions.useLocalRepository = await KatApps.Utils.checkLocalServerAsync(currentOptions)));
+        static async getKamlResourcesAsync(application, resourceArray, isView) {
+            const options = application.options;
+            const useLocalWebServer = options.debug.debugResourcesDomain != undefined &&
+                (options.useLocalRepository ?? (options.useLocalRepository = await KatApps.Utils.checkLocalServerAsync(options)));
             var resourceResults = await Promise.allSettled(resourceArray.map(resourceKey => {
                 if (!isView) {
                     var currentRequest = KamlRepository.resourceRequests[resourceKey];
@@ -5791,7 +5790,7 @@ var KatApps;
                     }
                     KamlRepository.resourceRequests[resourceKey] = [];
                 }
-                return this.getResourceAsync(currentOptions, resourceKey, useLocalWebServer);
+                return this.getResourceAsync(application, resourceKey, useLocalWebServer);
             }));
             const rejected = resourceResults
                 .filter(r => r.status == "rejected")
@@ -5867,12 +5866,12 @@ var KatApps;
             return { data: await response.text() };
         }
         ;
-        static async getResourceAsync(currentOptions, resourceKey, tryLocalWebServer) {
-            const relativeTemplatePath = currentOptions.endpoints.relativePathTemplates?.[resourceKey];
+        static async getResourceAsync(application, resourceKey, tryLocalWebServer) {
+            const relativeTemplatePath = application.options.endpoints.relativePathTemplates?.[resourceKey];
             const resourceParts = relativeTemplatePath != undefined ? relativeTemplatePath.split(":") : resourceKey.split(":");
             let resourceName = resourceParts[1];
             const resourceFolders = resourceParts[0].split("|");
-            const version = resourceParts.length > 2 ? resourceParts[2] : (currentOptions.debug.useTestView ? "Test" : "Live");
+            const version = resourceParts.length > 2 ? resourceParts[2] : (application.options.debug.useTestView ? "Test" : "Live");
             const resourceNameParts = resourceName.split("?");
             const resourceNameBase = resourceNameParts[0];
             if (!resourceNameBase.endsWith(".kaml")) {
@@ -5892,14 +5891,21 @@ var KatApps;
                     localWebServerFolder = relativeResourceConfig[0];
                     localWebServerResource = relativeResourceConfig.slice(1).join("/");
                 }
-                const localServerUrl = "https://" + currentOptions.debug.debugResourcesDomain + "/KatApp/" + localWebServerFolder + "/" + localWebServerResource;
+                const localServerUrl = "https://" + application.options.debug.debugResourcesDomain + "/KatApp/" + localWebServerFolder + "/" + localWebServerResource;
                 resourceUrl = tryLocalWebServer
                     ? localServerUrl.substring(0, 4) + localServerUrl.substring(5)
                     : !isResourceInManagementSite
-                        ? currentOptions.endpoints.baseUrl + resourceName.substring(1)
-                        : currentOptions.endpoints.katDataStore;
+                        ? application.options.endpoints.baseUrl + resourceName.substring(1)
+                        : application.options.endpoints.katDataStore;
                 if (!tryLocalWebServer && isResourceInManagementSite) {
                     resourceUrl = resourceUrl.replace("{name}", resourceName) + `?folders=${resourceParts[0].split("|").join(",")}&preferTest=${version == "Test"}`;
+                }
+                else {
+                    const cacheableUrl = application.getApiUrl(resourceUrl, true);
+                    const cacheableUrlParts = cacheableUrl.url.split("?");
+                    if (cacheableUrlParts.length == 2) {
+                        resourceUrl = resourceUrl.split("?")[0] + "?" + cacheableUrlParts[1];
+                    }
                 }
                 lastResult = await this.downloadResourceAsync(resourceUrl, tryLocalWebServer);
                 if (lastResult.data != undefined) {
@@ -5994,7 +6000,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
                 }
             }
             if (tryLocalWebServer) {
-                return await this.getResourceAsync(currentOptions, resourceKey, false);
+                return await this.getResourceAsync(application, resourceKey, false);
             }
             throw new KamlResourceDownloadError("getResourceAsync failed requesting from " + resourceUrl + ": " + lastResult.errorMessage, resourceKey);
         }

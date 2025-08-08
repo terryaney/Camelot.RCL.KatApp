@@ -779,7 +779,7 @@ class KatApp implements IKatApp {
 			 KatApps.Utils.trace(this, "KatApp", "mountAsync", `CalcEngines configured`, TraceVerbosity.Detailed);
 
 			if (this.options.resourceStrings == undefined && this.options.endpoints.resourceStrings != undefined) {
-				const apiUrl = this.getApiUrl(this.options.endpoints.resourceStrings, false, false);
+				const apiUrl = this.getApiUrl(this.options.endpoints.resourceStrings, true);
 
 				try {
 					const response = await fetch(apiUrl.url, {
@@ -811,7 +811,7 @@ class KatApp implements IKatApp {
 			}
 
 			if (this.options.manualResults == undefined && this.options.endpoints.manualResults != undefined) {
-				const apiUrl = this.getApiUrl(this.options.endpoints.manualResults, false, false);
+				const apiUrl = this.getApiUrl(this.options.endpoints.manualResults, true);
 
 				try {
 					const response = await fetch(apiUrl.url, {
@@ -932,7 +932,7 @@ class KatApp implements IKatApp {
 							await this.triggerEventAsync(
 								"updateApiOptions",
 								submitApiOptions,
-								this.getApiUrl(this.options.endpoints.calculation, true).endpoint
+								this.getApiUrl(this.options.endpoints.calculation, false).endpoint
 							);
 						},
 						{},
@@ -1375,7 +1375,7 @@ Type 'help' to see available options displayed in the console.`;
 		 KatApps.Utils.trace(this, "KatApp", "calculateAsync", `Start: ${(calcEngines ?? this.calcEngines).map( c => c.name ).join(", ")}`, TraceVerbosity.Detailed);
 
 		try {
-			const apiUrl = this.getApiUrl(this.options.endpoints.calculation, true);
+			const apiUrl = this.getApiUrl(this.options.endpoints.calculation, false);
 			const serviceUrl = /* this.options.registerDataWithService 
 				? this.options.{what url should this be} 
 				: */ apiUrl.url;
@@ -1538,7 +1538,7 @@ Type 'help' to see available options displayed in the console.`;
 
 		let successResponse: IStringAnyIndexer | Blob | undefined = undefined;
 		let errorResponse: IApiErrorResponse | undefined = undefined;
-		const apiUrl = this.getApiUrl(endpoint);
+		const apiUrl = this.getApiUrl(endpoint, false);
 
 		try {
 			const getSubmitApiConfigurationResults =
@@ -1702,25 +1702,24 @@ Type 'help' to see available options displayed in the console.`;
 		// window.URL.revokeObjectURL(url);
 	}
 
-	private getApiUrl(endpoint: string, includeSelector: boolean = false, includeQueryStrings: boolean = true): { url: string, endpoint: string } {
-		const urlParts = this.options.endpoints.calculation.split("?");
+	public getApiUrl(endpoint: string, isCacheableApi: boolean): { url: string, endpoint: string } {
+		const defaultApiParts = this.options.endpoints.calculation.split("?");
 		const endpointParts = endpoint.split("?");
 
-		let url = endpoint;
-
-		if (includeQueryStrings) {
-			url = endpointParts[0];
-			var qsAnchored = KatApps.Utils.parseQueryString(this.options.endpoints.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
-			var qsEndpoint = KatApps.Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
-			var qsUrl = KatApps.Utils.extend<IStringIndexer<string>>(qsAnchored, qsEndpoint, includeSelector ? { katapp: this.selector ?? this.id } : {});
-			Object.keys(qsUrl).forEach((key, index) => {
-				url += `${(index == 0 ? "?" : "&")}${key}=${qsUrl[key]}`;
-			});
-		}
-
+		let url = endpointParts[0];
 		if (!url.startsWith("api/")) {
 			url = "api/" + url;
 		}
+
+		var qsEndpoint = KatApps.Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
+		var queryStringOptions = isCacheableApi ? this.options.endpoints.cacheableQueryStrings : this.options.endpoints.anchoredQueryStrings;
+		var qsAnchored = KatApps.Utils.parseQueryString(queryStringOptions ?? (defaultApiParts.length == 2 ? defaultApiParts[1] : undefined));
+		var qsSelector = !isCacheableApi ? { katapp: this.selector ?? this.id } : {};
+
+		var qsUrl = KatApps.Utils.extend<IStringIndexer<string>>(qsEndpoint, qsAnchored, qsSelector);
+		Object.keys(qsUrl).forEach((key, index) => {
+			url += `${(index == 0 ? "?" : "&")}${key}=${qsUrl[key]}`;
+		});
 
 		return {
 			url: this.options.endpoints.baseUrl ? this.options.endpoints.baseUrl + url : url,
@@ -2776,7 +2775,7 @@ Type 'help' to see available options displayed in the console.`;
 		if ((this.options.modalAppOptions != undefined || this.options.inputs?.iNestedApplication == "1") && this.options.view != undefined ) {
 			const view = this.options.view;
 
-			const apiUrl = this.getApiUrl(`${this.options.endpoints.kamlVerification}?applicationId=${view}&currentId=${this.options.hostApplication!.options.currentPage}` );
+			const apiUrl = this.getApiUrl(`${this.options.endpoints.kamlVerification}?applicationId=${view}`, true );
 
 			try {
 				const response = await fetch(apiUrl.url, { method: "GET" });
@@ -2796,7 +2795,7 @@ Type 'help' to see available options displayed in the console.`;
 		}
 
 		if (this.options.view != undefined) {
-			const viewResource = await KatApps.KamlRepository.getViewResourceAsync(this.options, this.options.view);
+			const viewResource = await KatApps.KamlRepository.getViewResourceAsync(this);
 
 			 KatApps.Utils.trace(this, "KatApp", "getViewElementAsync", `Resource Returned`, TraceVerbosity.Detailed);
 
@@ -2837,7 +2836,7 @@ Type 'help' to see available options displayed in the console.`;
 					return resourceName;
 				});
 
-		const viewTemplateResults = await KatApps.KamlRepository.getTemplateResourcesAsync(this.options, requiredViewTemplates);
+		const viewTemplateResults = await KatApps.KamlRepository.getTemplateResourcesAsync(this, requiredViewTemplates);
 		const kamlCompiler = new KatApps.KamlCompiler(this);
 		Object.keys(viewTemplateResults).forEach(k => {
 			const templateContent = document.createElement("kaml-template");

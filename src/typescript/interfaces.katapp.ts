@@ -46,6 +46,7 @@ interface IKatAppEndpoints {
 	kamlVerification: string;
 	jwtDataUpdates?: string;
 	anchoredQueryStrings?: string;
+	cacheableQueryStrings?: string;
 	manualResults?: string;
 	resourceStrings?: string;
 	relativePathTemplates?: IStringIndexer<string>;

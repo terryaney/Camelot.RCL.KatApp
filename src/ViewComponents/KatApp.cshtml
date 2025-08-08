@@ -38,13 +38,14 @@
 
 					"endpoints": {
 						"baseUrl": "@Model.BaseUrl",
-						"calculation": "@Html.Raw( Model.CalculationEndpoint )",
+						"calculation": "@Model.CalculationEndpoint",
 						"kamlVerification": "@Model.VerifyKatAppEndpoint",
 						"jwtDataUpdates": "@Model.JwtDataUpdatesEndpoint",
 						"katDataStore": "@Model.KatDataStoreEndpoint",
 						"manualResults": @Html.Raw( Model.ManualResultsEndpoint ),
-						"resourceStrings": @Html.Raw( Model.ResourceStringsEndpoint ),
+						"resourceStrings": "@Model.ResourceStringsEndpoint",
 						"anchoredQueryStrings": "@Html.Raw( Model.AnchoredQueryStrings )",
+						"cacheableQueryStrings": "@Html.Raw( Model.CacheableQueryStrings )",
 						"relativePathTemplates": @Html.Raw( Model.RelativePathTemplates ),
 					},
 					

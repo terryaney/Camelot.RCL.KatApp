@@ -55,7 +55,10 @@ declare class KatApp implements IKatApp {
     apiAsync(endpoint: string, apiOptions?: IApiOptions, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
     private addUnexpectedError;
     private downloadBlob;
-    private getApiUrl;
+    getApiUrl(endpoint: string, isCacheableApi: boolean): {
+        url: string;
+        endpoint: string;
+    };
     private processDomElementsAsync;
     getInputValue(name: string, allowDisabled?: boolean): string | undefined;
     setInputValue(name: string, value: string | undefined, calculate?: boolean): Array<HTMLInputElement> | undefined;
@@ -637,6 +640,7 @@ interface IKatAppEndpoints {
     kamlVerification: string;
     jwtDataUpdates?: string;
     anchoredQueryStrings?: string;
+    cacheableQueryStrings?: string;
     manualResults?: string;
     resourceStrings?: string;
     relativePathTemplates?: IStringIndexer<string>;
@@ -1247,8 +1251,8 @@ interface IKamlResourceResponse {
 declare namespace KatApps {
     class KamlRepository {
         private static resourceRequests;
-        static getViewResourceAsync(options: IKatAppOptions, view: string): Promise<IStringIndexer<string>>;
-        static getTemplateResourcesAsync(options: IKatAppOptions, resourceArray: string[]): Promise<IStringIndexer<string>>;
+        static getViewResourceAsync(application: KatApp): Promise<IStringIndexer<string>>;
+        static getTemplateResourcesAsync(application: KatApp, resourceArray: string[]): Promise<IStringIndexer<string>>;
         private static getKamlResourcesAsync;
         static resolveTemplate(resourceKey: string): void;
         private static downloadResourceAsync;

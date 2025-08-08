@@ -12,18 +12,18 @@ namespace KatApps {
 	export class KamlRepository {
 		private static resourceRequests: Record<string, Array<(errorMessage?: string) => void>> = {};
 
-		static async getViewResourceAsync(options: IKatAppOptions, view: string): Promise<IStringIndexer<string>> {
-			return this.getKamlResourcesAsync(options, [view], true);
+		static async getViewResourceAsync(application: KatApp): Promise<IStringIndexer<string>> {
+			return this.getKamlResourcesAsync(application, [application.options.view!], true);
 		}
-		static async getTemplateResourcesAsync(options: IKatAppOptions, resourceArray: string[]): Promise<IStringIndexer<string>> {
-			return this.getKamlResourcesAsync(options, resourceArray, false);
+		static async getTemplateResourcesAsync(application: KatApp, resourceArray: string[]): Promise<IStringIndexer<string>> {
+			return this.getKamlResourcesAsync(application, resourceArray, false);
 		}
 
-		private static async getKamlResourcesAsync(options: IKatAppOptions, resourceArray: string[], isView: boolean): Promise<IStringIndexer<string>> {
-			const currentOptions = options as IKatAppRepositoryOptions;
+		private static async getKamlResourcesAsync(application: KatApp, resourceArray: string[], isView: boolean): Promise<IStringIndexer<string>> {
+			const options = application.options as IKatAppRepositoryOptions;
 
-			const useLocalWebServer = currentOptions.debug.debugResourcesDomain != undefined &&
-				(currentOptions.useLocalRepository ?? (currentOptions.useLocalRepository = await Utils.checkLocalServerAsync(currentOptions)));
+			const useLocalWebServer = options.debug.debugResourcesDomain != undefined &&
+				(options.useLocalRepository ?? (options.useLocalRepository = await Utils.checkLocalServerAsync(options)));
 
 			var resourceResults = await Promise.allSettled(
 				resourceArray.map(resourceKey => {
@@ -53,7 +53,7 @@ namespace KatApps {
 						KamlRepository.resourceRequests[resourceKey] = [];
 					}
 
-					return this.getResourceAsync(currentOptions, resourceKey, useLocalWebServer);
+					return this.getResourceAsync(application, resourceKey, useLocalWebServer);
 				})
 			);
 
@@ -155,13 +155,13 @@ namespace KatApps {
 			return { data: await response.text() };
 		};
 
-		private static async getResourceAsync(currentOptions: IKatAppRepositoryOptions, resourceKey: string, tryLocalWebServer: boolean): Promise<IKamlResourceResponse> {
-			const relativeTemplatePath = currentOptions.endpoints.relativePathTemplates?.[resourceKey];
+		private static async getResourceAsync(application: KatApp, resourceKey: string, tryLocalWebServer: boolean): Promise<IKamlResourceResponse> {
+			const relativeTemplatePath = application.options.endpoints.relativePathTemplates?.[resourceKey];
 			const resourceParts = relativeTemplatePath != undefined ? relativeTemplatePath.split(":") : resourceKey.split(":");
 
 			let resourceName = resourceParts[1];
 			const resourceFolders = resourceParts[0].split("|");
-			const version = resourceParts.length > 2 ? resourceParts[2] : (currentOptions.debug.useTestView ? "Test" : "Live"); // can provide a version as third part of name if you want
+			const version = resourceParts.length > 2 ? resourceParts[2] : (application.options.debug.useTestView ? "Test" : "Live"); // can provide a version as third part of name if you want
 
 			const resourceNameParts = resourceName.split("?");
 			const resourceNameBase = resourceNameParts[0];
@@ -197,16 +197,23 @@ namespace KatApps {
 					localWebServerResource = relativeResourceConfig.slice(1).join("/");
 				}
 
-				const localServerUrl = "https://" + currentOptions.debug.debugResourcesDomain + "/KatApp/" + localWebServerFolder + "/" + localWebServerResource;
+				const localServerUrl = "https://" + application.options.debug.debugResourcesDomain + "/KatApp/" + localWebServerFolder + "/" + localWebServerResource;
 				resourceUrl = tryLocalWebServer
 					? localServerUrl.substring(0, 4) + localServerUrl.substring(5) // + location.search
 					: !isResourceInManagementSite
-						? currentOptions.endpoints.baseUrl + resourceName.substring(1) // + location.search
-						: currentOptions.endpoints.katDataStore;
+						? application.options.endpoints.baseUrl + resourceName.substring(1) // + location.search
+						: application.options.endpoints.katDataStore;
 
 				if (!tryLocalWebServer && isResourceInManagementSite) {
 					resourceUrl = resourceUrl.replace("{name}", resourceName) + `?folders=${resourceParts[0].split("|").join(",")}&preferTest=${version == "Test"}`;
 					// "?" + JSON.stringify({ "Command": "KatAppResource", "Resources": [{ Resource: resourceName, Folder: resourceParts[0], Version: version }] })
+				}
+				else {
+					const cacheableUrl = application.getApiUrl(resourceUrl, true);
+					const cacheableUrlParts = cacheableUrl.url.split("?");
+					if (cacheableUrlParts.length == 2) {
+						resourceUrl = resourceUrl.split("?")[0] + "?" + cacheableUrlParts[1];
+					}
 				}
 
 				lastResult = await this.downloadResourceAsync(resourceUrl, tryLocalWebServer);
@@ -317,7 +324,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
 			}
 
 			if (tryLocalWebServer) {
-				return await this.getResourceAsync(currentOptions, resourceKey, false);
+				return await this.getResourceAsync(application, resourceKey, false);
 			}
 
 			throw new KamlResourceDownloadError("getResourceAsync failed requesting from " + resourceUrl + ": " + lastResult.errorMessage, resourceKey);
