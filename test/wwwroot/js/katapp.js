@@ -572,7 +572,7 @@ class KatApp {
                 : cloneApplication ? [...cloneApplication.calcEngines.filter(c => !c.manualResult)] : [];
             KatApps.Utils.trace(this, "KatApp", "mountAsync", `CalcEngines configured`, TraceVerbosity.Detailed);
             if (this.options.resourceStrings == undefined && this.options.endpoints.resourceStrings != undefined) {
-                const apiUrl = this.getApiUrl(this.options.endpoints.resourceStrings);
+                const apiUrl = this.getApiUrl(this.options.endpoints.resourceStrings, false, false);
                 try {
                     const response = await fetch(apiUrl.url, {
                         method: "GET",
@@ -600,7 +600,7 @@ class KatApp {
                 }
             }
             if (this.options.manualResults == undefined && this.options.endpoints.manualResults != undefined) {
-                const apiUrl = this.getApiUrl(this.options.endpoints.manualResults);
+                const apiUrl = this.getApiUrl(this.options.endpoints.manualResults, false, false);
                 try {
                     const response = await fetch(apiUrl.url, {
                         method: "GET",
@@ -1240,16 +1240,19 @@ Type 'help' to see available options displayed in the console.`;
         tempEl.target = "_blank";
         tempEl.click();
     }
-    getApiUrl(endpoint, includeSelector = false) {
+    getApiUrl(endpoint, includeSelector = false, includeQueryStrings = true) {
         const urlParts = this.options.endpoints.calculation.split("?");
         const endpointParts = endpoint.split("?");
-        var qsAnchored = KatApps.Utils.parseQueryString(this.options.endpoints.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
-        var qsEndpoint = KatApps.Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
-        var qsUrl = KatApps.Utils.extend(qsAnchored, qsEndpoint, includeSelector ? { katapp: this.selector ?? this.id } : {});
-        let url = endpointParts[0];
-        Object.keys(qsUrl).forEach((key, index) => {
-            url += `${(index == 0 ? "?" : "&")}${key}=${qsUrl[key]}`;
-        });
+        let url = endpoint;
+        if (includeQueryStrings) {
+            url = endpointParts[0];
+            var qsAnchored = KatApps.Utils.parseQueryString(this.options.endpoints.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
+            var qsEndpoint = KatApps.Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
+            var qsUrl = KatApps.Utils.extend(qsAnchored, qsEndpoint, includeSelector ? { katapp: this.selector ?? this.id } : {});
+            Object.keys(qsUrl).forEach((key, index) => {
+                url += `${(index == 0 ? "?" : "&")}${key}=${qsUrl[key]}`;
+            });
+        }
         if (!url.startsWith("api/")) {
             url = "api/" + url;
         }
@@ -5891,9 +5894,9 @@ var KatApps;
                 }
                 const localServerUrl = "https://" + currentOptions.debug.debugResourcesDomain + "/KatApp/" + localWebServerFolder + "/" + localWebServerResource;
                 resourceUrl = tryLocalWebServer
-                    ? localServerUrl.substring(0, 4) + localServerUrl.substring(5) + location.search
+                    ? localServerUrl.substring(0, 4) + localServerUrl.substring(5)
                     : !isResourceInManagementSite
-                        ? currentOptions.endpoints.baseUrl + resourceName.substring(1) + location.search
+                        ? currentOptions.endpoints.baseUrl + resourceName.substring(1)
                         : currentOptions.endpoints.katDataStore;
                 if (!tryLocalWebServer && isResourceInManagementSite) {
                     resourceUrl = resourceUrl.replace("{name}", resourceName) + `?folders=${resourceParts[0].split("|").join(",")}&preferTest=${version == "Test"}`;

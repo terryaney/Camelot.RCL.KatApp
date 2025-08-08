@@ -199,9 +199,9 @@ namespace KatApps {
 
 				const localServerUrl = "https://" + currentOptions.debug.debugResourcesDomain + "/KatApp/" + localWebServerFolder + "/" + localWebServerResource;
 				resourceUrl = tryLocalWebServer
-					? localServerUrl.substring(0, 4) + localServerUrl.substring(5) + location.search
+					? localServerUrl.substring(0, 4) + localServerUrl.substring(5) // + location.search
 					: !isResourceInManagementSite
-						? currentOptions.endpoints.baseUrl + resourceName.substring(1) + location.search
+						? currentOptions.endpoints.baseUrl + resourceName.substring(1) // + location.search
 						: currentOptions.endpoints.katDataStore;
 
 				if (!tryLocalWebServer && isResourceInManagementSite) {

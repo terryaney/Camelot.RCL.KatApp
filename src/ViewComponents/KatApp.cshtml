@@ -43,7 +43,7 @@
 						"jwtDataUpdates": "@Model.JwtDataUpdatesEndpoint",
 						"katDataStore": "@Model.KatDataStoreEndpoint",
 						"manualResults": @Html.Raw( Model.ManualResultsEndpoint ),
-						"resourceStrings": "api/katapp/resource-strings",
+						"resourceStrings": @Html.Raw( Model.ResourceStringsEndpoint ),
 						"anchoredQueryStrings": "@Html.Raw( Model.AnchoredQueryStrings )",
 						"relativePathTemplates": @Html.Raw( Model.RelativePathTemplates ),
 					},

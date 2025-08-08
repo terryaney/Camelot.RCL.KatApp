@@ -779,7 +779,7 @@ class KatApp implements IKatApp {
 			 KatApps.Utils.trace(this, "KatApp", "mountAsync", `CalcEngines configured`, TraceVerbosity.Detailed);
 
 			if (this.options.resourceStrings == undefined && this.options.endpoints.resourceStrings != undefined) {
-				const apiUrl = this.getApiUrl(this.options.endpoints.resourceStrings);
+				const apiUrl = this.getApiUrl(this.options.endpoints.resourceStrings, false, false);
 
 				try {
 					const response = await fetch(apiUrl.url, {
@@ -811,7 +811,7 @@ class KatApp implements IKatApp {
 			}
 
 			if (this.options.manualResults == undefined && this.options.endpoints.manualResults != undefined) {
-				const apiUrl = this.getApiUrl(this.options.endpoints.manualResults);
+				const apiUrl = this.getApiUrl(this.options.endpoints.manualResults, false, false);
 
 				try {
 					const response = await fetch(apiUrl.url, {
@@ -1702,18 +1702,21 @@ Type 'help' to see available options displayed in the console.`;
 		// window.URL.revokeObjectURL(url);
 	}
 
-	private getApiUrl(endpoint: string, includeSelector: boolean = false): { url: string, endpoint: string } {
+	private getApiUrl(endpoint: string, includeSelector: boolean = false, includeQueryStrings: boolean = true): { url: string, endpoint: string } {
 		const urlParts = this.options.endpoints.calculation.split("?");
 		const endpointParts = endpoint.split("?");
 
-		var qsAnchored = KatApps.Utils.parseQueryString(this.options.endpoints.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
-		var qsEndpoint = KatApps.Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
-		var qsUrl = KatApps.Utils.extend<IStringIndexer<string>>(qsAnchored, qsEndpoint, includeSelector ? { katapp: this.selector ?? this.id } : {});
+		let url = endpoint;
 
-		let url = endpointParts[0];
-		Object.keys(qsUrl).forEach((key, index) => {
-			url += `${(index == 0 ? "?" : "&")}${key}=${qsUrl[key]}`;
-		});
+		if (includeQueryStrings) {
+			url = endpointParts[0];
+			var qsAnchored = KatApps.Utils.parseQueryString(this.options.endpoints.anchoredQueryStrings ?? (urlParts.length == 2 ? urlParts[1] : undefined));
+			var qsEndpoint = KatApps.Utils.parseQueryString(endpointParts.length == 2 ? endpointParts[1] : undefined);
+			var qsUrl = KatApps.Utils.extend<IStringIndexer<string>>(qsAnchored, qsEndpoint, includeSelector ? { katapp: this.selector ?? this.id } : {});
+			Object.keys(qsUrl).forEach((key, index) => {
+				url += `${(index == 0 ? "?" : "&")}${key}=${qsUrl[key]}`;
+			});
+		}
 
 		if (!url.startsWith("api/")) {
 			url = "api/" + url;

@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using System.Net;
 using System.Text.RegularExpressions;
-
+using KAT.Camelot.Domain.Web.Extensions;
 namespace KAT.Camelot.RCL.KatApp.ViewComponents;
 
 public class KatApp : ViewComponent
@@ -32,14 +32,16 @@ public class KatApp : ViewComponent
         var katAppId = name.ToLower().Replace( ".", "-" );
         var view = optionsProvider.GetViewById( viewId )!;
         viewId = (string)view[ "id" ]!;
-        
+        		
         // TODO: Put these into IKatAppOptionsProvider
+		var cacheableQueryString = HttpContext.GetQueryString( validKeys: new [] { "siteKey" } );
         var calculationEndpoint = "api/rble/calculation";
 		var jwtDataUpdatesEndpoint = "api/rble/jwtupdate";
 		var verifyKatAppEndpoint = "api/katapp/verify";
         var manualResultsEndpoint = optionsProvider.ManualResultsLastModified != null 
-			? "\"api/katapp/manual-results\"" 
+			? $"\"api/katapp/manual-results{cacheableQueryString}\"" 
 			: "undefined";
+		var resourceStringsEndpoint = $"\"api/katapp/resource-strings{cacheableQueryString}\"";
 
 		// KatApp Framework expects to find a 'name' token
         var katDataStoreEndpoint = katDataStoreEndpointRegex.Replace( $"{optionsProvider.KatDataStoreEndpoint}{Abstractions.Api.Contracts.DataLocker.V1.ApiEndpoints.KatApps.Download}", "{name}" );
@@ -64,6 +66,10 @@ public class KatApp : ViewComponent
 		// No support for Kamls in Kat Data Store...
 		var katAppResourceList = Array.Empty<Abstractions.Api.Contracts.DataLocker.V1.Responses.KatAppResourceListItem>(); // await dataLockerService.GetKatAppResourceListAsync( theKeep.KamlFolders );
 		var latestViewName = katAppHelper.GetKamlViewName( katAppResourceList, (string)view[ "view" ]! );
+		if ( latestViewName.StartsWith( "Rel:" ) )
+		{
+			latestViewName += cacheableQueryString;
+		}
 
         var localTemplates =
             katAppHelper.KamlFolders
@@ -94,7 +100,7 @@ public class KatApp : ViewComponent
                         .ToArray();
                 } )
                 .Where( t => t.Template.StartsWith( "Rel:" ) )
-                .ToDictionary( k => k.Name, v => v.Template );
+                .ToDictionary( k => k.Name, v => $"{v.Template}{cacheableQueryString}" );
 
 		return View( 
             "/ViewComponents/KatApp.cshtml",
@@ -110,6 +116,7 @@ public class KatApp : ViewComponent
                 VerifyKatAppEndpoint = verifyKatAppEndpoint,
 				JwtDataUpdatesEndpoint = jwtDataUpdatesEndpoint,
                 ManualResultsEndpoint = manualResultsEndpoint,
+                ResourceStringsEndpoint = resourceStringsEndpoint,
                 KatDataStoreEndpoint = katDataStoreEndpoint,
                 AnchoredQueryStrings = anchoredQueryStrings,
                 ManualInputs = inputs.ToJsonString(),
@@ -151,6 +158,7 @@ public class KatApp : ViewComponent
 		public required string JwtDataUpdatesEndpoint { get; init; }
         public required string KatDataStoreEndpoint { get; init; }
         public required string ManualResultsEndpoint { get; init; }
+		public required string ResourceStringsEndpoint { get; init; }
         public required string AnchoredQueryStrings { get; init; }
         public required string ManualInputs { get; init; }
         public required string RelativePathTemplates { get; init; }
