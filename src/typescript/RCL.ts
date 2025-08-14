@@ -226,19 +226,24 @@ declare const KatApps: KatAppsStatic;
 						console.group(logTitle + " KatApp calculation");
 
 						if (lastCalculation != undefined) {
-							console.log("Inputs", lastCalculation.inputs);
-							
 							const results = application.options.manualResults != undefined
 								? [...lastCalculation.results, ...application.options.manualResults]
 								: [...lastCalculation.results];
 
+							console.log("Inputs", lastCalculation.inputs);
 							console.log("Results", results);
 
-							if (lastCalculation.diagnostics != undefined) {
-								console.log("Diagnostics", lastCalculation.diagnostics);
-							}
-							if (lastCalculation.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0) {
-								console.log("EndpointDiagnostics", lastCalculation.endpointDiagnostics);
+							if (lastCalculation.diagnostics != undefined || lastCalculation.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0) {
+								const diagnostics: { rble?: Array<IRblCalculationDiagnostics>, endpoint?: Array<string> } = { };
+
+								if (lastCalculation.diagnostics != undefined) {
+									diagnostics[ "rble"] = lastCalculation.diagnostics.filter(d => d != undefined) as Array<IRblCalculationDiagnostics>;
+								}
+								if (lastCalculation.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0) {
+									diagnostics[ "endpoint"] = lastCalculation.endpointDiagnostics;
+								}
+
+								console.log("Diagnostics", diagnostics);
 							}
 						}
 
