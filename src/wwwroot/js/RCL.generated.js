@@ -170,7 +170,7 @@
                             console.error("CurrentPage is set in the ISubmitApiConfiguration value.  This is not allowed.  Determine what is using it and how to fix.");
                         }
                         const logTitle = title ?? application.options.currentPage;
-                        console.group(logTitle + " KatApp calculation");
+                        console.groupCollapsed(logTitle + " KatApp calculation");
                         if (lastCalculation != undefined) {
                             const results = application.options.manualResults != undefined
                                 ? [...lastCalculation.results, ...application.options.manualResults]

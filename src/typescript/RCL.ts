@@ -223,7 +223,7 @@ declare const KatApps: KatAppsStatic;
 						}
 
 						const logTitle = title ?? application.options.currentPage;
-						console.group(logTitle + " KatApp calculation");
+						console.groupCollapsed(logTitle + " KatApp calculation");
 
 						if (lastCalculation != undefined) {
 							const results = application.options.manualResults != undefined
