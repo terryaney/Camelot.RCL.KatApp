@@ -233,7 +233,7 @@ declare const KatApps: KatAppsStatic;
 							console.log("Inputs", lastCalculation.inputs);
 							console.log("Results", results);
 
-							if (lastCalculation.diagnostics != undefined || lastCalculation.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0) {
+							if (lastCalculation.diagnostics != undefined || (lastCalculation.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0)) {
 								const diagnostics: { rble?: Array<IRblCalculationDiagnostics>, endpoint?: Array<string> } = { };
 
 								if (lastCalculation.diagnostics != undefined) {

@@ -177,7 +177,7 @@
                                 : [...lastCalculation.results];
                             console.log("Inputs", lastCalculation.inputs);
                             console.log("Results", results);
-                            if (lastCalculation.diagnostics != undefined || lastCalculation.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0) {
+                            if (lastCalculation.diagnostics != undefined || (lastCalculation.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0)) {
                                 const diagnostics = {};
                                 if (lastCalculation.diagnostics != undefined) {
                                     diagnostics["rble"] = lastCalculation.diagnostics.filter(d => d != undefined);
