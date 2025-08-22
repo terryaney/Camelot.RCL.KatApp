@@ -146,13 +146,12 @@
                 };
                 events.rendered = initializationErrors => {
                     if (initializationErrors != undefined && initializationErrors.length > 0) {
-                        that.hideLoader(false);
+                        that.hideLoader(unhandledException);
                     }
                 };
                 events.calculationErrors = (key, exception, application) => {
                     if (key == "SubmitCalculation.ConfigureUI") {
                         unhandledException = true;
-                        console.error({ exception });
                         that.showUnexpectedError(application);
                     }
                 };

@@ -191,7 +191,7 @@ declare const KatApps: KatAppsStatic;
 
 				events.rendered = initializationErrors => {
 					if (initializationErrors != undefined && initializationErrors.length > 0) {
-						that.hideLoader(false);
+						that.hideLoader(unhandledException);
 					}
 				};
 
@@ -199,7 +199,6 @@ declare const KatApps: KatAppsStatic;
 					if (key == "SubmitCalculation.ConfigureUI") {
 						// KatApp loaded, but error occurred during processing and don't even have results to show/hide things appropriately
 						unhandledException = true;
-						console.error({ exception });
 						that.showUnexpectedError(application);
 					}
 				};
