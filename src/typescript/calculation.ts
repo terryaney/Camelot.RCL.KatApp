@@ -190,8 +190,8 @@
 	
 			} catch (e) {
 				const errorResponse = e as IApiErrorResponse;
-				const exceptions = errorResponse.exceptions ?? [];
-	
+				const exceptions = errorResponse.exceptions ?? [errorResponse as unknown as IExceptionDetail];
+
 				const response: ICalculationFailedResponse = {
 					calcEngine: (submitData.configuration as ISubmitCalculationConfiguration).calcEngines.map(c => c.name).join(", "),
 					configuration: submitData.configuration,

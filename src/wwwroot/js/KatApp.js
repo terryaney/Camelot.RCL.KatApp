@@ -2227,7 +2227,7 @@ var KatApps;
             }
             catch (e) {
                 const errorResponse = e;
-                const exceptions = errorResponse.exceptions ?? [];
+                const exceptions = errorResponse.exceptions ?? [errorResponse];
                 const response = {
                     calcEngine: submitData.configuration.calcEngines.map(c => c.name).join(", "),
                     configuration: submitData.configuration,
