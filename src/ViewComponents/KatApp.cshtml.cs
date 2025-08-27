@@ -1,6 +1,7 @@
 using KAT.Camelot.Domain.Extensions;
 using KAT.Camelot.Domain.Security.Cryptography;
 using KAT.Camelot.Domain.Web.Configuration;
+using KAT.Camelot.Domain.Web.KatApps;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -13,13 +14,15 @@ public class KatApp : ViewComponent
 {
 	private readonly KatAppHelper katAppHelper;
 	private readonly IKatAppOptionsProvider optionsProvider;
+	private readonly KatAppConfigurationOptions options;
 	private readonly GlobalSiteSettings globalSiteSettings;
 	private readonly IHttpContextAccessor httpContextAccessor;
 
-	public KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, GlobalSiteSettings globalSiteSettings, IHttpContextAccessor httpContextAccessor )
+	public KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions options, GlobalSiteSettings globalSiteSettings, IHttpContextAccessor httpContextAccessor )
     {
 		this.katAppHelper = katAppHelper;
 		this.optionsProvider = optionsProvider;
+		this.options = options;
 		this.globalSiteSettings = globalSiteSettings;
 		this.httpContextAccessor = httpContextAccessor;
 	}
@@ -35,13 +38,13 @@ public class KatApp : ViewComponent
         		
         // TODO: Put these into IKatAppOptionsProvider
 		var cacheableQueryString = HttpContext.GetQueryString( validKeys: new [] { "siteKey" } ) ?? "";
-        var calculationEndpoint = "api/rble/calculation";
-		var jwtDataUpdatesEndpoint = "api/rble/jwtupdate";
-		var verifyKatAppEndpoint = "api/katapp/verify";
+        var calculationEndpoint = options.Endpoints.Calculation[ 1.. ];
+		var jwtDataUpdatesEndpoint = options.Endpoints.JwtDataUpdates[ 1.. ];
+		var verifyKatAppEndpoint = options.Endpoints.Verify[ 1.. ];
         var manualResultsEndpoint = optionsProvider.ManualResultsLastModified != null 
-			? $"\"api/katapp/manual-results\"" 
-			: "undefined";
-		var resourceStringsEndpoint = "api/katapp/resource-strings";
+			? $"\"{options.Endpoints.ManualResults[ 1.. ]}\"" 
+			: "undefined"; // indicates no results for this katapp, so no call needed
+		var resourceStringsEndpoint = options.Endpoints.ResourceStrings[ 1.. ];
 
 		// KatApp Framework expects to find a 'name' token
         var katDataStoreEndpoint = katDataStoreEndpointRegex.Replace( $"{optionsProvider.KatDataStoreEndpoint}{Abstractions.Api.Contracts.DataLocker.V1.ApiEndpoints.KatApps.Download}", "{name}" );
