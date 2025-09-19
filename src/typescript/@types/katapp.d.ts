@@ -916,6 +916,7 @@ interface IModalOptions {
     css?: {
         cancel?: string;
         continue?: string;
+        modal?: string;
     };
     size?: "xl" | "lg" | "md" | "sm";
     scrollable?: boolean;

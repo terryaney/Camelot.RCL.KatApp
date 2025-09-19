@@ -1149,7 +1149,7 @@ Type 'help' to see available options displayed in the console.`;
 			(this.options.modalAppOptions.contentSelector != undefined ? `selector: ${this.options.modalAppOptions.contentSelector}` : "static content");
 		
 		const modalHtml =
-`<div v-scope class="modal fade kaModal" tabindex="-1" aria-modal="true" aria-labelledby="kaModalLabel" role="dialog" data-bs-backdrop="static"
+`<div v-scope class="modal fade kaModal ${options.css!.modal}" tabindex="-1" aria-modal="true" aria-labelledby="kaModalLabel" role="dialog" data-bs-backdrop="static"
 	:data-bs-keyboard="application.options.modalAppOptions.allowKeyboardDismiss"
 	data-view-name="${viewName}">
 	
