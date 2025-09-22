@@ -1,4 +1,4 @@
-using KAT.Camelot.Domain.Extensions;
+using KAT.Camelot.Domain;
 using KAT.Camelot.Domain.Security.Cryptography;
 using KAT.Camelot.Domain.Web.Configuration;
 using KAT.Camelot.Domain.Web.KatApps;
@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using System.Net;
 using System.Text.RegularExpressions;
-using KAT.Camelot.Domain.Web.Extensions;
+using KAT.Camelot.Domain.Web;
 namespace KAT.Camelot.RCL.KatApp.ViewComponents;
 
 public class KatApp : ViewComponent

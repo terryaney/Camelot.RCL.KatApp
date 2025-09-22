@@ -1,7 +1,7 @@
 using System.Net;
 using FastEndpoints;
 using KAT.Camelot.Domain.Services;
-using KAT.Camelot.Infrastructure.Web.Extensions;
+using KAT.Camelot.Infrastructure.Web;
 using Microsoft.AspNetCore.Http;
 using Serilog.Context;
 

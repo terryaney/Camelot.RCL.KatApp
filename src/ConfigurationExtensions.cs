@@ -5,10 +5,10 @@ using Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Hosting;
 
-using KAT.Camelot.Domain.Extensions;
+using KAT.Camelot.Domain;
 using KAT.Camelot.RCL.KatApp;
 
-namespace KAT.Camelot.Infrastructure.Web.Extensions;
+namespace KAT.Camelot.Infrastructure.Web;
 
 public class KatAppRclUseOptions : CamelotUseOptions
 {
