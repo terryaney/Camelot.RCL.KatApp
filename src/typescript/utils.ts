@@ -196,7 +196,7 @@
 		}
 
 		public static formatCurrency(intl: { currentCulture: string | Array<string>, currencyCode: string }, amount: number, format: string): string {
-			const decimalPlaces = parseInt(format.slice(1)) || 0; // Extract decimal places from format (e.g., "N2" -> 2)
+			const decimalPlaces = parseInt(format.slice(1)) ?? 2; // Extract decimal places from format (e.g., "N2" -> 2)
 
 			return Intl.NumberFormat(intl.currentCulture, {
 				style: "currency",
@@ -210,7 +210,7 @@
 			if (format[0] == "c") return this.formatCurrency(intl, value, format);
 			
 			const useGrouping = format.toLowerCase().startsWith("n"); // 'N' for grouping, 'F' for fixed-point
-			const decimalPlaces = parseInt(format.slice(1)) || 0; // Extract decimal places from format (e.g., "N2" -> 2)
+			const decimalPlaces = parseInt(format.slice(1)) ?? 0; // Extract decimal places from format (e.g., "N2" -> 2)
 		
 			return Intl.NumberFormat(intl.currentCulture, {
 				style: "decimal",
@@ -221,7 +221,7 @@
 		}
 
 		public static formatPercent(locales: string | Array<string>, value: number, format: string = "p", divideBy100?: boolean) {
-			const decimalPlaces = parseInt(format.slice(1)) || 0; // Extract decimal places from format (e.g., "P2" -> 2)
+			const decimalPlaces = parseInt(format.slice(1)) ?? 0; // Extract decimal places from format (e.g., "P2" -> 2)
 			
 			let pValue = value;
 			

@@ -6312,7 +6312,7 @@ var KatApps;
             options.delegates.removeSessionItem(options.delegates.getSessionKey(key));
         }
         static formatCurrency(intl, amount, format) {
-            const decimalPlaces = parseInt(format.slice(1)) || 0;
+            const decimalPlaces = parseInt(format.slice(1)) ?? 2;
             return Intl.NumberFormat(intl.currentCulture, {
                 style: "currency",
                 currency: intl.currencyCode,
@@ -6324,7 +6324,7 @@ var KatApps;
             if (format[0] == "c")
                 return this.formatCurrency(intl, value, format);
             const useGrouping = format.toLowerCase().startsWith("n");
-            const decimalPlaces = parseInt(format.slice(1)) || 0;
+            const decimalPlaces = parseInt(format.slice(1)) ?? 0;
             return Intl.NumberFormat(intl.currentCulture, {
                 style: "decimal",
                 useGrouping: useGrouping,
@@ -6333,7 +6333,7 @@ var KatApps;
             }).format(value);
         }
         static formatPercent(locales, value, format = "p", divideBy100) {
-            const decimalPlaces = parseInt(format.slice(1)) || 0;
+            const decimalPlaces = parseInt(format.slice(1)) ?? 0;
             let pValue = value;
             if (divideBy100 === true || (pValue > 1 && divideBy100 == undefined)) {
                 pValue = pValue / 100;
