@@ -558,7 +558,7 @@ class KatApp implements IKatApp {
 				}
 
 				if (el.tagName == "SCRIPT") {
-					new Function("_a", "_s", el.textContent + "\nif ( typeof mounted !== 'undefined' ) mounted(_a, _s);")(that, scope);
+					new Function("_a", "_s", "_r", "_m", "_i", "_h", el.textContent + "\nif ( typeof mounted !== 'undefined' ) mounted(_a, _s, _r, _m, _i, _h);")(that, scope, that.state.rbl, that.state.model, that.state.inputs, that.state.handlers);
 					el.remove(); // Remove script tag just to keep content clean
 				}
 				else if (el.tagName == "STYLE") {
@@ -577,7 +577,7 @@ class KatApp implements IKatApp {
 					that.mountedTemplates[oneTimeId] = true;
 				}
 
-				new Function("_a", "_s", el.textContent + "\nif ( typeof unmounted !== 'undefined' ) unmounted(_a, _s);")(that, scope);
+				new Function("_a", "_s", "_r", "_m", "_i", "_h", el.textContent + "\nif ( typeof unmounted !== 'undefined' ) unmounted(_a, _s, _r, _m, _i, _h);")(that, scope, that.state.rbl, that.state.model, that.state.inputs, that.state.handlers);
 			}
 		};
 
@@ -949,7 +949,7 @@ class KatApp implements IKatApp {
 			const isConfigureUICalculation = this.calcEngines.filter(c => c.allowConfigureUi && c.enabled && !c.manualResult).length > 0;
 
 			// initialized event might have called apis and got errors, so we don't want to clear out errors or run calculation
-			if (cloneApplication == undefined && this.state.errors.length == 0 && isConfigureUICalculation) {
+			if (cloneApplication == undefined && !this.hasErrors() && isConfigureUICalculation) {
 				this.handleEvents(events => {
 					events.calculationErrors = async (key, exception) => {
 						if (key == "SubmitCalculation.ConfigureUI") {
@@ -974,7 +974,7 @@ class KatApp implements IKatApp {
 			}
 
 			this.state.errors.forEach(error => error.initialization = true);
-			const initializationErrors = this.state.errors.length > 0;
+			const initializationErrors = this.hasErrors();
 
 			this.vueApp = PetiteVue.createApp(this.state);
 
@@ -1155,7 +1155,7 @@ Type 'help' to see available options displayed in the console.`;
 	
 	<div class="modal-dialog">
 		<div class="modal-content" v-scope="{
-				get hasInitializationError() { return application.state.errors.find( r => r.initialization ) != undefined; },
+				get hasInitializationError() { return application.hasErrors( r => r.initialization ); },
 				get title() { return application.getLocalizedString(application.options.modalAppOptions.labels.title); },
 				get hasHeaderTemplate() { return application.options.modalAppOptions.headerTemplate != undefined; }
 			}">
@@ -1247,7 +1247,7 @@ Type 'help' to see available options displayed in the console.`;
 	
 			// if any errors during initialized event or during iConfigureUI calculation, modal is probably 'dead', show a 'close' button and
 			// just trigger a cancelled
-			const isInvalid = this.state.errors.length > 0;
+			const isInvalid = this.hasErrors();
 			const hasCustomHeader = options.headerTemplate != undefined;
 			const hasCustomButtons = options.buttonsTemplate != undefined;
 			// If custom buttons, framework should ignore the options (kaml can use them)
@@ -1407,8 +1407,7 @@ Type 'help' to see available options displayed in the console.`;
 			else {
 				this.isCalculating = true;
 				this.blockUI();
-				this.state.errors = [];
-				this.state.warnings = [];
+				this.clearValidations();
 				this.lastCalculation = undefined;
 
 				try {
@@ -1533,8 +1532,7 @@ Type 'help' to see available options displayed in the console.`;
 		const isDownload = apiOptions.isDownload ?? false;
 
 		this.blockUI();
-		this.state.errors = [];
-		this.state.warnings = [];
+		this.clearValidations();
 
 		let successResponse: IStringAnyIndexer | Blob | undefined = undefined;
 		let errorResponse: IApiErrorResponse | undefined = undefined;
@@ -1645,21 +1643,21 @@ Type 'help' to see available options displayed in the console.`;
 
 			if (errorResponse.errors != undefined) {
 				for (var id in errorResponse.errors) {
-					this.state.errors.push({ id: id, text: this.getLocalizedString(errorResponse.errors[id][0])!, dependsOn: errorResponse.errorsDependsOn?.[id] });
+					this.addError(id, this.getLocalizedString(errorResponse.errors[id][0])!, errorResponse.errorsDependsOn?.[id]);
 				}
 			}
 
 			if (errorResponse.warnings != undefined) {
 				for (var id in errorResponse.warnings) {
-                    this.state.warnings.push({ id: id, text: this.getLocalizedString(errorResponse.warnings[id][0])!, dependsOn: errorResponse.warningsDependsOn?.[id] });
+					this.addWarning(id, this.getLocalizedString(errorResponse.warnings[id][0])!, errorResponse.warningsDependsOn?.[id]);
 				}
 			}
 
-			if (this.state.errors.length == 0 && this.state.warnings.length == 0) {
+			if (!this.hasErrors() && this.state.warnings.length == 0) {
 				this.addUnexpectedError(errorResponse);
 			}
 
-			 KatApps.Utils.trace(this, "KatApp", "apiAsync", "Unable to process " + endpoint, TraceVerbosity.None, errorResponse.errors != undefined ? [errorResponse, this.state.errors] : errorResponse);
+			KatApps.Utils.trace(this, "KatApp", "apiAsync", "Unable to process " + endpoint, TraceVerbosity.None, errorResponse);
 
 			await this.triggerEventAsync("apiFailed", apiUrl.endpoint, errorResponse, trigger, apiOptions);
 
@@ -1672,12 +1670,31 @@ Type 'help' to see available options displayed in the console.`;
 			this.unblockUI();
 		}
 	}
-	
+
+	public hasErrors(predicate?: (error: IValidationRow) => boolean): boolean {
+		return this.state.errors.length > 0 && (predicate ? this.state.errors.some(predicate) : true);
+	}
+
+	public errorIs(predicate: (error: IValidationRow) => boolean): boolean {
+		return this.state.errors.length == 1 && this.state.errors.some(predicate);
+	}
+
+	public clearValidations(includeWarnings = true, predicate?: (error: IValidationRow) => boolean): void {
+		this.state.errors = predicate ? this.state.errors.filter(r => !predicate(r)) : [];
+		if (includeWarnings) this.state.warnings = predicate ? this.state.warnings.filter(r => !predicate(r)) : [];
+	}
+
+	public addError(id: string, text: string, dependsOn?: string, event?: string): void {
+		this.state.errors.push({ id, text, dependsOn, event });
+	}
+	public addWarning(id: string, text: string, dependsOn?: string, event?: string): void {
+		this.state.warnings.push({ id, text, dependsOn, event });
+	}
+
 	private addUnexpectedError(errorResponse: any): void {
-		this.state.errors.push(
-			errorResponse.requestId != undefined
-				? { id: "System", text: this.getLocalizedString("KatApps.AddUnexpectedErrorWithRequestId", errorResponse, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.  Please contact Customer Service and provide the following Request ID: {{requestId}}")! }
-				: { id: "System", text: this.getLocalizedString("KatApps.AddUnexpectedError", undefined, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.")! }
+		this.addError("System", errorResponse.requestId != undefined
+			? this.getLocalizedString("KatApps.AddUnexpectedErrorWithRequestId", errorResponse, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.  Please contact Customer Service and provide the following Request ID: {{requestId}}")!
+			: this.getLocalizedString("KatApps.AddUnexpectedError", undefined, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.")!
 		);
 	}
 
@@ -2614,23 +2631,21 @@ Type 'help' to see available options displayed in the console.`;
 										this.setInputValue(r.id!, r["value"]);
 									}
 									if ((r["error"] ?? "") != "") {
-										const v: IValidationRow = { id: r.id!, text: this.getLocalizedString(r.error)!, dependsOn: r.dependsOn };
-										this.state.errors.push(v);
+										this.addError(r.id!, this.getLocalizedString(r.error)!, r.dependsOn)
 									}
 									if ((r["warning"] ?? "") != "") {
-										const v: IValidationRow = { id: r.id!, text: this.getLocalizedString(r.warning)!, dependsOn: r.dependsOn };
-										this.state.warnings.push(v);
+										this.addWarning(r.id!, this.getLocalizedString(r.warning)!, r.dependsOn)
 									}
 									break;
 
 								case "errors":
 									r.text = this.getLocalizedString(r.text)!;
-									this.state.errors.push(r as unknown as IValidationRow);
+									this.addError(r.id!, r.text!, r.dependsOn, r.event);
 									break;
 
 								case "warnings":
 									r.text = this.getLocalizedString(r.text)!;
-									this.state.warnings.push(r as unknown as IValidationRow);
+									this.addWarning(r.id!, r.text!, r.dependsOn, r.event);
 									break;
 
 								case "table-output-control":

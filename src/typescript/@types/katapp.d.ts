@@ -53,6 +53,11 @@ declare class KatApp implements IKatApp {
     notifyAsync(from: KatApp, name: string, information?: IStringAnyIndexer): Promise<void>;
     checkValidity(): boolean;
     apiAsync(endpoint: string, apiOptions?: IApiOptions, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
+    hasErrors(predicate?: (error: IValidationRow) => boolean): boolean;
+    errorIs(predicate: (error: IValidationRow) => boolean): boolean;
+    clearValidations(includeWarnings?: boolean, predicate?: (error: IValidationRow) => boolean): void;
+    addError(id: string, text: string, dependsOn?: string, event?: string): void;
+    addWarning(id: string, text: string, dependsOn?: string, event?: string): void;
     private addUnexpectedError;
     private downloadBlob;
     getApiUrl(endpoint: string, isCacheableApi: boolean): {
@@ -761,7 +766,7 @@ interface IKatAppEventsConfiguration {
      * The 'notification' delegate is invoked when another KatApp wants to notify this application via the `notifyAsync` method.
      * @param {string} name - The name of the notification.
      * @param {IStringAnyIndexer | undefined} information - Optional information to pass along during the notification to contain additional properties other than the notification name (i.e. IDs, messages, etc.).
-     * @param {IKatApp} from - The KatApp that sent the notification.
+     * @param {KatApp} from - The KatApp that sent the notification.
      */
     notification?: (name: string, information: IStringAnyIndexer | undefined, from: IKatApp) => void;
     input?: (name: string, calculate: boolean, input: HTMLElement, scope: IKaInputScope | IKaInputGroupScope) => void;

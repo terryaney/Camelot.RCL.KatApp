@@ -192,7 +192,7 @@ interface IKatAppEventsConfiguration {
 	 * The 'notification' delegate is invoked when another KatApp wants to notify this application via the `notifyAsync` method.
 	 * @param {string} name - The name of the notification.
 	 * @param {IStringAnyIndexer | undefined} information - Optional information to pass along during the notification to contain additional properties other than the notification name (i.e. IDs, messages, etc.).
-	 * @param {IKatApp} from - The KatApp that sent the notification.
+	 * @param {KatApp} from - The KatApp that sent the notification.
 	 */
 	notification?: (name: string, information: IStringAnyIndexer | undefined, from: IKatApp) => void;
 	input?: (name: string, calculate: boolean, input: HTMLElement, scope: IKaInputScope | IKaInputGroupScope) => void;

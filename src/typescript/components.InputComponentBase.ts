@@ -15,16 +15,15 @@ namespace KatApps {
 		protected addValidityValidation(application: KatApp, inputName: string, label: (name: string) => string, input: HTMLInputElement) {
 			if (
 				input.validationMessage != undefined && input.validationMessage != "" &&
-				application.state.errors.find(r => r.id.replace(/ /g, "").split(",").indexOf(inputName) != -1) == undefined
+				!application.hasErrors(r => r.id.replace(/ /g, "").split(",").indexOf(inputName) != -1)
 			) {
-				application.state.errors.push({ id: inputName, text: `${label(inputName)}: ${input.validationMessage}` });
+				application.addError(inputName, `${label(inputName)}: ${input.validationMessage}`);
 			}
 		}
 		protected removeValidations(application: KatApp, inputName: string) {
 			// If event == "input" don't remove on 'change'.  If client validation adds error on 'input' event
 			// the 'change' event would trigger after and core code would automatically remove validation, so needed to preserve
-			application.state.errors = application.state.errors.filter(r => (r.event == "input" || r.id.replace(/ /g, "").split(",").indexOf(inputName) == -1) && (r.dependsOn ?? "").replace(/ /g, "").split(",").indexOf(inputName) == -1);
-			application.state.warnings = application.state.warnings.filter(r => (r.event == "input" || r.id.replace(/ /g, "").split(",").indexOf(inputName) == -1) && (r.dependsOn ?? "").replace(/ /g, "").split(",").indexOf(inputName) == -1);
+			application.clearValidations(true, r => !((r.event == "input" || r.id.replace(/ /g, "").split(",").indexOf(inputName) == -1) && (r.dependsOn ?? "").replace(/ /g, "").split(",").indexOf(inputName) == -1));
 		}
 		protected validationText(application: KatApp, validations: Array<IValidationRow>, inputName: string) {
 			var validation = validations.find(r => r.id.replace(/ /g, "").split(",").indexOf(inputName) > -1);

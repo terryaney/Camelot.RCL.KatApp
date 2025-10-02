@@ -407,7 +407,7 @@ class KatApp {
                     that.mountedTemplates[oneTimeId] = true;
                 }
                 if (el.tagName == "SCRIPT") {
-                    new Function("_a", "_s", el.textContent + "\nif ( typeof mounted !== 'undefined' ) mounted(_a, _s);")(that, scope);
+                    new Function("_a", "_s", "_r", "_m", "_i", "_h", el.textContent + "\nif ( typeof mounted !== 'undefined' ) mounted(_a, _s, _r, _m, _i, _h);")(that, scope, that.state.rbl, that.state.model, that.state.inputs, that.state.handlers);
                     el.remove();
                 }
                 else if (el.tagName == "STYLE") {
@@ -424,7 +424,7 @@ class KatApp {
                     }
                     that.mountedTemplates[oneTimeId] = true;
                 }
-                new Function("_a", "_s", el.textContent + "\nif ( typeof unmounted !== 'undefined' ) unmounted(_a, _s);")(that, scope);
+                new Function("_a", "_s", "_r", "_m", "_i", "_h", el.textContent + "\nif ( typeof unmounted !== 'undefined' ) unmounted(_a, _s, _r, _m, _i, _h);")(that, scope, that.state.rbl, that.state.model, that.state.inputs, that.state.handlers);
             }
         };
         this.state = PetiteVue.reactive(state);
@@ -689,7 +689,7 @@ class KatApp {
             }
             this.initializeInspector();
             const isConfigureUICalculation = this.calcEngines.filter(c => c.allowConfigureUi && c.enabled && !c.manualResult).length > 0;
-            if (cloneApplication == undefined && this.state.errors.length == 0 && isConfigureUICalculation) {
+            if (cloneApplication == undefined && !this.hasErrors() && isConfigureUICalculation) {
                 this.handleEvents(events => {
                     events.calculationErrors = async (key, exception) => {
                         if (key == "SubmitCalculation.ConfigureUI") {
@@ -711,7 +711,7 @@ class KatApp {
                 }
             }
             this.state.errors.forEach(error => error.initialization = true);
-            const initializationErrors = this.state.errors.length > 0;
+            const initializationErrors = this.hasErrors();
             this.vueApp = PetiteVue.createApp(this.state);
             KatApps.Directives.initializeCoreDirectives(this.vueApp, this);
             if (this.configureOptions != undefined) {
@@ -855,7 +855,7 @@ Type 'help' to see available options displayed in the console.`;
 	
 	<div class="modal-dialog">
 		<div class="modal-content" v-scope="{
-				get hasInitializationError() { return application.state.errors.find( r => r.initialization ) != undefined; },
+				get hasInitializationError() { return application.hasErrors( r => r.initialization ); },
 				get title() { return application.getLocalizedString(application.options.modalAppOptions.labels.title); },
 				get hasHeaderTemplate() { return application.options.modalAppOptions.headerTemplate != undefined; }
 			}">
@@ -930,7 +930,7 @@ Type 'help' to see available options displayed in the console.`;
                 closeModal();
                 options.promise.resolve({ confirmed: false, data: data instanceof Event ? undefined : data, modalApp: that });
             };
-            const isInvalid = this.state.errors.length > 0;
+            const isInvalid = this.hasErrors();
             const hasCustomHeader = options.headerTemplate != undefined;
             const hasCustomButtons = options.buttonsTemplate != undefined;
             const tryCancelClickOnClose = hasCustomButtons || (options.showCancel ?? true);
@@ -1038,8 +1038,7 @@ Type 'help' to see available options displayed in the console.`;
             else {
                 this.isCalculating = true;
                 this.blockUI();
-                this.state.errors = [];
-                this.state.warnings = [];
+                this.clearValidations();
                 this.lastCalculation = undefined;
                 try {
                     const inputs = getSubmitApiConfigurationResults.inputs;
@@ -1122,8 +1121,7 @@ Type 'help' to see available options displayed in the console.`;
         apiOptions = apiOptions ?? {};
         const isDownload = apiOptions.isDownload ?? false;
         this.blockUI();
-        this.state.errors = [];
-        this.state.warnings = [];
+        this.clearValidations();
         let successResponse = undefined;
         let errorResponse = undefined;
         const apiUrl = this.getApiUrl(endpoint, false);
@@ -1208,18 +1206,18 @@ Type 'help' to see available options displayed in the console.`;
             errorResponse = e ?? {};
             if (errorResponse.errors != undefined) {
                 for (var id in errorResponse.errors) {
-                    this.state.errors.push({ id: id, text: this.getLocalizedString(errorResponse.errors[id][0]), dependsOn: errorResponse.errorsDependsOn?.[id] });
+                    this.addError(id, this.getLocalizedString(errorResponse.errors[id][0]), errorResponse.errorsDependsOn?.[id]);
                 }
             }
             if (errorResponse.warnings != undefined) {
                 for (var id in errorResponse.warnings) {
-                    this.state.warnings.push({ id: id, text: this.getLocalizedString(errorResponse.warnings[id][0]), dependsOn: errorResponse.warningsDependsOn?.[id] });
+                    this.addWarning(id, this.getLocalizedString(errorResponse.warnings[id][0]), errorResponse.warningsDependsOn?.[id]);
                 }
             }
-            if (this.state.errors.length == 0 && this.state.warnings.length == 0) {
+            if (!this.hasErrors() && this.state.warnings.length == 0) {
                 this.addUnexpectedError(errorResponse);
             }
-            KatApps.Utils.trace(this, "KatApp", "apiAsync", "Unable to process " + endpoint, TraceVerbosity.None, errorResponse.errors != undefined ? [errorResponse, this.state.errors] : errorResponse);
+            KatApps.Utils.trace(this, "KatApp", "apiAsync", "Unable to process " + endpoint, TraceVerbosity.None, errorResponse);
             await this.triggerEventAsync("apiFailed", apiUrl.endpoint, errorResponse, trigger, apiOptions);
             throw new ApiError("Unable to complete API submitted to " + endpoint, e instanceof Error ? e : undefined, errorResponse);
         }
@@ -1228,10 +1226,27 @@ Type 'help' to see available options displayed in the console.`;
             this.unblockUI();
         }
     }
+    hasErrors(predicate) {
+        return this.state.errors.length > 0 && (predicate ? this.state.errors.some(predicate) : true);
+    }
+    errorIs(predicate) {
+        return this.state.errors.length == 1 && this.state.errors.some(predicate);
+    }
+    clearValidations(includeWarnings = true, predicate) {
+        this.state.errors = predicate ? this.state.errors.filter(r => !predicate(r)) : [];
+        if (includeWarnings)
+            this.state.warnings = predicate ? this.state.warnings.filter(r => !predicate(r)) : [];
+    }
+    addError(id, text, dependsOn, event) {
+        this.state.errors.push({ id, text, dependsOn, event });
+    }
+    addWarning(id, text, dependsOn, event) {
+        this.state.warnings.push({ id, text, dependsOn, event });
+    }
     addUnexpectedError(errorResponse) {
-        this.state.errors.push(errorResponse.requestId != undefined
-            ? { id: "System", text: this.getLocalizedString("KatApps.AddUnexpectedErrorWithRequestId", errorResponse, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.  Please contact Customer Service and provide the following Request ID: {{requestId}}") }
-            : { id: "System", text: this.getLocalizedString("KatApps.AddUnexpectedError", undefined, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.") });
+        this.addError("System", errorResponse.requestId != undefined
+            ? this.getLocalizedString("KatApps.AddUnexpectedErrorWithRequestId", errorResponse, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.  Please contact Customer Service and provide the following Request ID: {{requestId}}")
+            : this.getLocalizedString("KatApps.AddUnexpectedError", undefined, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution."));
     }
     downloadBlob(blob, fileName) {
         const url = window.URL.createObjectURL(blob);
@@ -1869,21 +1884,19 @@ Type 'help' to see available options displayed in the console.`;
                                     this.setInputValue(r.id, r["value"]);
                                 }
                                 if ((r["error"] ?? "") != "") {
-                                    const v = { id: r.id, text: this.getLocalizedString(r.error), dependsOn: r.dependsOn };
-                                    this.state.errors.push(v);
+                                    this.addError(r.id, this.getLocalizedString(r.error), r.dependsOn);
                                 }
                                 if ((r["warning"] ?? "") != "") {
-                                    const v = { id: r.id, text: this.getLocalizedString(r.warning), dependsOn: r.dependsOn };
-                                    this.state.warnings.push(v);
+                                    this.addWarning(r.id, this.getLocalizedString(r.warning), r.dependsOn);
                                 }
                                 break;
                             case "errors":
                                 r.text = this.getLocalizedString(r.text);
-                                this.state.errors.push(r);
+                                this.addError(r.id, r.text, r.dependsOn, r.event);
                                 break;
                             case "warnings":
                                 r.text = this.getLocalizedString(r.text);
-                                this.state.warnings.push(r);
+                                this.addWarning(r.id, r.text, r.dependsOn, r.event);
                                 break;
                             case "table-output-control":
                                 if ((r["export"] == "-1" || r["export"] == "1") && t[r.id] == undefined) {
@@ -2293,13 +2306,12 @@ var KatApps;
         };
         addValidityValidation(application, inputName, label, input) {
             if (input.validationMessage != undefined && input.validationMessage != "" &&
-                application.state.errors.find(r => r.id.replace(/ /g, "").split(",").indexOf(inputName) != -1) == undefined) {
-                application.state.errors.push({ id: inputName, text: `${label(inputName)}: ${input.validationMessage}` });
+                !application.hasErrors(r => r.id.replace(/ /g, "").split(",").indexOf(inputName) != -1)) {
+                application.addError(inputName, `${label(inputName)}: ${input.validationMessage}`);
             }
         }
         removeValidations(application, inputName) {
-            application.state.errors = application.state.errors.filter(r => (r.event == "input" || r.id.replace(/ /g, "").split(",").indexOf(inputName) == -1) && (r.dependsOn ?? "").replace(/ /g, "").split(",").indexOf(inputName) == -1);
-            application.state.warnings = application.state.warnings.filter(r => (r.event == "input" || r.id.replace(/ /g, "").split(",").indexOf(inputName) == -1) && (r.dependsOn ?? "").replace(/ /g, "").split(",").indexOf(inputName) == -1);
+            application.clearValidations(true, r => !((r.event == "input" || r.id.replace(/ /g, "").split(",").indexOf(inputName) == -1) && (r.dependsOn ?? "").replace(/ /g, "").split(",").indexOf(inputName) == -1));
         }
         validationText(application, validations, inputName) {
             var validation = validations.find(r => r.id.replace(/ /g, "").split(",").indexOf(inputName) > -1);
