@@ -2252,7 +2252,8 @@ var KatApps;
                         requestId: ex.requestId,
                         stackTrace: ex.stackTrace,
                         apiResult: errorResponse.apiResult,
-                        apiPayload: errorResponse.apiPayload
+                        apiPayload: errorResponse.apiPayload,
+                        innerException: ex.innerException
                     }))
                 };
                 throw new CalculationError("Unable to complete calculation(s)", [response]);

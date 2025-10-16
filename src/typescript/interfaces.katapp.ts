@@ -472,6 +472,7 @@ interface ICalculationResponseException {
 	apiResult?: IStringAnyIndexer;
 	apiPayload?: IStringAnyIndexer;
 	stackTrace: string[];
+	innerException?: ICalculationResponseException;
 }
 
 

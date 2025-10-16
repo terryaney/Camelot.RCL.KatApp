@@ -1002,6 +1002,7 @@ interface ICalculationResponseException {
     apiResult?: IStringAnyIndexer;
     apiPayload?: IStringAnyIndexer;
     stackTrace: string[];
+    innerException?: ICalculationResponseException;
 }
 interface IKaResourceModel {
     key?: string;
