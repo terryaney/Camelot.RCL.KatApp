@@ -69,7 +69,7 @@ declare const KatApps: KatAppsStatic;
 					validationSummary.classList.remove(c);
 				}
 			});
-			validationSummary.id = application.id + "_ModelerValidationTable";
+			validationSummary.id = application.id + "_Host_ModelerValidationTable";
 
 			template = document.createElement('template');
 			template.innerHTML = `<li>${application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.")}</li>`;
