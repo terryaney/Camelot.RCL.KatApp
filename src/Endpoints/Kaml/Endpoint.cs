@@ -3,24 +3,17 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 using KAT.Camelot.Domain.Services;
-using KAT.Camelot.Domain.Web.KatApps;
 
 namespace KAT.Camelot.RCL.KatApp.Endpoints.Kaml;
 
-public partial class Endpoint : BaseCachedResponseEndpoint<Request>
+public partial class Endpoint( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions configurationOptions, IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService ) : BaseCachedResponseEndpoint<Request>( httpContextAccessor, dateTimeService )
 {
 	static readonly Regex templateRegEx = new ( @"^\s*<template[^>]* id=""[^""]+""([^>]* script=""(?<script>[^""]+)"")?([^>]* script\.setup=""(?<setup>[^""]+)"")?([^>]* css=""(?<css>[^""]+)"")?[^>]*>\s*$", RegexOptions.Compiled );
-	private readonly KatAppHelper katAppHelper;
-	private readonly IKatAppOptionsProvider optionsProvider;
-	private readonly KatAppConfigurationOptions configurationOptions;
-
-	public Endpoint( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions configurationOptions, IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService )
-		: base( httpContextAccessor, dateTimeService )
-	{
-		this.katAppHelper = katAppHelper;
-		this.optionsProvider = optionsProvider;
-		this.configurationOptions = configurationOptions;
-	}
+	private readonly KatAppHelper katAppHelper = katAppHelper;
+	private readonly IKatAppOptionsProvider optionsProvider = optionsProvider;
+	private readonly KatAppConfigurationOptions configurationOptions = configurationOptions;
+	private static readonly string[] kamlJsCssExtensions = [ ".js", ".css" ];
+	private static readonly string[] kamlFileExtensions = [ .. kamlJsCssExtensions, ".templates" ];
 
 	public override void Configure()
 	{
@@ -66,21 +59,21 @@ public partial class Endpoint : BaseCachedResponseEndpoint<Request>
 
 			var supportingFiles =
 				kaml.Directory!.GetFiles( $"{kaml.Name}.*" )
-					.Where( f => new[] { ".js", ".css", ".templates" }.Contains( f.Extension, StringComparer.OrdinalIgnoreCase ) )
+					.Where( f => kamlFileExtensions.Contains( f.Extension, StringComparer.OrdinalIgnoreCase ) )
 					.ToArray();
 
 			var lastModifiedDate = new[] { kaml.LastWriteTimeUtc }.Concat( supportingFiles.Select( f => f.LastWriteTimeUtc ) ).Max();
 
 			await SendCachedGetAsync( $"Kaml:{request.ViewName}", lastModifiedDate, async () =>
 			{
-				if ( supportingFiles.Any() )
+				if ( supportingFiles.Length != 0 )
 				{
 					string? line = null;
 					string? supportingFileLine = null;
 
 					HttpContext.Response.StatusCode = StatusCodes.Status200OK;
 					HttpContext.Response.ContentType = kamlContentType;
-					HttpContext.Response.Headers[ "Content-Disposition" ] = $"attachment; filename={kaml.Name}; filename*=UTF-8''{kaml.Name}";
+					HttpContext.Response.Headers.ContentDisposition = $"attachment; filename={kaml.Name}; filename*=UTF-8''{kaml.Name}";
 					var outputStream = HttpContext.Response.Body;
 
 					await using var outputWriter = new StreamWriter( outputStream );
@@ -158,7 +151,7 @@ public partial class Endpoint : BaseCachedResponseEndpoint<Request>
 					var kamlBase = Path.GetFileNameWithoutExtension( kaml.Name );
 					var kamlJsCssFiles =
 						supportingFiles
-							.Where( f => new[] { ".js", ".css" }.Any( ext => string.Compare( f.Name, kaml.Name + ext, true ) == 0 ) )
+							.Where( f => kamlJsCssExtensions.Any( ext => string.Compare( f.Name, kaml.Name + ext, true ) == 0 ) )
 							.ToArray();
 
 					while ( ( line = await kamlReader.ReadLineAsync() ) != null )

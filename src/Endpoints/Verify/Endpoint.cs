@@ -5,19 +5,12 @@ using KAT.Camelot.Domain.Web.KatApps;
 
 namespace KAT.Camelot.RCL.KatApp.Endpoints.Verify;
 
-public class Endpoint : Endpoint<Request, Response>
+public class Endpoint( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions configurationOptions ) : Endpoint<Request, Response>
 {
-	private readonly KatAppHelper katAppHelper;
-	private readonly IKatAppOptionsProvider optionsProvider;
-	private readonly KatAppConfigurationOptions configurationOptions;
+	private readonly KatAppHelper katAppHelper = katAppHelper;
+	private readonly IKatAppOptionsProvider optionsProvider = optionsProvider;
+	private readonly KatAppConfigurationOptions configurationOptions = configurationOptions;
 	
-	public Endpoint( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions configurationOptions )
-	{
-		this.katAppHelper = katAppHelper;
-		this.optionsProvider = optionsProvider;
-		this.configurationOptions = configurationOptions;
-	}
-
 	public override void Configure()
 	{
 		Get( configurationOptions.Endpoints.Verify );

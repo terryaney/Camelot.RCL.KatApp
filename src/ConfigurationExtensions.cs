@@ -28,7 +28,7 @@ public class KatAppRclRequestProcessingOptions : CamelotRequestProcessingOptions
 		var paths = webHostEnvironment.CamelotHealthAndStaticFolders();
 		// /katapp option - may need to make this configurable, see comment above
 		// still want katapp handler to log activity on failures only...
-		logActivityIgnorePaths = paths.Where( p => !p.StartsWith( "/katapp", StringComparison.OrdinalIgnoreCase ) ).ToArray();
+		logActivityIgnorePaths = [ .. paths.Where( p => !p.StartsWith( "/katapp", StringComparison.OrdinalIgnoreCase ) ) ];
 	}
 
 	public override DefaultProcessingDelegates DefaultProcessingDelegates => new()

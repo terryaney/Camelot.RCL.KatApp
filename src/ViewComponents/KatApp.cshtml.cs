@@ -10,22 +10,13 @@ using System.Text.RegularExpressions;
 using KAT.Camelot.Domain.Web;
 namespace KAT.Camelot.RCL.KatApp.ViewComponents;
 
-public class KatApp : ViewComponent
+public class KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions options, GlobalSiteSettings globalSiteSettings, IHttpContextAccessor httpContextAccessor ) : ViewComponent
 {
-	private readonly KatAppHelper katAppHelper;
-	private readonly IKatAppOptionsProvider optionsProvider;
-	private readonly KatAppConfigurationOptions options;
-	private readonly GlobalSiteSettings globalSiteSettings;
-	private readonly IHttpContextAccessor httpContextAccessor;
-
-	public KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions options, GlobalSiteSettings globalSiteSettings, IHttpContextAccessor httpContextAccessor )
-    {
-		this.katAppHelper = katAppHelper;
-		this.optionsProvider = optionsProvider;
-		this.options = options;
-		this.globalSiteSettings = globalSiteSettings;
-		this.httpContextAccessor = httpContextAccessor;
-	}
+	private readonly KatAppHelper katAppHelper = katAppHelper;
+	private readonly IKatAppOptionsProvider optionsProvider = optionsProvider;
+	private readonly KatAppConfigurationOptions options = options;
+	private readonly GlobalSiteSettings globalSiteSettings = globalSiteSettings;
+	private readonly IHttpContextAccessor httpContextAccessor = httpContextAccessor;
 
 	static readonly Regex katDataStoreEndpointRegex = new( @"{[^}]+}", RegexOptions.Compiled );
 

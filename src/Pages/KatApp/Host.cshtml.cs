@@ -7,7 +7,7 @@ namespace KAT.Camelot.RCL.KatApp.Pages.KatApp;
 
 #nullable disable
 
-public class Host : PageModel
+public class Host( KatAppConfigurationOptions configurationOptions ) : PageModel
 {
 	public record Parameters
     {
@@ -20,12 +20,7 @@ public class Host : PageModel
 		public KatAppConfigurationOptions Options { get; init; }
     }
 
-	private readonly KatAppConfigurationOptions configurationOptions;
-
-	public Host( KatAppConfigurationOptions configurationOptions )
-	{
-		this.configurationOptions = configurationOptions;
-	}
+	private readonly KatAppConfigurationOptions configurationOptions = configurationOptions;
 
     public Model Data { get; private set; }
 

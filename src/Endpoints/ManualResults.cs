@@ -6,17 +6,10 @@ using KAT.Camelot.Domain.Web.KatApps;
 
 namespace KAT.Camelot.RCL.KatApp.Endpoints.ManualResults;
 
-public class Endpoint : BaseCachedResponseEndpointWithoutRequest<JsonNode?>
+public class Endpoint( IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions configurationOptions, IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService ) : BaseCachedResponseEndpointWithoutRequest<JsonNode?>( httpContextAccessor, dateTimeService )
 {
-	private readonly IKatAppOptionsProvider optionsProvider;
-	private readonly KatAppConfigurationOptions configurationOptions;
-
-	public Endpoint( IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions configurationOptions, IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService ) 
-		: base( httpContextAccessor, dateTimeService )
-	{
-		this.optionsProvider = optionsProvider;
-		this.configurationOptions = configurationOptions;
-	}
+	private readonly IKatAppOptionsProvider optionsProvider = optionsProvider;
+	private readonly KatAppConfigurationOptions configurationOptions = configurationOptions;
 
 	public override void Configure()
 	{
