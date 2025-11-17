@@ -13,7 +13,7 @@
 			},
             "preLaunchTask": "debug KatApps",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/test/bin/Debug/net7.0/KatAppVUE.dll",
+            "program": "${workspaceFolder}/test/bin/Debug/net8.0/KatAppVUE.dll",
             "args": [],
             "cwd": "${workspaceFolder}/test",
             "stopAtEntry": false,

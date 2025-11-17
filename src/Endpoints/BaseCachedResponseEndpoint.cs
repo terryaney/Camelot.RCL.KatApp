@@ -7,31 +7,20 @@ using Serilog.Context;
 
 namespace KAT.Camelot.RCL.KatApp.Endpoints;
 
-public abstract class BaseCachedResponseEndpoint<TRequest> : BaseCachedResponseEndpoint<TRequest, object> where TRequest : notnull
+public abstract class BaseCachedResponseEndpoint<TRequest>( IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService ) : BaseCachedResponseEndpoint<TRequest, object>( httpContextAccessor, dateTimeService ) where TRequest : notnull
 {
-	public BaseCachedResponseEndpoint( IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService )
-		: base( httpContextAccessor, dateTimeService ) { }
 }
 
-public abstract class BaseCachedResponseEndpointWithoutRequest<TResponse> : BaseCachedResponseEndpoint<EmptyRequest, TResponse>
+public abstract class BaseCachedResponseEndpointWithoutRequest<TResponse>( IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService ) : BaseCachedResponseEndpoint<EmptyRequest, TResponse>( httpContextAccessor, dateTimeService )
 {
-	public BaseCachedResponseEndpointWithoutRequest( IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService )
-		: base( httpContextAccessor, dateTimeService ) { }
-
 	public virtual Task HandleAsync( CancellationToken ct ) => throw new NotImplementedException();
 	public sealed override Task HandleAsync( EmptyRequest _, CancellationToken ct ) => HandleAsync( ct );
 }
 
-public abstract class BaseCachedResponseEndpoint<TRequest, TResponse> : Endpoint<TRequest, TResponse> where TRequest : notnull
+public abstract class BaseCachedResponseEndpoint<TRequest, TResponse>( IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService ) : Endpoint<TRequest, TResponse> where TRequest : notnull
 {
-	private readonly IHttpContextAccessor httpContextAccessor;
-	private readonly IDateTimeService dateTimeService;
-
-	public BaseCachedResponseEndpoint( IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService )
-	{
-		this.httpContextAccessor = httpContextAccessor;
-		this.dateTimeService = dateTimeService;
-	}
+	private readonly IHttpContextAccessor httpContextAccessor = httpContextAccessor;
+	private readonly IDateTimeService dateTimeService = dateTimeService;
 
 	protected async Task SendCachedGetAsync( string id, DateTime lastModifiedDate, Func<Task> sendUpdatedResponse )
 	{
@@ -40,7 +29,7 @@ public abstract class BaseCachedResponseEndpoint<TRequest, TResponse> : Endpoint
 		var context = httpContextAccessor.HttpContext!;
 
 		// https://www.geekytidbits.com/efficient-caching-dynamic-resources-asp-net-304-not-modified/
-		var rawIfModifiedSince = context.Request.Headers[ "If-Modified-Since" ].ToString();
+		var rawIfModifiedSince = context.Request.Headers.IfModifiedSince.ToString();
 
 		var requestIfModified = !string.IsNullOrEmpty( rawIfModifiedSince )
 			? DateTime.Parse( rawIfModifiedSince ).ToUniversalTime()
@@ -51,8 +40,8 @@ public abstract class BaseCachedResponseEndpoint<TRequest, TResponse> : Endpoint
 
 		if ( requestIfModified >= lastModifiedCheck )
 		{
-			context.Response.Headers.Add( "X-Cache-Status", "NotModified;HIT" );
-			context.Response.Headers.Add( "X-Cache", "NotModified;HIT" );
+			context.Response.Headers.Append( "X-Cache-Status", "NotModified;HIT" );
+			context.Response.Headers.Append( "X-Cache", "NotModified;HIT" );
 			await this.SendStatusCodeAsync( HttpStatusCode.NotModified );
 			return;
 		}

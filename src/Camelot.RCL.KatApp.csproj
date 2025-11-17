@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 	<PropertyGroup>
-		<TargetFramework>net7.0</TargetFramework>
+		<TargetFramework>net8.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<PackageId>RCL.KatApp</PackageId>
@@ -14,14 +14,14 @@
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="7.0.20" />
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.22" />
 		<!-- 
 		Had to add System.Security.Cryptography.Pkcs for Razor.RuntimeCompliation to work:
 		https://stackoverflow.com/questions/69919514/when-upgrading-to-net-6-web-project-throws-runtime-exception
 		-->
-		<PackageReference Include="System.Security.Cryptography.Pkcs" Version="7.0.3" />
+		<PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.11" />
 		<PackageReference Include="FastEndpoints" Version="5.32.0" />
-		<PackageReference Include="Serilog.AspNetCore" Version="7.0.0" />
+		<PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\Core\Domain\src\Camelot.Domain.csproj" />
@@ -30,8 +30,8 @@
 	</ItemGroup>
 	<Target Name="CompileTypeScript" BeforeTargets="Build" Condition="'$(Configuration)' == 'Debug.TSC'">
 		<Message Importance="high" Text="Compiling TypeScript files" />
-		<Exec Command="tsc --project $(MSBuildProjectDirectory)\tsconfig.json" WorkingDirectory="$(MSBuildProjectDirectory)"/>
-		<Exec Command="tsc --project $(MSBuildProjectDirectory)\tsconfig.d.json" WorkingDirectory="$(MSBuildProjectDirectory)"/>
-		<Exec Command="npm run uglify" WorkingDirectory="$(MSBuildProjectDirectory)"/>
+		<Exec Command="tsc --project $(MSBuildProjectDirectory)\tsconfig.json" WorkingDirectory="$(MSBuildProjectDirectory)" />
+		<Exec Command="tsc --project $(MSBuildProjectDirectory)\tsconfig.d.json" WorkingDirectory="$(MSBuildProjectDirectory)" />
+		<Exec Command="npm run uglify" WorkingDirectory="$(MSBuildProjectDirectory)" />
 	</Target>
 </Project>
