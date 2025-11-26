@@ -2121,7 +2121,7 @@ Type 'help' to see available options displayed in the console.`;
 		return templateId;
 	}
 
-	private get nextCalculation(): INextCalculation {
+	public get nextCalculation(): INextCalculation {
 		let app: IKatApp = this;
 
 		// Always get the root application
