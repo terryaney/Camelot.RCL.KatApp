@@ -16,6 +16,7 @@
 					? undefined
 					: ctx.exp;
 
+				// TODO: Duplicated in app.processInputTokens, make helper
 				let selectors = selector?.split(".").map(s => s != "" ? s : undefined) ?? [];
 
 				if (selectors.length == 1) {

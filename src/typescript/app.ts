@@ -742,6 +742,19 @@ class KatApp implements IKatApp {
 				if (value == undefined) return value;
 
 				return value.replace(/{([^}]+)}/g, function (match, token) {
+					if (false && token.startsWith("rbl:")) {
+						// TODO: Duplicated in app.processInputTokens, make helper
+						let selectors = token.substring(4).split(".").map(s => s != "" ? s : undefined) ?? [];
+
+						if (selectors.length == 1) {
+							selectors = ["rbl-value", selectors[0]];
+						}
+
+						const getSelector = function (pos: number) {
+							return selectors.length > pos && selectors[pos] != "" ? selectors[pos] : undefined;
+						};
+					}
+					
 					return inputs?.[token] as string ?? match;
 				});
 			};
