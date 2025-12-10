@@ -45,6 +45,7 @@ declare class KatApp implements IKatApp {
     removeDirectiveEvents(directiveId: string): IKatApp;
     private appendAndExecuteScripts;
     private mountAsync;
+    private getOptionResourcesAsync;
     private initializeInspector;
     private createModalContainer;
     private showModalApplicationAsync;
@@ -83,7 +84,7 @@ declare class KatApp implements IKatApp {
     getLocalizedString(key: string | undefined, formatObject?: IStringIndexer<string>, defaultValue?: string): string | undefined;
     getTemplateContent(name: string): DocumentFragment;
     private getTemplateId;
-    private get nextCalculation();
+    get nextCalculation(): INextCalculation;
     private set nextCalculation(value);
     debugNext(saveLocations?: string | boolean, serverSideOnly?: boolean, trace?: boolean, expireCache?: boolean): void;
     blockUI(): void;

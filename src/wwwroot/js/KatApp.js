@@ -535,25 +535,50 @@ class KatApp {
                 ? [...(await this.getViewTemplatesAsync(viewElement)), this.id].reverse()
                 : [this.id];
             KatApps.Utils.trace(this, "KatApp", "mountAsync", `View Templates Complete`, TraceVerbosity.Detailed);
+            await this.getOptionResourcesAsync();
             const inputs = this.options.inputs;
-            const processInputTokens = (value) => {
+            const mr = this.options.manualResults;
+            const processCalcEngineConfigTokens = (value) => {
                 if (value == undefined)
                     return value;
                 return value.replace(/{([^}]+)}/g, function (match, token) {
+                    if (token.startsWith("rbl:")) {
+                        if (mr == undefined)
+                            return "";
+                        let selectors = token.substring(4).split(".").map(s => s != "" ? s : undefined) ?? [];
+                        if (selectors.length == 1) {
+                            selectors = ["rbl-value", selectors[0]];
+                        }
+                        const getSelector = function (pos) {
+                            return selectors.length > pos && selectors[pos] != "" ? selectors[pos] : undefined;
+                        };
+                        const ce = getSelector(4);
+                        const tab = getSelector(5);
+                        const tableData = mr.find(r => (ce == undefined || r["@calcEngineKey"] == ce) &&
+                            (tab == undefined || r["@name"] == tab))?.[getSelector(0)];
+                        if (tableData == undefined)
+                            return "";
+                        const table = !(tableData instanceof Array)
+                            ? [tableData]
+                            : tableData;
+                        const keyField = getSelector(3) ?? "id";
+                        const value = table.find(r => r[keyField] == getSelector(1))?.[getSelector(2) ?? "value"];
+                        return value ?? "";
+                    }
                     return inputs?.[token] ?? match;
                 });
             };
             const cloneApplication = this.getCloneApplication(this.options);
             this.options.hostApplication = this.options.hostApplication ?? cloneApplication;
             function calcEngineFactory(c, pipelineIndex) {
-                const enabled = processInputTokens(c.getAttribute("enabled"));
-                const name = processInputTokens(c.getAttribute("name")) ?? c.getAttribute("key") ?? "UNAVAILABLE";
+                const enabled = processCalcEngineConfigTokens(c.getAttribute("enabled"));
+                const name = processCalcEngineConfigTokens(c.getAttribute("name")) ?? c.getAttribute("key") ?? "UNAVAILABLE";
                 return pipelineIndex == undefined
                     ? {
                         key: c.getAttribute("key") ?? "default",
                         name: name,
                         inputTab: c.getAttribute("input-tab") ?? "RBLInput",
-                        resultTabs: processInputTokens(c.getAttribute("result-tabs"))?.split(",") ?? ["RBLResult"],
+                        resultTabs: processCalcEngineConfigTokens(c.getAttribute("result-tabs"))?.split(",") ?? ["RBLResult"],
                         pipeline: [...c.querySelectorAll("pipeline")].map((p, i) => calcEngineFactory(p, i + 1)),
                         allowConfigureUi: c.getAttribute("configure-ui") != "false",
                         manualResult: false,
@@ -563,7 +588,7 @@ class KatApp {
                         key: `pipeline${pipelineIndex}`,
                         name: name,
                         inputTab: c.getAttribute("input-tab"),
-                        resultTab: processInputTokens(c.getAttribute("result-tab"))
+                        resultTab: processCalcEngineConfigTokens(c.getAttribute("result-tab"))
                     };
             }
             ;
@@ -571,53 +596,6 @@ class KatApp {
                 ? [...viewElement.querySelectorAll("rbl-config > calc-engine")].map(c => calcEngineFactory(c))
                 : cloneApplication ? [...cloneApplication.calcEngines.filter(c => !c.manualResult)] : [];
             KatApps.Utils.trace(this, "KatApp", "mountAsync", `CalcEngines configured`, TraceVerbosity.Detailed);
-            if (this.options.resourceStrings == undefined && this.options.endpoints.resourceStrings != undefined) {
-                const apiUrl = this.getApiUrl(this.options.endpoints.resourceStrings, true);
-                try {
-                    const response = await fetch(apiUrl.url, {
-                        method: "GET",
-                        headers: { 'Cache-Control': 'max-age=0' },
-                        cache: 'default'
-                    });
-                    if (!response.ok) {
-                        throw await response.json();
-                    }
-                    this.options.resourceStrings = await response.json();
-                    KatApps.Utils.trace(this, "KatApp", "mountAsync", `Resource Strings downloaded`, TraceVerbosity.Detailed);
-                }
-                catch (e) {
-                    KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading resourceStrings ${this.options.endpoints.resourceStrings}`, TraceVerbosity.None, e);
-                }
-                if (this.options.debug.debugResourcesDomain) {
-                    const currentOptions = this.options;
-                    currentOptions.useLocalRepository = currentOptions.useLocalRepository || await KatApps.Utils.checkLocalServerAsync(this.options);
-                    if (currentOptions.useLocalRepository) {
-                        const devResourceStrings = await KatApps.Utils.downloadLocalServerAsync(currentOptions.debug.debugResourcesDomain, "/js/dev.ResourceStrings.json");
-                        if (devResourceStrings != undefined) {
-                            this.options.resourceStrings = KatApps.Utils.extend(this.options.resourceStrings ?? {}, JSON.parse(devResourceStrings));
-                        }
-                    }
-                }
-            }
-            if (this.options.manualResults == undefined && this.options.endpoints.manualResults != undefined) {
-                const apiUrl = this.getApiUrl(this.options.endpoints.manualResults, true);
-                try {
-                    const response = await fetch(apiUrl.url, {
-                        method: "GET",
-                        headers: { 'Cache-Control': 'max-age=0' },
-                        cache: 'default'
-                    });
-                    if (!response.ok) {
-                        throw await response.json();
-                    }
-                    const manualResults = await response.json();
-                    this.options.manualResults = manualResults[this.selector];
-                    KatApps.Utils.trace(this, "KatApp", "mountAsync", `Manual Results downloaded`, TraceVerbosity.Detailed);
-                }
-                catch (e) {
-                    KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading manualResults ${this.options.endpoints.manualResults}`, TraceVerbosity.None, e);
-                }
-            }
             if (viewElement != undefined) {
                 if (this.options.hostApplication != undefined && this.options.inputs?.iModalApplication == "1") {
                     if (this.options.content != undefined) {
@@ -750,6 +728,55 @@ class KatApp {
         }
         finally {
             KatApps.Utils.trace(this, "KatApp", "mountAsync", `Complete`, TraceVerbosity.Detailed);
+        }
+    }
+    async getOptionResourcesAsync() {
+        if (this.options.resourceStrings == undefined && this.options.endpoints.resourceStrings != undefined) {
+            const apiUrl = this.getApiUrl(this.options.endpoints.resourceStrings, true);
+            try {
+                const response = await fetch(apiUrl.url, {
+                    method: "GET",
+                    headers: { 'Cache-Control': 'max-age=0' },
+                    cache: 'default'
+                });
+                if (!response.ok) {
+                    throw await response.json();
+                }
+                this.options.resourceStrings = await response.json();
+                KatApps.Utils.trace(this, "KatApp", "mountAsync", `Resource Strings downloaded`, TraceVerbosity.Detailed);
+            }
+            catch (e) {
+                KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading resourceStrings ${this.options.endpoints.resourceStrings}`, TraceVerbosity.None, e);
+            }
+            if (this.options.debug.debugResourcesDomain) {
+                const currentOptions = this.options;
+                currentOptions.useLocalRepository = currentOptions.useLocalRepository || await KatApps.Utils.checkLocalServerAsync(this.options);
+                if (currentOptions.useLocalRepository) {
+                    const devResourceStrings = await KatApps.Utils.downloadLocalServerAsync(currentOptions.debug.debugResourcesDomain, "/js/dev.ResourceStrings.json");
+                    if (devResourceStrings != undefined) {
+                        this.options.resourceStrings = KatApps.Utils.extend(this.options.resourceStrings ?? {}, JSON.parse(devResourceStrings));
+                    }
+                }
+            }
+        }
+        if (this.options.manualResults == undefined && this.options.endpoints.manualResults != undefined) {
+            const apiUrl = this.getApiUrl(this.options.endpoints.manualResults, true);
+            try {
+                const response = await fetch(apiUrl.url, {
+                    method: "GET",
+                    headers: { 'Cache-Control': 'max-age=0' },
+                    cache: 'default'
+                });
+                if (!response.ok) {
+                    throw await response.json();
+                }
+                const manualResults = await response.json();
+                this.options.manualResults = manualResults[this.selector];
+                KatApps.Utils.trace(this, "KatApp", "mountAsync", `Manual Results downloaded`, TraceVerbosity.Detailed);
+            }
+            catch (e) {
+                KatApps.Utils.trace(this, "KatApp", "mountAsync", `Error downloading manualResults ${this.options.endpoints.manualResults}`, TraceVerbosity.None, e);
+            }
         }
     }
     initializeInspector() {
