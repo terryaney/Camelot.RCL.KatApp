@@ -12,7 +12,7 @@ public class KatAppHelper
 	{
 		kamlRoot = options.KamlRootPath;
 		KamlRootPath = Path.Combine( globalSiteSettings.ContentRootPath, "wwwroot", kamlRoot );
-		KamlFolders = new DirectoryInfo( KamlRootPath ).GetDirectories().Select( d => d.Name ).ToArray();
+		KamlFolders = [ .. new DirectoryInfo( KamlRootPath ).GetDirectories().Select( d => d.Name ) ];
 	}
 
 	public string KamlRootPath { get; }

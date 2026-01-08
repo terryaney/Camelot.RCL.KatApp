@@ -17,7 +17,7 @@ public partial class Endpoint( KatAppHelper katAppHelper, IKatAppOptionsProvider
 
 	public override void Configure()
 	{
-		Get( configurationOptions.Endpoints.Kaml );
+		Get( KatAppEndpoints.Kaml );
 		Description( builder => builder.WithTags( "KatApp" ) );
 		Summary( s => s.Summary = "Returns the requested Kaml file if access is allowed" );
 	}

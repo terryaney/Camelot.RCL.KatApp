@@ -38,7 +38,7 @@ public class KatAppConfigurationOptions
 
 		var katAppRoutes = new[]
 		{
-			Endpoints.Kaml,
+			KatAppEndpoints.Kaml,
 			Endpoints.Verify,
 			Endpoints.ManualResults,
 			Endpoints.ResourceStrings
@@ -52,7 +52,7 @@ public class KatAppEndpoints
 {
 	// For now, not configurable, if I need to configure this, need to search code base for
 	// '/katapp option' and see how to make it able to pass in as an option
-	public string Kaml /* { get; set; } = */ => "/katapp/{**viewName}";
+	public static string Kaml /* { get; set; } = */ => "/katapp/{**viewName}";
 	
 	public string Verify { get; set; } = "/api/katapp/verify";
 	public string ManualResults { get; set; } = "/api/katapp/manual-results";

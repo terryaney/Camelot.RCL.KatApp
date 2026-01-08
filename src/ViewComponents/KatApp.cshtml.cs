@@ -26,10 +26,10 @@ public class KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsPr
         var katAppId = name.ToLower().Replace( ".", "-" );
         var view = optionsProvider.GetViewById( viewId )!;
         viewId = (string)view[ "id" ]!;
-        		
-        // TODO: Put these into IKatAppOptionsProvider
-		var cacheableQueryString = HttpContext.GetQueryString( validKeys: new [] { "siteKey" } ) ?? "";
-        var calculationEndpoint = options.Endpoints.Calculation[ 1.. ];
+
+		// TODO: Put these into IKatAppOptionsProvider
+		var cacheableQueryString = HttpContext.GetQueryString( validKeys: [ "siteKey" ] ) ?? "";
+		var calculationEndpoint = options.Endpoints.Calculation[ 1.. ];
 		var jwtDataUpdatesEndpoint = options.Endpoints.JwtDataUpdates[ 1.. ];
 		var verifyKatAppEndpoint = options.Endpoints.Verify[ 1.. ];
         var manualResultsEndpoint = optionsProvider.ManualResultsLastModified != null 
@@ -76,7 +76,7 @@ public class KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsPr
 							return new
 							{
 								Client = folderParts[ 0 ],
-								RelativePath = string.Join( "/", folderParts.Skip( 1 ).Concat( new [] { f.Name } ) )
+								RelativePath = string.Join( "/", folderParts.Skip( 1 ).Concat( [ f.Name ] ) )
 							};
 						} )
 						.Select( f =>
