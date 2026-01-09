@@ -2,7 +2,6 @@ using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 
 using KAT.Camelot.Domain.Services;
-using KAT.Camelot.Domain.Web.KatApps;
 
 namespace KAT.Camelot.RCL.KatApp.Endpoints.ResourceStrings;
 
@@ -24,7 +23,7 @@ public class Endpoint( IKatAppOptionsProvider optionsProvider, KatAppConfigurati
 
 		if ( appResourceStrings.Count == 0 )
 		{
-			await SendOkAsync( c );
+			await Send.OkAsync( cancellation: c );
 		}
 		else
 		{
@@ -32,7 +31,7 @@ public class Endpoint( IKatAppOptionsProvider optionsProvider, KatAppConfigurati
 			await SendCachedGetAsync( 
 				"ResourceStrings", 
 				lastModifiedDate, 
-				async () => await SendAsync( appResourceStrings, cancellation: c ) 
+				async () => await Send.OkAsync( appResourceStrings, cancellation: c ) 
 			);
 		}
 	}

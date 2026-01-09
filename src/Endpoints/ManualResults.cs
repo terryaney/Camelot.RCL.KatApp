@@ -2,7 +2,6 @@ using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 
 using KAT.Camelot.Domain.Services;
-using KAT.Camelot.Domain.Web.KatApps;
 
 namespace KAT.Camelot.RCL.KatApp.Endpoints.ManualResults;
 
@@ -24,14 +23,14 @@ public class Endpoint( IKatAppOptionsProvider optionsProvider, KatAppConfigurati
 
 		if ( lastModifiedDate == null )
 		{
-			await SendOkAsync( c );
+			await Send.OkAsync( cancellation: c );
 		}
 		else
 		{
 			await SendCachedGetAsync( 
 				"ManualResults", 
 				lastModifiedDate.Value, 
-				async () => await SendAsync( await optionsProvider.GetManualResultsAsync( c ), cancellation: c ) 
+				async () => await Send.OkAsync( await optionsProvider.GetManualResultsAsync( c ), cancellation: c ) 
 			);
 		}
 	}

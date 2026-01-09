@@ -1,8 +1,6 @@
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
-using KAT.Camelot.Domain.Web.KatApps;
-
 namespace KAT.Camelot.RCL.KatApp.Endpoints.Verify;
 
 public class Endpoint( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions configurationOptions ) : Endpoint<Request, Response>
@@ -37,7 +35,7 @@ public class Endpoint( KatAppHelper katAppHelper, IKatAppOptionsProvider options
 
 		var inputs = optionsProvider.GetManualInputs( currentView );
 
-		await SendAsync(
+		await Send.OkAsync(
 			new() { Path = localView, ManualInputs = inputs },
 			cancellation: c
 		);

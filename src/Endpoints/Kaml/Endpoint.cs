@@ -1,7 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-
 using KAT.Camelot.Domain.Services;
 
 namespace KAT.Camelot.RCL.KatApp.Endpoints.Kaml;
@@ -31,7 +30,7 @@ public partial class Endpoint( KatAppHelper katAppHelper, IKatAppOptionsProvider
 
 			if ( !kaml.Exists || string.Compare( kaml.Extension, ".kaml", StringComparison.OrdinalIgnoreCase ) != 0 )
 			{
-				await SendNotFoundAsync( cancellation: c );
+				await Send.NotFoundAsync( cancellation: c );
 				return;
 			}
 
@@ -187,7 +186,7 @@ public partial class Endpoint( KatAppHelper katAppHelper, IKatAppOptionsProvider
 				}
 				else
 				{
-					await SendFileAsync( kaml, kamlContentType, cancellation: c );
+					await Send.FileAsync( kaml, kamlContentType, cancellation: c );
 				}
 			} );
 		}

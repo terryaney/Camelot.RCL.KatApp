@@ -42,7 +42,7 @@ public abstract class BaseCachedResponseEndpoint<TRequest, TResponse>( IHttpCont
 		{
 			context.Response.Headers.Append( "X-Cache-Status", "NotModified;HIT" );
 			context.Response.Headers.Append( "X-Cache", "NotModified;HIT" );
-			await this.SendStatusCodeAsync( HttpStatusCode.NotModified );
+			await Send.StatusCodeAsync( HttpStatusCode.NotModified );
 			return;
 		}
 

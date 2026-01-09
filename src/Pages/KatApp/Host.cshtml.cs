@@ -1,8 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-using KAT.Camelot.Domain.Web.KatApps;
-
 namespace KAT.Camelot.RCL.KatApp.Pages.KatApp;
 
 #nullable disable

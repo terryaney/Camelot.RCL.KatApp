@@ -1,6 +1,5 @@
 using KAT.Camelot.Abstractions.Api.Contracts.DataLocker.V1.Responses;
 using KAT.Camelot.Domain.Web.Configuration;
-using KAT.Camelot.Domain.Web.KatApps;
 
 namespace KAT.Camelot.RCL.KatApp;
 

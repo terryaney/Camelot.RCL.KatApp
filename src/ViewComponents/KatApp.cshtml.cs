@@ -1,7 +1,6 @@
 using KAT.Camelot.Domain;
 using KAT.Camelot.Domain.Security.Cryptography;
 using KAT.Camelot.Domain.Web.Configuration;
-using KAT.Camelot.Domain.Web.KatApps;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
