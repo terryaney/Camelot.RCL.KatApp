@@ -70,20 +70,8 @@ public static class ConfigurationExtensions
 	{
 		var opts = new KatAppConfigurationOptions();
 		configureOptions?.Invoke( opts );
+
 		builder.Services.AddSingleton( opts );
-
-		if ( builder.Environment.IsDevelopment() )
-		{
-			builder.Services.Configure<MvcRazorRuntimeCompilationOptions>( options =>
-			{
-				var camelotPath = string.Join( "\\", builder.Environment.ContentRootPath.Split( '\\' ).TakeUntil( p => string.Compare( p, "Camelot", true ) == 0 ) );
-				var rclFolder = string.Join( ".", typeof( IRclMarker ).Assembly.GetName().Name!.Split( '.' ).SkipUntil( ( c, p ) => string.Compare( c, "RCL", true ) == 0, false ) );
-
-				var rclPath = Path.Combine( camelotPath, "RCL", rclFolder, "src" );
-				options.FileProviders.Add( new PhysicalFileProvider( rclPath ) );
-			} );
-		}
-
 		builder.Services.AddScoped<KatAppHelper>();
 
 		return builder;
