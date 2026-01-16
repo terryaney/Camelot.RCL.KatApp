@@ -221,33 +221,34 @@ declare const KatApps: KatAppsStatic;
 							console.error("CurrentPage is set in the ISubmitApiConfiguration value.  This is not allowed.  Determine what is using it and how to fix.");
 						}
 
-						const logTitle = title ?? application.options.currentPage;
-						console.groupCollapsed(logTitle + " KatApp calculation");
+						const results = ( application.options.manualResults != undefined
+							? [...lastCalculation?.results ?? [], ...application.options.manualResults]
+							: [...lastCalculation?.results ?? []]
+						).filter(r => r != undefined) as Array<ITabDef>;
 
-						if (lastCalculation != undefined) {
-							const results = application.options.manualResults != undefined
-								? [...lastCalculation.results, ...application.options.manualResults]
-								: [...lastCalculation.results];
+						if (results.length > 0) {
+							const logTitle = title ?? application.options.currentPage;
+							console.groupCollapsed(logTitle + " KatApp calculation");
 
-							console.log("Inputs", lastCalculation.inputs);
+							if ( lastCalculation?.inputs != undefined ) console.log("Inputs", lastCalculation.inputs);
 							console.log("Results", results);
 
-							if (lastCalculation.diagnostics != undefined || (lastCalculation.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0)) {
+							if (lastCalculation?.diagnostics != undefined || (lastCalculation?.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0)) {
 								const diagnostics: { rble?: Array<IRblCalculationDiagnostics>, endpoint?: Array<string> } = { };
 
-								if (lastCalculation.diagnostics != undefined) {
+								if (lastCalculation?.diagnostics != undefined) {
 									diagnostics[ "rble"] = lastCalculation.diagnostics.filter(d => d != undefined) as Array<IRblCalculationDiagnostics>;
 								}
-								if (lastCalculation.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0) {
+								if (lastCalculation?.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0) {
 									diagnostics[ "endpoint"] = lastCalculation.endpointDiagnostics;
 								}
 
 								console.log("Diagnostics", diagnostics);
 							}
-						}
 
-						console.groupEnd();
-						// console.timeEnd("Nexgen.js.calculationLogHandler for " + application.options.view);
+							console.groupEnd();
+							// console.timeEnd("Nexgen.js.calculationLogHandler for " + application.options.view);
+						}
 					}
 				};
 			}, selector);

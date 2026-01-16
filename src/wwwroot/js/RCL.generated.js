@@ -168,26 +168,27 @@
                         if (lastCalculation?.configuration?.CurrentPage) {
                             console.error("CurrentPage is set in the ISubmitApiConfiguration value.  This is not allowed.  Determine what is using it and how to fix.");
                         }
-                        const logTitle = title ?? application.options.currentPage;
-                        console.groupCollapsed(logTitle + " KatApp calculation");
-                        if (lastCalculation != undefined) {
-                            const results = application.options.manualResults != undefined
-                                ? [...lastCalculation.results, ...application.options.manualResults]
-                                : [...lastCalculation.results];
-                            console.log("Inputs", lastCalculation.inputs);
+                        const results = (application.options.manualResults != undefined
+                            ? [...lastCalculation?.results ?? [], ...application.options.manualResults]
+                            : [...lastCalculation?.results ?? []]).filter(r => r != undefined);
+                        if (results.length > 0) {
+                            const logTitle = title ?? application.options.currentPage;
+                            console.groupCollapsed(logTitle + " KatApp calculation");
+                            if (lastCalculation?.inputs != undefined)
+                                console.log("Inputs", lastCalculation.inputs);
                             console.log("Results", results);
-                            if (lastCalculation.diagnostics != undefined || (lastCalculation.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0)) {
+                            if (lastCalculation?.diagnostics != undefined || (lastCalculation?.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0)) {
                                 const diagnostics = {};
-                                if (lastCalculation.diagnostics != undefined) {
+                                if (lastCalculation?.diagnostics != undefined) {
                                     diagnostics["rble"] = lastCalculation.diagnostics.filter(d => d != undefined);
                                 }
-                                if (lastCalculation.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0) {
+                                if (lastCalculation?.endpointDiagnostics != undefined && lastCalculation.endpointDiagnostics.length > 0) {
                                     diagnostics["endpoint"] = lastCalculation.endpointDiagnostics;
                                 }
                                 console.log("Diagnostics", diagnostics);
                             }
+                            console.groupEnd();
                         }
-                        console.groupEnd();
                     }
                 };
             }, selector);
