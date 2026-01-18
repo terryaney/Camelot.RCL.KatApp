@@ -3484,7 +3484,8 @@ var KatApps;
                         endAngle: +this.getOptionValue(chartOptions, "pie.endAngle", getSharedConfigValue, "360"),
                     },
                     donut: {
-                        labelFormatter: this.getOptionValue(chartOptions, "donut.labelFormatter", getSharedConfigValue)
+                        labelFormatter: this.getOptionValue(chartOptions, "donut.labelFormatter", getSharedConfigValue),
+                        showTotal: getBooleanProperty("donut.showTotal", getSharedConfigValue, true),
                     },
                     padding: {
                         get top() {
@@ -3837,12 +3838,14 @@ var KatApps;
             const svg = this.getChartSvgElement(configuration.plotOptions);
             svg.append(...segments);
             svg.appendChild(this.createCircle(radius, radius, radius - strokeWidth, "white"));
-            const formattedTotal = KatApps.Utils.formatNumber(this.application.options.intl, total, configuration.plotOptions.dataLabels.format);
-            const donutLabel = configuration.plotOptions.donut.labelFormatter
-                ? String.formatTokens(this.application.options.intl, configuration.plotOptions.donut.labelFormatter.replace(/\{([^}]+)\}/g, '{{$1}}'), configuration.dataColumns
-                    .reduce(function (o, c, i) { o[c] = KatApps.Utils.formatNumber(application.options.intl, data[i].data, configuration.plotOptions.dataLabels.format); return o; }, { total: formattedTotal }))
-                : formattedTotal;
-            svg.appendChild(this.createText(configuration.plotOptions, radius, radius, donutLabel, configuration.plotOptions.font.size.donutLabel, { "text-anchor": "middle", "dominant-baseline": "middle", "font-weight": "bold" }));
+            if (configuration) {
+                const formattedTotal = KatApps.Utils.formatNumber(this.application.options.intl, total, configuration.plotOptions.dataLabels.format);
+                const donutLabel = configuration.plotOptions.donut.labelFormatter
+                    ? String.formatTokens(this.application.options.intl, configuration.plotOptions.donut.labelFormatter.replace(/\{([^}]+)\}/g, '{{$1}}'), configuration.dataColumns
+                        .reduce(function (o, c, i) { o[c] = KatApps.Utils.formatNumber(application.options.intl, data[i].data, configuration.plotOptions.dataLabels.format); return o; }, { total: formattedTotal }))
+                    : formattedTotal;
+                svg.appendChild(this.createText(configuration.plotOptions, radius, radius, donutLabel, configuration.plotOptions.font.size.donutLabel, { "text-anchor": "middle", "dominant-baseline": "middle", "font-weight": "bold" }));
+            }
             container.appendChild(svg);
         }
         addLegend(el, configuration) {

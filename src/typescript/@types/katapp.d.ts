@@ -401,6 +401,7 @@ interface IRblChartConfigurationPlotOptions {
     };
     donut: {
         labelFormatter: string | undefined;
+        showTotal: boolean;
     };
     dataLabels: IRblChartConfigurationDataLabels;
     tip: IRblChartConfigurationTip;
