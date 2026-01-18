@@ -94,6 +94,7 @@ interface IRblChartConfigurationPlotOptions {
 	}
 	donut: {
 		labelFormatter: string | undefined; // Default: formatNumber(total, dataLabels.format)
+		showTotal: boolean; // Default: true, Show total value in the center of the donut chart.
 	}
 
 	dataLabels: IRblChartConfigurationDataLabels;
