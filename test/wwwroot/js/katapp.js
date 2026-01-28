@@ -3838,7 +3838,7 @@ var KatApps;
             const svg = this.getChartSvgElement(configuration.plotOptions);
             svg.append(...segments);
             svg.appendChild(this.createCircle(radius, radius, radius - strokeWidth, "white"));
-            if (configuration) {
+            if (configuration.plotOptions.donut.showTotal) {
                 const formattedTotal = KatApps.Utils.formatNumber(this.application.options.intl, total, configuration.plotOptions.dataLabels.format);
                 const donutLabel = configuration.plotOptions.donut.labelFormatter
                     ? String.formatTokens(this.application.options.intl, configuration.plotOptions.donut.labelFormatter.replace(/\{([^}]+)\}/g, '{{$1}}'), configuration.dataColumns

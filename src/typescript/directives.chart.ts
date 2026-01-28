@@ -795,7 +795,7 @@
 
 			svg.appendChild(this.createCircle(radius, radius, radius - strokeWidth, "white"));
 
-			if (configuration) {
+			if (configuration.plotOptions.donut.showTotal) {
 				const formattedTotal = KatApps.Utils.formatNumber(this.application.options.intl, total, configuration.plotOptions.dataLabels.format);
 				const donutLabel = configuration.plotOptions.donut.labelFormatter
 					? String.formatTokens(
