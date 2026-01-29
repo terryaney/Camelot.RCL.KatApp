@@ -1261,8 +1261,10 @@ Type 'help' to see available options displayed in the console.`;
     }
     clearValidations(includeWarnings = true, predicate) {
         this.state.errors = predicate ? this.state.errors.filter(r => !predicate(r)) : [];
-        if (includeWarnings)
-            this.state.warnings = predicate ? this.state.warnings.filter(r => !predicate(r)) : [];
+        this.clearWarnings(predicate);
+    }
+    clearWarnings(predicate) {
+        this.state.warnings = predicate ? this.state.warnings.filter(r => !predicate(r)) : [];
     }
     addError(id, text, dependsOn, event) {
         this.state.errors.push({ id, text, dependsOn, event });

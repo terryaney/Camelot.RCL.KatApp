@@ -1723,7 +1723,10 @@ Type 'help' to see available options displayed in the console.`;
 
 	public clearValidations(includeWarnings = true, predicate?: (error: IValidationRow) => boolean): void {
 		this.state.errors = predicate ? this.state.errors.filter(r => !predicate(r)) : [];
-		if (includeWarnings) this.state.warnings = predicate ? this.state.warnings.filter(r => !predicate(r)) : [];
+		this.clearWarnings(predicate);
+	}
+	public clearWarnings(predicate?: (error: IValidationRow) => boolean): void {
+		this.state.warnings = predicate ? this.state.warnings.filter(r => !predicate(r)) : [];
 	}
 
 	public addError(id: string, text: string, dependsOn?: string, event?: string): void {

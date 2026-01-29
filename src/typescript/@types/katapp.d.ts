@@ -57,6 +57,7 @@ declare class KatApp implements IKatApp {
     hasErrors(predicate?: (error: IValidationRow) => boolean): boolean;
     errorIs(predicate: (error: IValidationRow) => boolean): boolean;
     clearValidations(includeWarnings?: boolean, predicate?: (error: IValidationRow) => boolean): void;
+    clearWarnings(predicate?: (error: IValidationRow) => boolean): void;
     addError(id: string, text: string, dependsOn?: string, event?: string): void;
     addWarning(id: string, text: string, dependsOn?: string, event?: string): void;
     private addUnexpectedError;
