@@ -2274,6 +2274,9 @@ Type 'help' to see available options displayed in the console.`;
 				throw new Error(`The content selector (${options.contentSelector}) did not return any content.`);
 			}
 
+			// If not passed in options, see if element selected has data attributes for templates
+			options.buttonsTemplate ??= selectContent.getAttribute("data-button-template") ?? undefined;
+
 			cloneHost = this.getCloneHostSetting(selectContent);
 			// Need to clone so DOM events remain in place
 			selectorContent = selectContent.cloneWithEvents();

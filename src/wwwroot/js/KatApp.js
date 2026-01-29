@@ -1666,6 +1666,7 @@ Type 'help' to see available options displayed in the console.`;
             if (selectContent == undefined) {
                 throw new Error(`The content selector (${options.contentSelector}) did not return any content.`);
             }
+            options.buttonsTemplate ??= selectContent.getAttribute("data-button-template") ?? undefined;
             cloneHost = this.getCloneHostSetting(selectContent);
             selectorContent = selectContent.cloneWithEvents();
         }
