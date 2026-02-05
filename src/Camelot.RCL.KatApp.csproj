@@ -14,11 +14,6 @@
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="10.0.1" />
-		<!-- 
-		Had to add System.Security.Cryptography.Pkcs for Razor.RuntimeCompliation to work:
-		https://stackoverflow.com/questions/69919514/when-upgrading-to-net-6-web-project-throws-runtime-exception
-		-->
 		<PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.1" />
 		<PackageReference Include="FastEndpoints" Version="7.1.1" />
 		<PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />

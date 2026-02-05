@@ -1,11 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation;
-using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Hosting;
-
-using KAT.Camelot.Domain;
 using KAT.Camelot.RCL.KatApp;
 
 namespace KAT.Camelot.Infrastructure.Web;
