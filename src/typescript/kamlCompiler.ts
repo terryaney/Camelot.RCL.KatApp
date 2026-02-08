@@ -179,7 +179,21 @@
 	
 						directive.removeAttribute("v-ka-template");
 						directive.setAttribute("v-scope", `components.template({ name: _reactive_template.name, source: _reactive_template.source})`);
-						directive.outerHTML = `<template v-for="_reactive_template in [${scope}]" :key="_reactive_template.name">${directive.outerHTML}<template>`;
+
+						// If the directive has v-if, fold it into the v-for source as a ternary.
+						// petite-vue crashes when v-if/v-for is a direct child of an inline <template> (DocumentFragment)
+						// because el.parentElement is null when _if/_for tries to insertBefore an anchor.
+						// Wrapping with <template v-if> doesn't work either — _if creates a Block whose cloned
+						// content is a DocumentFragment, so the inner <template v-for> still has no parentElement.
+						// Instead, conditionally iterate: (condition) ? [scope] : [] — renders nothing when false.
+						const vIf = directive.getAttribute("v-if");
+						let forSource = `[${scope}]`;
+						if (vIf != null) {
+							directive.removeAttribute("v-if");
+							forSource = `(${vIf}) ? [${scope}] : []`;
+						}
+
+						directive.outerHTML = `<template v-for="_reactive_template in ${forSource}" :key="_reactive_template.name">${directive.outerHTML}</template>`;
 						if (this.showInspector) {
 							// Put this on container for inspectChild to find/remove
 							directive.setAttribute("v-ka-template", exp);

@@ -5508,7 +5508,13 @@ var KatApps;
                     if (needsReactiveFor) {
                         directive.removeAttribute("v-ka-template");
                         directive.setAttribute("v-scope", `components.template({ name: _reactive_template.name, source: _reactive_template.source})`);
-                        directive.outerHTML = `<template v-for="_reactive_template in [${scope}]" :key="_reactive_template.name">${directive.outerHTML}<template>`;
+                        const vIf = directive.getAttribute("v-if");
+                        let forSource = `[${scope}]`;
+                        if (vIf != null) {
+                            directive.removeAttribute("v-if");
+                            forSource = `(${vIf}) ? [${scope}] : []`;
+                        }
+                        directive.outerHTML = `<template v-for="_reactive_template in ${forSource}" :key="_reactive_template.name">${directive.outerHTML}</template>`;
                         if (this.showInspector) {
                             directive.setAttribute("v-ka-template", exp);
                         }
