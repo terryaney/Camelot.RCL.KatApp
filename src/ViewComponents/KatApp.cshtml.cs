@@ -36,7 +36,7 @@ public class KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsPr
 			: "undefined"; // indicates no results for this katapp, so no call needed
 		var resourceStringsEndpoint = options.Endpoints.ResourceStrings[ 1.. ];
 
-		// KatApp Framework expects to find a 'name' token
+		// KatApp Framework expects to find a 'name' token it can replace with the requested resource
         var katDataStoreEndpoint = katDataStoreEndpointRegex.Replace( $"{optionsProvider.KatDataStoreEndpoint}{Abstractions.Api.Contracts.DataLocker.V1.ApiEndpoints.KatApps.Download}", "{name}" );
 		
 		var anchoredQueryStrings = !string.IsNullOrEmpty( httpContextAccessor.HttpContext!.Request.QueryString.ToString() )
