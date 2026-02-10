@@ -5950,7 +5950,7 @@ var KatApps;
                         ? application.options.endpoints.baseUrl + resourceName.substring(1)
                         : application.options.endpoints.katDataStore;
                 if (!tryLocalWebServer && isResourceInManagementSite) {
-                    resourceUrl = resourceUrl.replace("{name}", resourceName) + `?folders=${resourceParts[0].split("|").join(",")}&preferTest=${version == "Test"}`;
+                    resourceUrl = resourceUrl.replace("{name}", resourceName) + `?clients=${resourceParts[0].split("|").join(",")}&preferTest=${version == "Test"}`;
                 }
                 else {
                     const cacheableUrl = application.getApiUrl(resourceUrl, true);

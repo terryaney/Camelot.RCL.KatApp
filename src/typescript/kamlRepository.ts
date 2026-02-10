@@ -205,8 +205,7 @@ namespace KatApps {
 						: application.options.endpoints.katDataStore;
 
 				if (!tryLocalWebServer && isResourceInManagementSite) {
-					resourceUrl = resourceUrl.replace("{name}", resourceName) + `?folders=${resourceParts[0].split("|").join(",")}&preferTest=${version == "Test"}`;
-					// "?" + JSON.stringify({ "Command": "KatAppResource", "Resources": [{ Resource: resourceName, Folder: resourceParts[0], Version: version }] })
+					resourceUrl = resourceUrl.replace("{name}", resourceName) + `?clients=${resourceParts[0].split("|").join(",")}&preferTest=${version == "Test"}`;
 				}
 				else {
 					const cacheableUrl = application.getApiUrl(resourceUrl, true);

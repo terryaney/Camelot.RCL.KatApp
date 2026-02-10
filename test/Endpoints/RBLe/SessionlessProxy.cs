@@ -33,7 +33,7 @@ namespace KatAppVUE.Endpoints.RBLe
                   "@calcEngine": "Conduent_Nexgen_Home_SE.xlsm",
                   "@Helpers.Version": "1.5649",
                   "@GlobalTables.Version": "1.4623",
-                  "@GlobalTables.Name": "MadHatter_GlobalTables.xls",
+                  "@GlobalTables.Name": "MadHatter_GlobalTables.xlsm",
                   "@Process.Time": 1695,
                   "@Process.Timestamp": "2025-02-14T23:09:58.540374Z",
                   "currentCoverage": [
