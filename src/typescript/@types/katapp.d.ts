@@ -1145,6 +1145,8 @@ interface IKaInputScope {
     inputUnmounted: (input: HTMLInputElement) => void;
 }
 interface IKaInputScopeBase {
+    _displayEvalulation: boolean | undefined;
+    _disabledEvaluation: boolean | undefined;
     readonly display: boolean;
     readonly noCalc: boolean;
     readonly disabled: boolean;

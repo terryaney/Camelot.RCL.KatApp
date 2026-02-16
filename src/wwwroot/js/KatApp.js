@@ -2844,10 +2844,52 @@ var KatApps;
             };
             const inputType = getInputCeValue("type") ?? props.type ?? "text";
             const base = {
-                get display() { return getInputCeValue("display", "rbl-display", "v" + name) != "0"; },
+                _displayEvalulation: undefined,
+                _disabledEvaluation: undefined,
+                get display() {
+                    const ceValue = getInputCeValue("display", "rbl-display", "v" + name);
+                    if (ceValue != undefined && ceValue.startsWith("!!")) {
+                        const exp = ceValue.substring(2);
+                        const fn = new Function('$state', `with($state){return ${exp}}`);
+                        const isDisplayed = fn(application.state);
+                        if (!isDisplayed) {
+                            if ((getInputCeValue("displayed-clear") ?? "") != "0") {
+                                application.setInputValue(name, undefined);
+                            }
+                        }
+                        else if (this._displayEvalulation === false && (application.state.inputs[name] ?? "") == "") {
+                            const valueWhenDisplayed = getInputCeValue("displayed-value") ?? "";
+                            if (valueWhenDisplayed != "") {
+                                application.setInputValue(name, valueWhenDisplayed);
+                            }
+                        }
+                        this._displayEvalulation = isDisplayed;
+                        return isDisplayed;
+                    }
+                    return ceValue != "0";
+                },
                 get noCalc() { return getInputCeValue("skip-calc", "rbl-skip", name) == "1"; },
                 get disabled() {
-                    return getInputCeValue("disabled", "rbl-disabled", name) == "1";
+                    const ceValue = getInputCeValue("disabled", "rbl-disabled", name);
+                    if (ceValue != undefined && ceValue.startsWith("!!")) {
+                        const exp = ceValue.substring(2);
+                        const fn = new Function('$state', `with($state){return ${exp}}`);
+                        const isDisabled = fn(application.state);
+                        if (isDisabled) {
+                            if ((getInputCeValue("disabled-clear") ?? "") != "0") {
+                                application.setInputValue(name, undefined);
+                            }
+                        }
+                        else if (this._disabledEvaluation === true && (application.state.inputs[name] ?? "") == "") {
+                            const valueWhenDisabled = getInputCeValue("disabled-value") ?? "";
+                            if (valueWhenDisabled != "") {
+                                application.setInputValue(name, valueWhenDisabled);
+                            }
+                        }
+                        this._disabledEvaluation = isDisabled;
+                        return isDisabled;
+                    }
+                    return ceValue == "1";
                 },
                 get error() { return that.errorText(application, name); },
                 get warning() { return that.warningText(application, name); }
