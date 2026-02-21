@@ -501,6 +501,11 @@ class KatApp implements IKatApp {
 					return predicate
 						? getResultTableRows<any>(table, calcEngine, tab).filter(r => predicate!(r)).length > 0
 						: getResultTableRows<any>(table, calcEngine, tab).length > 0;
+				},
+				expressions: {
+					value(id) { return undefined; },
+					number(id) { return 0; },
+					boolean(id, valueWhenMissing) { return valueWhenMissing ?? true; }
 				}
 			},
 
@@ -2655,6 +2660,7 @@ Type 'help' to see available options displayed in the console.`;
 
 		// Merge these tables into state instead of 'replacing'...
 		const tablesToMerge = ["rbl-disabled", "rbl-display", "rbl-skip", "rbl-value", "rbl-listcontrol", "rbl-input"];
+		const expressionRows = new Map<string, string>();
 
 		results.forEach(t => {
 			Object.keys(t)
@@ -2705,6 +2711,12 @@ Type 'help' to see available options displayed in the console.`;
 										this.copyTabDefToRblState(t._ka.calcEngineKey, t._ka.name, [], r.id!);
 									}
 									break;
+
+								case "rbl-expression":
+									if (r.id != undefined && r["value"] != undefined) {
+										expressionRows.set(r.id, r["value"] as string);
+									}
+									break;
 							}
 						});
 					}
@@ -2722,6 +2734,50 @@ Type 'help' to see available options displayed in the console.`;
 				}
 			});
 		});
+
+		// Build rbl.expressions from accumulated rbl-expression rows
+		this.state.rbl.expressions = {
+			value(id) { return undefined; },
+			number(id) { return 0; },
+			boolean(id, valueWhenMissing) { return valueWhenMissing ?? true; }
+		};
+
+		if (expressionRows.size > 0) {
+			const buildExpressionsObject = (rows: Map<string, string>): IStateRblExpressions => {
+				const getterParts: string[] = [];
+				rows.forEach((expr, id) => {
+					getterParts.push(
+						`  get ${id}() { try { with($state) { return ${expr}; } } catch(e) { _trace("Runtime error in expression '${id}': " + e); return undefined; } }`
+					);
+				});
+				const methodParts = [
+					`  value(id) { try { const v = this[id]; return v != undefined ? String(v) : undefined; } catch(e) { return undefined; } }`,
+					`  number(id) { const v = +(this.value(id) ?? 0); return isNaN(v) ? 0 : v; }`,
+					`  boolean(id, valueWhenMissing) { const v = this.value(id); if (v == undefined) return valueWhenMissing ?? true; const s = String(v).toLowerCase(); return ['false','0','n','no'].indexOf(s) == -1; }`
+				];
+				const objString = `return {\n${[...getterParts, ...methodParts].join(',\n')}\n}`;
+				const traceFn = (msg: string) => KatApps.Utils.trace(this, "KatApp", "rbl.expressions", msg, TraceVerbosity.None);
+				return new Function("$state", "_trace", objString)(this.state, traceFn) as IStateRblExpressions;
+			};
+
+			try {
+				this.state.rbl.expressions = buildExpressionsObject(expressionRows);
+			} catch (compileError) {
+				const safeRows = new Map<string, string>();
+				expressionRows.forEach((expr, id) => {
+					try {
+						new Function("$state", `with($state){return ${expr}}`);
+						safeRows.set(id, expr);
+					} catch (e) {
+						KatApps.Utils.trace(this, "KatApp", "processResultsAsync",
+							`rbl-expression compile error for '${id}': ${e}`, TraceVerbosity.None);
+					}
+				});
+				if (safeRows.size > 0) {
+					this.state.rbl.expressions = buildExpressionsObject(safeRows);
+				}
+			}
+		}
 
 		const processTabDefs = (insideNextTick: boolean) => {
 			results.forEach(t => {

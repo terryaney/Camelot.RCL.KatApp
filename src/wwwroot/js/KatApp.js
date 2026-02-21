@@ -365,6 +365,11 @@ class KatApp {
                     return predicate
                         ? getResultTableRows(table, calcEngine, tab).filter(r => predicate(r)).length > 0
                         : getResultTableRows(table, calcEngine, tab).length > 0;
+                },
+                expressions: {
+                    value(id) { return undefined; },
+                    number(id) { return 0; },
+                    boolean(id, valueWhenMissing) { return valueWhenMissing ?? true; }
                 }
             },
             model: cloneApplication ? KatApps.Utils.clone(cloneApplication.state.model) : {},
@@ -1895,6 +1900,7 @@ Type 'help' to see available options displayed in the console.`;
             }
         };
         const tablesToMerge = ["rbl-disabled", "rbl-display", "rbl-skip", "rbl-value", "rbl-listcontrol", "rbl-input"];
+        const expressionRows = new Map();
         results.forEach(t => {
             Object.keys(t)
                 .filter(k => !k.startsWith("@") && k != "_ka" && k != "ItemDefs")
@@ -1933,6 +1939,11 @@ Type 'help' to see available options displayed in the console.`;
                                     this.copyTabDefToRblState(t._ka.calcEngineKey, t._ka.name, [], r.id);
                                 }
                                 break;
+                            case "rbl-expression":
+                                if (r.id != undefined && r["value"] != undefined) {
+                                    expressionRows.set(r.id, r["value"]);
+                                }
+                                break;
                         }
                     });
                 }
@@ -1947,6 +1958,45 @@ Type 'help' to see available options displayed in the console.`;
                 }
             });
         });
+        this.state.rbl.expressions = {
+            value(id) { return undefined; },
+            number(id) { return 0; },
+            boolean(id, valueWhenMissing) { return valueWhenMissing ?? true; }
+        };
+        if (expressionRows.size > 0) {
+            const buildExpressionsObject = (rows) => {
+                const getterParts = [];
+                rows.forEach((expr, id) => {
+                    getterParts.push(`  get ${id}() { try { with($state) { return ${expr}; } } catch(e) { _trace("Runtime error in expression '${id}': " + e); return undefined; } }`);
+                });
+                const methodParts = [
+                    `  value(id) { try { const v = this[id]; return v != undefined ? String(v) : undefined; } catch(e) { return undefined; } }`,
+                    `  number(id) { const v = +(this.value(id) ?? 0); return isNaN(v) ? 0 : v; }`,
+                    `  boolean(id, valueWhenMissing) { const v = this.value(id); if (v == undefined) return valueWhenMissing ?? true; const s = String(v).toLowerCase(); return ['false','0','n','no'].indexOf(s) == -1; }`
+                ];
+                const objString = `return {\n${[...getterParts, ...methodParts].join(',\n')}\n}`;
+                const traceFn = (msg) => KatApps.Utils.trace(this, "KatApp", "rbl.expressions", msg, TraceVerbosity.None);
+                return new Function("$state", "_trace", objString)(this.state, traceFn);
+            };
+            try {
+                this.state.rbl.expressions = buildExpressionsObject(expressionRows);
+            }
+            catch (compileError) {
+                const safeRows = new Map();
+                expressionRows.forEach((expr, id) => {
+                    try {
+                        new Function("$state", `with($state){return ${expr}}`);
+                        safeRows.set(id, expr);
+                    }
+                    catch (e) {
+                        KatApps.Utils.trace(this, "KatApp", "processResultsAsync", `rbl-expression compile error for '${id}': ${e}`, TraceVerbosity.None);
+                    }
+                });
+                if (safeRows.size > 0) {
+                    this.state.rbl.expressions = buildExpressionsObject(safeRows);
+                }
+            }
+        }
         const processTabDefs = (insideNextTick) => {
             results.forEach(t => {
                 Object.keys(t)

@@ -845,8 +845,14 @@ interface IValidationRow {
     event?: string;
     initialization?: boolean;
 }
+interface IStateRblExpressions {
+    value(id: string): string | undefined;
+    number(id: string): number;
+    boolean(id: string, valueWhenMissing?: boolean): boolean;
+}
 interface IStateRbl {
     results: IStringIndexer<IStringIndexer<Array<ITabDefRow>>>;
+    expressions: IStateRblExpressions;
     source: <T extends ITabDefRow>(table: string, calcEngine?: string, tab?: string, predicate?: (row: T) => boolean) => Array<T>;
     exists: <T extends ITabDefRow>(table: string, calcEngine?: string, tab?: string, predicate?: (row: T) => boolean) => boolean;
     value: (table: string, keyValue: string, returnField?: string, keyField?: string, calcEngine?: string, tab?: string) => string | undefined;
