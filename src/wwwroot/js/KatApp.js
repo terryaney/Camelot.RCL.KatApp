@@ -1162,7 +1162,7 @@ Type 'help' to see available options displayed in the console.`;
                 await this.getSubmitApiConfigurationAsync(async (submitApiOptions) => {
                     await this.triggerEventAsync("updateApiOptions", submitApiOptions, apiUrl.endpoint);
                 }, apiOptions.calculationInputs, false);
-            const calcEngine = this.calcEngines.find(c => !c.manualResult);
+            const calcEngine = this.calcEngines.find(c => !c.manualResult && c.enabled);
             const inputPropertiesToSkip = ["tables", "getNumber", "getOptionText"];
             const optionPropertiesToSkip = ["manualResults", "resourceStrings", "modalAppOptions", "hostApplication", "handlers", "nextCalculation", "delegates", "endpoints", "intl"];
             const submitData = {
