@@ -1,5 +1,6 @@
 using System.Collections.Generic;
-using KAT.Camelot.Domain.Web;
+using Microsoft.AspNetCore.StaticFiles;
+// using KAT.Camelot.Domain.Web;
 
 var builder = WebApplication.CreateBuilder( args );
 
@@ -12,7 +13,10 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-app.UseStaticFiles( new Dictionary<string, string>() { { ".kaml", "text/plain" } } );
+var staticFileProvider = new FileExtensionContentTypeProvider();
+staticFileProvider.Mappings.Add( ".kaml", "text/plain" );
+
+app.UseStaticFiles( new StaticFileOptions { ContentTypeProvider = staticFileProvider } );
 
 app.MapControllers();
 
