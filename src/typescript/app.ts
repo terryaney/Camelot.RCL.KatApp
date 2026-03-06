@@ -2306,9 +2306,9 @@ Type 'help' to see available options displayed in the console.`;
 		}
 
 		try {
-			const previousModalApp = KatApp.get(".kaModal");
-			if (previousModalApp != undefined) {
-				KatApp.remove(previousModalApp);
+			let currentModalApp = KatApp.get(".kaModal");
+			if (currentModalApp != undefined) {
+				KatApp.remove(currentModalApp);
 			}
 
 			return new Promise<IModalResponse>(async (resolve, reject) => {
@@ -2346,7 +2346,10 @@ Type 'help' to see available options displayed in the console.`;
 				}
 	
 				delete modalAppOptions.inputs!.iNestedApplication;
-				await KatApp.createAppAsync(".kaModal", modalAppOptions);
+				currentModalApp = await KatApp.createAppAsync(".kaModal", modalAppOptions);
+			}).finally(async () => {
+				if (currentModalApp == undefined) return;
+				await currentModalApp.triggerEventAsync("modalAppClosed", currentModalApp);
 			});
 		} catch (e) {
 			this.unblockUI();

@@ -19,7 +19,7 @@
 
 			config.handlers = {
 				change: function (e) {
-					console.log("Custom handlers.change change event for " + $(e.target).attr("name"));
+					console.log("Custom handlers.change change event for " + e.target.getAttribute("name"));
 				}
 			};
 
@@ -179,7 +179,7 @@ Count: {{model.count}}
 		function mounted(application) {
 			console.log("setup templateMounted");
 			application.on("input", "input.nexgen-once", function () {
-				console.log("One time mount:change - " + $(this).attr("name"));
+				console.log("One time mount:change - " + this.getAttribute("name"));
 			});
 		}
 		function unmounted(application) {
@@ -192,7 +192,7 @@ Count: {{model.count}}
 		function mounted(application) {
 			console.log("templateMounted");
 			application.on("input", "input.nexgen", function () {
-				console.log("Every time mount:change - " + $(this).attr("name"));
+				console.log("Every time mount:change - " + this.getAttribute("name"));
 			});
 		}
 		function unmounted(application) {

@@ -174,6 +174,7 @@ interface IKatAppEventsConfiguration {
 	initialized?: (application: IKatApp) => void;
 	modalAppInitialized?: (modalApplication: IKatApp, hostApplication: IKatApp) => void;
 	nestedAppInitialized?: (nestedApplication: IKatApp, hostApplication: IKatApp) => void;
+	modalAppClosed?: (modalApplication: IKatApp) => void;
 	rendered?: (initializationErrors: IValidationRow[] | undefined, application: IKatApp) => void;
 	nestedAppRendered?: (nestedApplication: IKatApp, initializationErrors: IValidationRow[] | undefined, hostApplication: IKatApp) => void;
 	updateApiOptions?: (submitApiOptions: ISubmitApiOptions, endpoint: string, application: IKatApp) => void;

@@ -1,18 +1,19 @@
 ﻿
 (function (): void {
 	// save the original methods before overwriting them
-	Element.prototype._addEventListener = Element.prototype.addEventListener;
-	Element.prototype._removeEventListener = Element.prototype.removeEventListener;
+	// EventTarget.prototype covers Element, Document, and Window
+	EventTarget.prototype._addEventListener = EventTarget.prototype.addEventListener;
+	EventTarget.prototype._removeEventListener = EventTarget.prototype.removeEventListener;
 
 	const standardEventTypes = [
 		'click', 'dblclick', 'mousedown', 'mouseup', 'mouseover', 'mouseout', 'mousemove', 'mouseenter', 'mouseleave',
 		'keydown', 'keyup', 'keypress', 'focus', 'blur', 'change', 'input', 'submit', 'reset', 'load', 'unload',
 		'resize', 'scroll', 'contextmenu', 'wheel', 'drag', 'dragstart', 'dragend', 'dragenter', 'dragleave', 'dragover',
-		'drop', 'touchstart', 'touchmove', 'touchend', 'touchcancel'
+		'drop', 'touchstart', 'touchmove', 'touchend', 'touchcancel', 'visibilitychange'
 	];
 	const getEventType = (type: string): string => standardEventTypes.find(t => t === type.split(".")[0]) ?? type;
 
-	Element.prototype.addEventListener = function (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): ElementEventListener {
+	EventTarget.prototype.addEventListener = function (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): ElementEventListener {
 		this._addEventListener(getEventType(type), listener, options);
 
 		if (this.kaEventListeners == undefined) this.kaEventListeners = {};
@@ -24,7 +25,7 @@
 		return eListener;
 	};
 
-	Element.prototype.removeEventListener = function (type: ElementEventListener | string, listenerOrEventListener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void {
+	EventTarget.prototype.removeEventListener = function (type: ElementEventListener | string, listenerOrEventListener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void {
         let l: EventListenerOrEventListenerObject;
         let o: boolean | EventListenerOptions | undefined;
 		let t: string;

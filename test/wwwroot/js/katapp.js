@@ -1690,9 +1690,9 @@ Type 'help' to see available options displayed in the console.`;
             document.querySelector("body").classList.add("kaModalInit");
         }
         try {
-            const previousModalApp = KatApp.get(".kaModal");
-            if (previousModalApp != undefined) {
-                KatApp.remove(previousModalApp);
+            let currentModalApp = KatApp.get(".kaModal");
+            if (currentModalApp != undefined) {
+                KatApp.remove(currentModalApp);
             }
             return new Promise(async (resolve, reject) => {
                 const propertiesToSkip = ["content", "view"];
@@ -1712,7 +1712,11 @@ Type 'help' to see available options displayed in the console.`;
                     modalAppOptions.endpoints.anchoredQueryStrings = KatApps.Utils.generateQueryString(KatApps.Utils.parseQueryString(modalAppOptions.endpoints.anchoredQueryStrings), key => !key.startsWith("ki-") || modalAppOptions.inputs['i' + key.split('-').slice(1).map(segment => segment.charAt(0).toUpperCase() + segment.slice(1)).join("")] == undefined);
                 }
                 delete modalAppOptions.inputs.iNestedApplication;
-                await KatApp.createAppAsync(".kaModal", modalAppOptions);
+                currentModalApp = await KatApp.createAppAsync(".kaModal", modalAppOptions);
+            }).finally(async () => {
+                if (currentModalApp == undefined)
+                    return;
+                await currentModalApp.triggerEventAsync("modalAppClosed", currentModalApp);
             });
         }
         catch (e) {
@@ -6171,16 +6175,16 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
     KatApps.KamlResourceDownloadError = KamlResourceDownloadError;
 })(KatApps || (KatApps = {}));
 (function () {
-    Element.prototype._addEventListener = Element.prototype.addEventListener;
-    Element.prototype._removeEventListener = Element.prototype.removeEventListener;
+    EventTarget.prototype._addEventListener = EventTarget.prototype.addEventListener;
+    EventTarget.prototype._removeEventListener = EventTarget.prototype.removeEventListener;
     const standardEventTypes = [
         'click', 'dblclick', 'mousedown', 'mouseup', 'mouseover', 'mouseout', 'mousemove', 'mouseenter', 'mouseleave',
         'keydown', 'keyup', 'keypress', 'focus', 'blur', 'change', 'input', 'submit', 'reset', 'load', 'unload',
         'resize', 'scroll', 'contextmenu', 'wheel', 'drag', 'dragstart', 'dragend', 'dragenter', 'dragleave', 'dragover',
-        'drop', 'touchstart', 'touchmove', 'touchend', 'touchcancel'
+        'drop', 'touchstart', 'touchmove', 'touchend', 'touchcancel', 'visibilitychange'
     ];
     const getEventType = (type) => standardEventTypes.find(t => t === type.split(".")[0]) ?? type;
-    Element.prototype.addEventListener = function (type, listener, options) {
+    EventTarget.prototype.addEventListener = function (type, listener, options) {
         this._addEventListener(getEventType(type), listener, options);
         if (this.kaEventListeners == undefined)
             this.kaEventListeners = {};
@@ -6190,7 +6194,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
         this.kaEventListeners[type].push(eListener);
         return eListener;
     };
-    Element.prototype.removeEventListener = function (type, listenerOrEventListener, options) {
+    EventTarget.prototype.removeEventListener = function (type, listenerOrEventListener, options) {
         let l;
         let o;
         let t;
