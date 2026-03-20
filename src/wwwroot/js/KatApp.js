@@ -585,6 +585,7 @@ class KatApp {
                         inputTab: c.getAttribute("input-tab") ?? "RBLInput",
                         resultTabs: processCalcEngineConfigTokens(c.getAttribute("result-tabs"))?.split(",") ?? ["RBLResult"],
                         pipeline: [...c.querySelectorAll("pipeline")].map((p, i) => calcEngineFactory(p, i + 1)),
+                        pipelineDuringApi: c.getAttribute("pipeline-during-api") == "true",
                         allowConfigureUi: c.getAttribute("configure-ui") != "false",
                         manualResult: false,
                         enabled: ((enabled?.startsWith("!!") ?? false) ? eval(enabled.substring(2)) : enabled) != "false"
@@ -1176,6 +1177,7 @@ Type 'help' to see available options displayed in the console.`;
                                 name: calcEngine.name,
                                 inputTab: calcEngine.inputTab,
                                 resultTabs: calcEngine.resultTabs,
+                                pipelineDuringApi: calcEngine.pipelineDuringApi,
                                 pipeline: calcEngine.pipeline
                             }
                         ]
@@ -1803,6 +1805,7 @@ Type 'help' to see available options displayed in the console.`;
                     resultTabs: ceInfo.tabs,
                     manualResult: true,
                     allowConfigureUi: true,
+                    pipelineDuringApi: false,
                     enabled: true
                 };
                 mrCalcEngines.push(ce);

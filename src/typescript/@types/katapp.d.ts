@@ -727,6 +727,7 @@ interface ICalcEngine {
     name: string;
     inputTab: string;
     resultTabs: string[];
+    pipelineDuringApi: boolean;
     pipeline?: IPipelineCalcEngine[];
 }
 interface IPipelineCalcEngine {
@@ -898,6 +899,7 @@ interface ISubmitCalculationCalcEngine {
     name: string;
     inputTab: string;
     resultTabs: string[];
+    pipelineDuringApi: boolean;
     pipeline: ISubmitCalculationCalcEnginePipeline | undefined;
 }
 interface ISubmitCalculationCalcEnginePipeline {
