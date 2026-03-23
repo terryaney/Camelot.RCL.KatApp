@@ -5028,7 +5028,8 @@ var KatApps;
             return ctx => {
                 ctx.effect(() => {
                     const scope = ctx.get();
-                    const data = application.state.rbl.source(scope.name, scope.ce, scope.tab);
+                    const data = scope.source ??
+                        application.state.rbl.source(scope.name, scope.ce, scope.tab);
                     ctx.el.replaceChildren();
                     if (data.length > 0) {
                         let tableCss = scope.css != undefined

@@ -2818,6 +2818,7 @@ Property | Type | Description
 `css` | `string` | If provided, `css` is the css that should be applied to the rendered `<table>` element.  If not provided, `table table-sm table-hover` is applied.<br/><br/>Note that css names of `rbl` and `model.name` are always applied.
 `ce` | `string` | If the RBLe Framework results to process is not part of the default Kaml View CalcEngine, a CalcEngine key can provided.
 `tab` | `string` | If the RBLe Framework results to process is not part of the default result tab (`RBLResult`), a tab name can provided.
+`source` | `Array<ITabDefRow>` | Instead of providing a `name` of a RBLe Framework result table to process, an `Array<ITabDefRow>` can be provided directly to the directive.  This is useful when the data to render in the table is not coming from the RBLe Framework, comes from 'host application' or if the data is being manipulated before rendering.
 
 ### v-ka-table Result Table Columns
 

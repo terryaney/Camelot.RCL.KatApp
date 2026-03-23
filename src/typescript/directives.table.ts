@@ -6,7 +6,9 @@
 			return ctx => {
 				ctx.effect(() => {
 					const scope: IKaTableModel = ctx.get();
-					const data = application.state.rbl.source(scope.name, scope.ce, scope.tab);
+					const data =
+						scope.source ??
+						application.state.rbl.source(scope.name, scope.ce, scope.tab);
 
 					// empty the element
 					ctx.el.replaceChildren();

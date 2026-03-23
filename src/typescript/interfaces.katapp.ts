@@ -564,6 +564,7 @@ interface IKaTableModel {
 	css?: string;
 	ce?: string;
 	tab?: string;
+	source?: ITabDefRow[];
 }
 interface IKaInputModel {
 	name: string;
