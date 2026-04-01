@@ -1955,7 +1955,9 @@ Type 'help' to see available options displayed in the console.`;
                     });
                 }
             });
-            (t["rbl-input"] ?? []).filter(r => (r["list"] ?? "") != "").map(r => ({ input: r.id, list: r.list })).concat((t["rbl-listcontrol"] ?? []).map(r => ({ input: r.id, list: r.table }))).forEach(r => {
+            (t["rbl-input"] ?? []).filter(r => (r["list"] ?? "") != "").map(r => ({ input: r.id, list: r.list }))
+                .concat((t["rbl-listcontrol"] ?? []).map(r => ({ input: r.id, list: r.table })))
+                .forEach(r => {
                 if (t[r.list] != undefined) {
                     const values = t[r.list].map(l => l.key);
                     const inputValue = this.state.inputs[r.input];

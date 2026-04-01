@@ -2728,17 +2728,17 @@ Type 'help' to see available options displayed in the console.`;
 					}
 				});
 
-			(t["rbl-input"] as ITabDefTable ?? []).filter(r => (r["list"] ?? "") != "").map(r => ({ input: r.id!, list: r.list! })).concat(
-				(t["rbl-listcontrol"] as ITabDefTable ?? []).map(r => ({ input: r.id!, list: r.table! }))
-			).forEach(r => {
-				if (t[r.list] != undefined) {
-					const values = (t[r.list] as Array<IKaInputModelListRow>).map(l => l.key);
-					const inputValue: string | undefined = this.state.inputs[r.input] as string;
-					if (values.indexOf(inputValue ?? "") == -1) {
-						delete this.state.inputs[r.input];
+			(t["rbl-input"] as ITabDefTable ?? []).filter(r => (r["list"] ?? "") != "").map(r => ({ input: r.id!, list: r.list! }))
+				.concat((t["rbl-listcontrol"] as ITabDefTable ?? []).map(r => ({ input: r.id!, list: r.table! })))
+				.forEach(r => {
+					if (t[r.list] != undefined) {
+						const values = (t[r.list] as Array<IKaInputModelListRow>).map(l => l.key);
+						const inputValue: string | undefined = this.state.inputs[r.input] as string;
+						if (values.indexOf(inputValue ?? "") == -1) {
+							delete this.state.inputs[r.input];
+						}
 					}
-				}
-			});
+				});
 		});
 
 		// Build rbl.expressions from accumulated rbl-expression rows
