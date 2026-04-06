@@ -16,542 +16,6 @@ var PetiteVue = (function (exports) {
         }
         return expectsLowerCase ? val => !!map[val.toLowerCase()] : val => !!map[val];
     }
-    const extend = Object.assign;
-    const hasOwnProperty = Object.prototype.hasOwnProperty;
-    const hasOwn = (val, key) => hasOwnProperty.call(val, key);
-    const isArray$1 = Array.isArray;
-    const isMap = (val) => toTypeString$1(val) === '[object Map]';
-    const isString$1 = (val) => typeof val === 'string';
-    const isSymbol$1 = (val) => typeof val === 'symbol';
-    const isObject$1 = (val) => val !== null && typeof val === 'object';
-    const objectToString$1 = Object.prototype.toString;
-    const toTypeString$1 = (value) => objectToString$1.call(value);
-    const toRawType = (value) => {
-        // extract "RawType" from strings like "[object RawType]"
-        return toTypeString$1(value).slice(8, -1);
-    };
-    const isIntegerKey = (key) => isString$1(key) &&
-        key !== 'NaN' &&
-        key[0] !== '-' &&
-        '' + parseInt(key, 10) === key;
-    // compare whether a value has changed, accounting for NaN.
-    const hasChanged = (value, oldValue) => !Object.is(value, oldValue);
-
-    let activeEffectScope;
-    function recordEffectScope(effect, scope) {
-        scope = scope || activeEffectScope;
-        if (scope && scope.active) {
-            scope.effects.push(effect);
-        }
-    }
-
-    const createDep = (effects) => {
-        const dep = new Set(effects);
-        dep.w = 0;
-        dep.n = 0;
-        return dep;
-    };
-    const wasTracked = (dep) => (dep.w & trackOpBit) > 0;
-    const newTracked = (dep) => (dep.n & trackOpBit) > 0;
-    const initDepMarkers = ({ deps }) => {
-        if (deps.length) {
-            for (let i = 0; i < deps.length; i++) {
-                deps[i].w |= trackOpBit; // set was tracked
-            }
-        }
-    };
-    const finalizeDepMarkers = (effect) => {
-        const { deps } = effect;
-        if (deps.length) {
-            let ptr = 0;
-            for (let i = 0; i < deps.length; i++) {
-                const dep = deps[i];
-                if (wasTracked(dep) && !newTracked(dep)) {
-                    dep.delete(effect);
-                }
-                else {
-                    deps[ptr++] = dep;
-                }
-                // clear bits
-                dep.w &= ~trackOpBit;
-                dep.n &= ~trackOpBit;
-            }
-            deps.length = ptr;
-        }
-    };
-
-    const targetMap = new WeakMap();
-    // The number of effects currently being tracked recursively.
-    let effectTrackDepth = 0;
-    let trackOpBit = 1;
-    /**
-     * The bitwise track markers support at most 30 levels of recursion.
-     * This value is chosen to enable modern JS engines to use a SMI on all platforms.
-     * When recursion depth is greater, fall back to using a full cleanup.
-     */
-    const maxMarkerBits = 30;
-    const effectStack = [];
-    let activeEffect;
-    const ITERATE_KEY = Symbol('');
-    const MAP_KEY_ITERATE_KEY = Symbol('');
-    class ReactiveEffect {
-        constructor(fn, scheduler = null, scope) {
-            this.fn = fn;
-            this.scheduler = scheduler;
-            this.active = true;
-            this.deps = [];
-            recordEffectScope(this, scope);
-        }
-        run() {
-            if (!this.active) {
-                return this.fn();
-            }
-            if (!effectStack.includes(this)) {
-                try {
-                    effectStack.push((activeEffect = this));
-                    enableTracking();
-                    trackOpBit = 1 << ++effectTrackDepth;
-                    if (effectTrackDepth <= maxMarkerBits) {
-                        initDepMarkers(this);
-                    }
-                    else {
-                        cleanupEffect(this);
-                    }
-                    return this.fn();
-                }
-                finally {
-                    if (effectTrackDepth <= maxMarkerBits) {
-                        finalizeDepMarkers(this);
-                    }
-                    trackOpBit = 1 << --effectTrackDepth;
-                    resetTracking();
-                    effectStack.pop();
-                    const n = effectStack.length;
-                    activeEffect = n > 0 ? effectStack[n - 1] : undefined;
-                }
-            }
-        }
-        stop() {
-            if (this.active) {
-                cleanupEffect(this);
-                if (this.onStop) {
-                    this.onStop();
-                }
-                this.active = false;
-            }
-        }
-    }
-    function cleanupEffect(effect) {
-        const { deps } = effect;
-        if (deps.length) {
-            for (let i = 0; i < deps.length; i++) {
-                deps[i].delete(effect);
-            }
-            deps.length = 0;
-        }
-    }
-    function effect$1(fn, options) {
-        if (fn.effect) {
-            fn = fn.effect.fn;
-        }
-        const _effect = new ReactiveEffect(fn);
-        if (options) {
-            extend(_effect, options);
-            if (options.scope)
-                recordEffectScope(_effect, options.scope);
-        }
-        if (!options || !options.lazy) {
-            _effect.run();
-        }
-        const runner = _effect.run.bind(_effect);
-        runner.effect = _effect;
-        return runner;
-    }
-    function stop(runner) {
-        runner.effect.stop();
-    }
-    let shouldTrack = true;
-    const trackStack = [];
-    function pauseTracking() {
-        trackStack.push(shouldTrack);
-        shouldTrack = false;
-    }
-    function enableTracking() {
-        trackStack.push(shouldTrack);
-        shouldTrack = true;
-    }
-    function resetTracking() {
-        const last = trackStack.pop();
-        shouldTrack = last === undefined ? true : last;
-    }
-    function track(target, type, key) {
-        if (!isTracking()) {
-            return;
-        }
-        let depsMap = targetMap.get(target);
-        if (!depsMap) {
-            targetMap.set(target, (depsMap = new Map()));
-        }
-        let dep = depsMap.get(key);
-        if (!dep) {
-            depsMap.set(key, (dep = createDep()));
-        }
-        trackEffects(dep);
-    }
-    function isTracking() {
-        return shouldTrack && activeEffect !== undefined;
-    }
-    function trackEffects(dep, debuggerEventExtraInfo) {
-        let shouldTrack = false;
-        if (effectTrackDepth <= maxMarkerBits) {
-            if (!newTracked(dep)) {
-                dep.n |= trackOpBit; // set newly tracked
-                shouldTrack = !wasTracked(dep);
-            }
-        }
-        else {
-            // Full cleanup mode.
-            shouldTrack = !dep.has(activeEffect);
-        }
-        if (shouldTrack) {
-            dep.add(activeEffect);
-            activeEffect.deps.push(dep);
-        }
-    }
-    function trigger$1(target, type, key, newValue, oldValue, oldTarget) {
-        const depsMap = targetMap.get(target);
-        if (!depsMap) {
-            // never been tracked
-            return;
-        }
-        let deps = [];
-        if (type === "clear" /* CLEAR */) {
-            // collection being cleared
-            // trigger all effects for target
-            deps = [...depsMap.values()];
-        }
-        else if (key === 'length' && isArray$1(target)) {
-            depsMap.forEach((dep, key) => {
-                if (key === 'length' || key >= newValue) {
-                    deps.push(dep);
-                }
-            });
-        }
-        else {
-            // schedule runs for SET | ADD | DELETE
-            if (key !== void 0) {
-                deps.push(depsMap.get(key));
-            }
-            // also run for iteration key on ADD | DELETE | Map.SET
-            switch (type) {
-                case "add" /* ADD */:
-                    if (!isArray$1(target)) {
-                        deps.push(depsMap.get(ITERATE_KEY));
-                        if (isMap(target)) {
-                            deps.push(depsMap.get(MAP_KEY_ITERATE_KEY));
-                        }
-                    }
-                    else if (isIntegerKey(key)) {
-                        // new index added to array -> length changes
-                        deps.push(depsMap.get('length'));
-                    }
-                    break;
-                case "delete" /* DELETE */:
-                    if (!isArray$1(target)) {
-                        deps.push(depsMap.get(ITERATE_KEY));
-                        if (isMap(target)) {
-                            deps.push(depsMap.get(MAP_KEY_ITERATE_KEY));
-                        }
-                    }
-                    break;
-                case "set" /* SET */:
-                    if (isMap(target)) {
-                        deps.push(depsMap.get(ITERATE_KEY));
-                    }
-                    break;
-            }
-        }
-        if (deps.length === 1) {
-            if (deps[0]) {
-                {
-                    triggerEffects(deps[0]);
-                }
-            }
-        }
-        else {
-            const effects = [];
-            for (const dep of deps) {
-                if (dep) {
-                    effects.push(...dep);
-                }
-            }
-            {
-                triggerEffects(createDep(effects));
-            }
-        }
-    }
-    function triggerEffects(dep, debuggerEventExtraInfo) {
-        // spread into array for stabilization
-        for (const effect of isArray$1(dep) ? dep : [...dep]) {
-            if (effect !== activeEffect || effect.allowRecurse) {
-                if (effect.scheduler) {
-                    effect.scheduler();
-                }
-                else {
-                    effect.run();
-                }
-            }
-        }
-    }
-
-    const isNonTrackableKeys = /*#__PURE__*/ makeMap(`__proto__,__v_isRef,__isVue`);
-    const builtInSymbols = new Set(Object.getOwnPropertyNames(Symbol)
-        .map(key => Symbol[key])
-        .filter(isSymbol$1));
-    const get = /*#__PURE__*/ createGetter();
-    const readonlyGet = /*#__PURE__*/ createGetter(true);
-    const arrayInstrumentations = /*#__PURE__*/ createArrayInstrumentations();
-    function createArrayInstrumentations() {
-        const instrumentations = {};
-        ['includes', 'indexOf', 'lastIndexOf'].forEach(key => {
-            instrumentations[key] = function (...args) {
-                const arr = toRaw(this);
-                for (let i = 0, l = this.length; i < l; i++) {
-                    track(arr, "get" /* GET */, i + '');
-                }
-                // we run the method using the original args first (which may be reactive)
-                const res = arr[key](...args);
-                if (res === -1 || res === false) {
-                    // if that didn't work, run it again using raw values.
-                    return arr[key](...args.map(toRaw));
-                }
-                else {
-                    return res;
-                }
-            };
-        });
-        ['push', 'pop', 'shift', 'unshift', 'splice'].forEach(key => {
-            instrumentations[key] = function (...args) {
-                pauseTracking();
-                const res = toRaw(this)[key].apply(this, args);
-                resetTracking();
-                return res;
-            };
-        });
-        return instrumentations;
-    }
-    function createGetter(isReadonly = false, shallow = false) {
-        return function get(target, key, receiver) {
-            if (key === "__v_isReactive" /* IS_REACTIVE */) {
-                return !isReadonly;
-            }
-            else if (key === "__v_isReadonly" /* IS_READONLY */) {
-                return isReadonly;
-            }
-            else if (key === "__v_raw" /* RAW */ &&
-                receiver ===
-                    (isReadonly
-                        ? shallow
-                            ? shallowReadonlyMap
-                            : readonlyMap
-                        : shallow
-                            ? shallowReactiveMap
-                            : reactiveMap).get(target)) {
-                return target;
-            }
-            const targetIsArray = isArray$1(target);
-            if (!isReadonly && targetIsArray && hasOwn(arrayInstrumentations, key)) {
-                return Reflect.get(arrayInstrumentations, key, receiver);
-            }
-            const res = Reflect.get(target, key, receiver);
-            if (isSymbol$1(key) ? builtInSymbols.has(key) : isNonTrackableKeys(key)) {
-                return res;
-            }
-            if (!isReadonly) {
-                track(target, "get" /* GET */, key);
-            }
-            if (shallow) {
-                return res;
-            }
-            if (isRef(res)) {
-                // ref unwrapping - does not apply for Array + integer key.
-                const shouldUnwrap = !targetIsArray || !isIntegerKey(key);
-                return shouldUnwrap ? res.value : res;
-            }
-            if (isObject$1(res)) {
-                // Convert returned value into a proxy as well. we do the isObject check
-                // here to avoid invalid value warning. Also need to lazy access readonly
-                // and reactive here to avoid circular dependency.
-                return isReadonly ? readonly(res) : reactive(res);
-            }
-            return res;
-        };
-    }
-    const set = /*#__PURE__*/ createSetter();
-    function createSetter(shallow = false) {
-        return function set(target, key, value, receiver) {
-            let oldValue = target[key];
-            if (!shallow && !isReadonly(value)) {
-                value = toRaw(value);
-                oldValue = toRaw(oldValue);
-                if (!isArray$1(target) && isRef(oldValue) && !isRef(value)) {
-                    oldValue.value = value;
-                    return true;
-                }
-            }
-            const hadKey = isArray$1(target) && isIntegerKey(key)
-                ? Number(key) < target.length
-                : hasOwn(target, key);
-            const result = Reflect.set(target, key, value, receiver);
-            // don't trigger if target is something up in the prototype chain of original
-            if (target === toRaw(receiver)) {
-                if (!hadKey) {
-                    trigger$1(target, "add" /* ADD */, key, value);
-                }
-                else if (hasChanged(value, oldValue)) {
-                    trigger$1(target, "set" /* SET */, key, value);
-                }
-            }
-            return result;
-        };
-    }
-    function deleteProperty(target, key) {
-        const hadKey = hasOwn(target, key);
-        target[key];
-        const result = Reflect.deleteProperty(target, key);
-        if (result && hadKey) {
-            trigger$1(target, "delete" /* DELETE */, key, undefined);
-        }
-        return result;
-    }
-    function has(target, key) {
-        const result = Reflect.has(target, key);
-        if (!isSymbol$1(key) || !builtInSymbols.has(key)) {
-            track(target, "has" /* HAS */, key);
-        }
-        return result;
-    }
-    function ownKeys(target) {
-        track(target, "iterate" /* ITERATE */, isArray$1(target) ? 'length' : ITERATE_KEY);
-        return Reflect.ownKeys(target);
-    }
-    const mutableHandlers = {
-        get,
-        set,
-        deleteProperty,
-        has,
-        ownKeys
-    };
-    const readonlyHandlers = {
-        get: readonlyGet,
-        set(target, key) {
-            return true;
-        },
-        deleteProperty(target, key) {
-            return true;
-        }
-    };
-
-    const reactiveMap = new WeakMap();
-    const shallowReactiveMap = new WeakMap();
-    const readonlyMap = new WeakMap();
-    const shallowReadonlyMap = new WeakMap();
-    function targetTypeMap(rawType) {
-        switch (rawType) {
-            case 'Object':
-            case 'Array':
-                return 1 /* COMMON */;
-            case 'Map':
-            case 'Set':
-            case 'WeakMap':
-            case 'WeakSet':
-                return 2 /* COLLECTION */;
-            default:
-                return 0 /* INVALID */;
-        }
-    }
-    function getTargetType(value) {
-        return value["__v_skip" /* SKIP */] || !Object.isExtensible(value)
-            ? 0 /* INVALID */
-            : targetTypeMap(toRawType(value));
-    }
-    function reactive(target) {
-        // if trying to observe a readonly proxy, return the readonly version.
-        if (target && target["__v_isReadonly" /* IS_READONLY */]) {
-            return target;
-        }
-        return createReactiveObject(target, false, mutableHandlers, null, reactiveMap);
-    }
-    /**
-     * Creates a readonly copy of the original object. Note the returned copy is not
-     * made reactive, but `readonly` can be called on an already reactive object.
-     */
-    function readonly(target) {
-        return createReactiveObject(target, true, readonlyHandlers, null, readonlyMap);
-    }
-    function createReactiveObject(target, isReadonly, baseHandlers, collectionHandlers, proxyMap) {
-        if (!isObject$1(target)) {
-            return target;
-        }
-        // target is already a Proxy, return it.
-        // exception: calling readonly() on a reactive object
-        if (target["__v_raw" /* RAW */] &&
-            !(isReadonly && target["__v_isReactive" /* IS_REACTIVE */])) {
-            return target;
-        }
-        // target already has corresponding Proxy
-        const existingProxy = proxyMap.get(target);
-        if (existingProxy) {
-            return existingProxy;
-        }
-        // only a whitelist of value types can be observed.
-        const targetType = getTargetType(target);
-        if (targetType === 0 /* INVALID */) {
-            return target;
-        }
-        const proxy = new Proxy(target, targetType === 2 /* COLLECTION */ ? collectionHandlers : baseHandlers);
-        proxyMap.set(target, proxy);
-        return proxy;
-    }
-    function isReadonly(value) {
-        return !!(value && value["__v_isReadonly" /* IS_READONLY */]);
-    }
-    function toRaw(observed) {
-        const raw = observed && observed["__v_raw" /* RAW */];
-        return raw ? toRaw(raw) : observed;
-    }
-    function isRef(r) {
-        return Boolean(r && r.__v_isRef === true);
-    }
-    Promise.resolve();
-
-    let queued = false;
-    const queue = [];
-    const p = Promise.resolve();
-    const nextTick = (fn) => p.then(fn);
-    const queueJob = (job) => {
-      if (!queue.includes(job))
-        queue.push(job);
-      if (!queued) {
-        queued = true;
-        nextTick(flushJobs);
-      }
-    };
-    const flushJobs = () => {
-      for (const job of queue) {
-        job();
-      }
-      queue.length = 0;
-      queued = false;
-    };
-
-    /**
-     * Make a map and return a function for checking if a key
-     * is in that map.
-     * IMPORTANT: all calls of this function must be prefixed with
-     * \/\*#\_\_PURE\_\_\*\/
-     * So that rollup can tree-shake them if necessary.
-     */
 
     function normalizeStyle(value) {
         if (isArray(value)) {
@@ -577,14 +41,10 @@ var PetiteVue = (function (exports) {
         }
     }
     const listDelimiterRE = /;(?![^(]*\))/g;
-    const propertyDelimiterRE = /:([^]+)/;
-    const styleCommentRE = /\/\*.*?\*\//gs;
+    const propertyDelimiterRE = /:(.+)/;
     function parseStringStyle(cssText) {
         const ret = {};
-        cssText
-            .replace(styleCommentRE, '')
-            .split(listDelimiterRE)
-            .forEach(item => {
+        cssText.split(listDelimiterRE).forEach(item => {
             if (item) {
                 const tmp = item.split(propertyDelimiterRE);
                 tmp.length > 1 && (ret[tmp[0].trim()] = tmp[1].trim());
@@ -669,19 +129,31 @@ var PetiteVue = (function (exports) {
     function looseIndexOf(arr, val) {
         return arr.findIndex(item => looseEqual(item, val));
     }
+    const extend = Object.assign;
     const remove = (arr, el) => {
         const i = arr.indexOf(el);
         if (i > -1) {
             arr.splice(i, 1);
         }
     };
+    const hasOwnProperty = Object.prototype.hasOwnProperty;
+    const hasOwn = (val, key) => hasOwnProperty.call(val, key);
     const isArray = Array.isArray;
+    const isMap = (val) => toTypeString(val) === '[object Map]';
     const isDate = (val) => toTypeString(val) === '[object Date]';
     const isString = (val) => typeof val === 'string';
     const isSymbol = (val) => typeof val === 'symbol';
     const isObject = (val) => val !== null && typeof val === 'object';
     const objectToString = Object.prototype.toString;
     const toTypeString = (value) => objectToString.call(value);
+    const toRawType = (value) => {
+        // extract "RawType" from strings like "[object RawType]"
+        return toTypeString(value).slice(8, -1);
+    };
+    const isIntegerKey = (key) => isString(key) &&
+        key !== 'NaN' &&
+        key[0] !== '-' &&
+        '' + parseInt(key, 10) === key;
     const cacheStringFunction = (fn) => {
         const cache = Object.create(null);
         return ((str) => {
@@ -701,13 +173,549 @@ var PetiteVue = (function (exports) {
      * @private
      */
     const hyphenate = cacheStringFunction((str) => str.replace(hyphenateRE, '-$1').toLowerCase());
-    /**
-     * Only conerces number-like strings
-     * "123-foo" will be returned as-is
-     */
+    // compare whether a value has changed, accounting for NaN.
+    const hasChanged = (value, oldValue) => !Object.is(value, oldValue);
     const toNumber = (val) => {
-        const n = isString(val) ? Number(val) : NaN;
+        const n = parseFloat(val);
         return isNaN(n) ? val : n;
+    };
+
+    let activeEffectScope;
+    function recordEffectScope(effect, scope = activeEffectScope) {
+        if (scope && scope.active) {
+            scope.effects.push(effect);
+        }
+    }
+
+    const createDep = (effects) => {
+        const dep = new Set(effects);
+        dep.w = 0;
+        dep.n = 0;
+        return dep;
+    };
+    const wasTracked = (dep) => (dep.w & trackOpBit) > 0;
+    const newTracked = (dep) => (dep.n & trackOpBit) > 0;
+    const initDepMarkers = ({ deps }) => {
+        if (deps.length) {
+            for (let i = 0; i < deps.length; i++) {
+                deps[i].w |= trackOpBit; // set was tracked
+            }
+        }
+    };
+    const finalizeDepMarkers = (effect) => {
+        const { deps } = effect;
+        if (deps.length) {
+            let ptr = 0;
+            for (let i = 0; i < deps.length; i++) {
+                const dep = deps[i];
+                if (wasTracked(dep) && !newTracked(dep)) {
+                    dep.delete(effect);
+                }
+                else {
+                    deps[ptr++] = dep;
+                }
+                // clear bits
+                dep.w &= ~trackOpBit;
+                dep.n &= ~trackOpBit;
+            }
+            deps.length = ptr;
+        }
+    };
+
+    const targetMap = new WeakMap();
+    // The number of effects currently being tracked recursively.
+    let effectTrackDepth = 0;
+    let trackOpBit = 1;
+    /**
+     * The bitwise track markers support at most 30 levels of recursion.
+     * This value is chosen to enable modern JS engines to use a SMI on all platforms.
+     * When recursion depth is greater, fall back to using a full cleanup.
+     */
+    const maxMarkerBits = 30;
+    let activeEffect;
+    const ITERATE_KEY = Symbol('');
+    const MAP_KEY_ITERATE_KEY = Symbol('');
+    class ReactiveEffect {
+        constructor(fn, scheduler = null, scope) {
+            this.fn = fn;
+            this.scheduler = scheduler;
+            this.active = true;
+            this.deps = [];
+            this.parent = undefined;
+            recordEffectScope(this, scope);
+        }
+        run() {
+            if (!this.active) {
+                return this.fn();
+            }
+            let parent = activeEffect;
+            let lastShouldTrack = shouldTrack;
+            while (parent) {
+                if (parent === this) {
+                    return;
+                }
+                parent = parent.parent;
+            }
+            try {
+                this.parent = activeEffect;
+                activeEffect = this;
+                shouldTrack = true;
+                trackOpBit = 1 << ++effectTrackDepth;
+                if (effectTrackDepth <= maxMarkerBits) {
+                    initDepMarkers(this);
+                }
+                else {
+                    cleanupEffect(this);
+                }
+                return this.fn();
+            }
+            finally {
+                if (effectTrackDepth <= maxMarkerBits) {
+                    finalizeDepMarkers(this);
+                }
+                trackOpBit = 1 << --effectTrackDepth;
+                activeEffect = this.parent;
+                shouldTrack = lastShouldTrack;
+                this.parent = undefined;
+                if (this.deferStop) {
+                    this.stop();
+                }
+            }
+        }
+        stop() {
+            // stopped while running itself - defer the cleanup
+            if (activeEffect === this) {
+                this.deferStop = true;
+            }
+            else if (this.active) {
+                cleanupEffect(this);
+                if (this.onStop) {
+                    this.onStop();
+                }
+                this.active = false;
+            }
+        }
+    }
+    function cleanupEffect(effect) {
+        const { deps } = effect;
+        if (deps.length) {
+            for (let i = 0; i < deps.length; i++) {
+                deps[i].delete(effect);
+            }
+            deps.length = 0;
+        }
+    }
+    function effect$1(fn, options) {
+        if (fn.effect) {
+            fn = fn.effect.fn;
+        }
+        const _effect = new ReactiveEffect(fn);
+        if (options) {
+            extend(_effect, options);
+            if (options.scope)
+                recordEffectScope(_effect, options.scope);
+        }
+        if (!options || !options.lazy) {
+            _effect.run();
+        }
+        const runner = _effect.run.bind(_effect);
+        runner.effect = _effect;
+        return runner;
+    }
+    function stop(runner) {
+        runner.effect.stop();
+    }
+    let shouldTrack = true;
+    const trackStack = [];
+    function pauseTracking() {
+        trackStack.push(shouldTrack);
+        shouldTrack = false;
+    }
+    function resetTracking() {
+        const last = trackStack.pop();
+        shouldTrack = last === undefined ? true : last;
+    }
+    function track(target, type, key) {
+        if (shouldTrack && activeEffect) {
+            let depsMap = targetMap.get(target);
+            if (!depsMap) {
+                targetMap.set(target, (depsMap = new Map()));
+            }
+            let dep = depsMap.get(key);
+            if (!dep) {
+                depsMap.set(key, (dep = createDep()));
+            }
+            trackEffects(dep);
+        }
+    }
+    function trackEffects(dep, debuggerEventExtraInfo) {
+        let shouldTrack = false;
+        if (effectTrackDepth <= maxMarkerBits) {
+            if (!newTracked(dep)) {
+                dep.n |= trackOpBit; // set newly tracked
+                shouldTrack = !wasTracked(dep);
+            }
+        }
+        else {
+            // Full cleanup mode.
+            shouldTrack = !dep.has(activeEffect);
+        }
+        if (shouldTrack) {
+            dep.add(activeEffect);
+            activeEffect.deps.push(dep);
+        }
+    }
+    function trigger$1(target, type, key, newValue, oldValue, oldTarget) {
+        const depsMap = targetMap.get(target);
+        if (!depsMap) {
+            // never been tracked
+            return;
+        }
+        let deps = [];
+        if (type === "clear" /* TriggerOpTypes.CLEAR */) {
+            // collection being cleared
+            // trigger all effects for target
+            deps = [...depsMap.values()];
+        }
+        else if (key === 'length' && isArray(target)) {
+            depsMap.forEach((dep, key) => {
+                if (key === 'length' || key >= newValue) {
+                    deps.push(dep);
+                }
+            });
+        }
+        else {
+            // schedule runs for SET | ADD | DELETE
+            if (key !== void 0) {
+                deps.push(depsMap.get(key));
+            }
+            // also run for iteration key on ADD | DELETE | Map.SET
+            switch (type) {
+                case "add" /* TriggerOpTypes.ADD */:
+                    if (!isArray(target)) {
+                        deps.push(depsMap.get(ITERATE_KEY));
+                        if (isMap(target)) {
+                            deps.push(depsMap.get(MAP_KEY_ITERATE_KEY));
+                        }
+                    }
+                    else if (isIntegerKey(key)) {
+                        // new index added to array -> length changes
+                        deps.push(depsMap.get('length'));
+                    }
+                    break;
+                case "delete" /* TriggerOpTypes.DELETE */:
+                    if (!isArray(target)) {
+                        deps.push(depsMap.get(ITERATE_KEY));
+                        if (isMap(target)) {
+                            deps.push(depsMap.get(MAP_KEY_ITERATE_KEY));
+                        }
+                    }
+                    break;
+                case "set" /* TriggerOpTypes.SET */:
+                    if (isMap(target)) {
+                        deps.push(depsMap.get(ITERATE_KEY));
+                    }
+                    break;
+            }
+        }
+        if (deps.length === 1) {
+            if (deps[0]) {
+                {
+                    triggerEffects(deps[0]);
+                }
+            }
+        }
+        else {
+            const effects = [];
+            for (const dep of deps) {
+                if (dep) {
+                    effects.push(...dep);
+                }
+            }
+            {
+                triggerEffects(createDep(effects));
+            }
+        }
+    }
+    function triggerEffects(dep, debuggerEventExtraInfo) {
+        // spread into array for stabilization
+        const effects = isArray(dep) ? dep : [...dep];
+        for (const effect of effects) {
+            if (effect.computed) {
+                triggerEffect(effect);
+            }
+        }
+        for (const effect of effects) {
+            if (!effect.computed) {
+                triggerEffect(effect);
+            }
+        }
+    }
+    function triggerEffect(effect, debuggerEventExtraInfo) {
+        if (effect !== activeEffect || effect.allowRecurse) {
+            if (effect.scheduler) {
+                effect.scheduler();
+            }
+            else {
+                effect.run();
+            }
+        }
+    }
+
+    const isNonTrackableKeys = /*#__PURE__*/ makeMap(`__proto__,__v_isRef,__isVue`);
+    const builtInSymbols = new Set(
+    /*#__PURE__*/
+    Object.getOwnPropertyNames(Symbol)
+        // ios10.x Object.getOwnPropertyNames(Symbol) can enumerate 'arguments' and 'caller'
+        // but accessing them on Symbol leads to TypeError because Symbol is a strict mode
+        // function
+        .filter(key => key !== 'arguments' && key !== 'caller')
+        .map(key => Symbol[key])
+        .filter(isSymbol));
+    const get = /*#__PURE__*/ createGetter();
+    const readonlyGet = /*#__PURE__*/ createGetter(true);
+    const arrayInstrumentations = /*#__PURE__*/ createArrayInstrumentations();
+    function createArrayInstrumentations() {
+        const instrumentations = {};
+        ['includes', 'indexOf', 'lastIndexOf'].forEach(key => {
+            instrumentations[key] = function (...args) {
+                const arr = toRaw(this);
+                for (let i = 0, l = this.length; i < l; i++) {
+                    track(arr, "get" /* TrackOpTypes.GET */, i + '');
+                }
+                // we run the method using the original args first (which may be reactive)
+                const res = arr[key](...args);
+                if (res === -1 || res === false) {
+                    // if that didn't work, run it again using raw values.
+                    return arr[key](...args.map(toRaw));
+                }
+                else {
+                    return res;
+                }
+            };
+        });
+        ['push', 'pop', 'shift', 'unshift', 'splice'].forEach(key => {
+            instrumentations[key] = function (...args) {
+                pauseTracking();
+                const res = toRaw(this)[key].apply(this, args);
+                resetTracking();
+                return res;
+            };
+        });
+        return instrumentations;
+    }
+    function createGetter(isReadonly = false, shallow = false) {
+        return function get(target, key, receiver) {
+            if (key === "__v_isReactive" /* ReactiveFlags.IS_REACTIVE */) {
+                return !isReadonly;
+            }
+            else if (key === "__v_isReadonly" /* ReactiveFlags.IS_READONLY */) {
+                return isReadonly;
+            }
+            else if (key === "__v_isShallow" /* ReactiveFlags.IS_SHALLOW */) {
+                return shallow;
+            }
+            else if (key === "__v_raw" /* ReactiveFlags.RAW */ &&
+                receiver ===
+                    (isReadonly
+                        ? shallow
+                            ? shallowReadonlyMap
+                            : readonlyMap
+                        : shallow
+                            ? shallowReactiveMap
+                            : reactiveMap).get(target)) {
+                return target;
+            }
+            const targetIsArray = isArray(target);
+            if (!isReadonly && targetIsArray && hasOwn(arrayInstrumentations, key)) {
+                return Reflect.get(arrayInstrumentations, key, receiver);
+            }
+            const res = Reflect.get(target, key, receiver);
+            if (isSymbol(key) ? builtInSymbols.has(key) : isNonTrackableKeys(key)) {
+                return res;
+            }
+            if (!isReadonly) {
+                track(target, "get" /* TrackOpTypes.GET */, key);
+            }
+            if (shallow) {
+                return res;
+            }
+            if (isRef(res)) {
+                // ref unwrapping - skip unwrap for Array + integer key.
+                return targetIsArray && isIntegerKey(key) ? res : res.value;
+            }
+            if (isObject(res)) {
+                // Convert returned value into a proxy as well. we do the isObject check
+                // here to avoid invalid value warning. Also need to lazy access readonly
+                // and reactive here to avoid circular dependency.
+                return isReadonly ? readonly(res) : reactive(res);
+            }
+            return res;
+        };
+    }
+    const set = /*#__PURE__*/ createSetter();
+    function createSetter(shallow = false) {
+        return function set(target, key, value, receiver) {
+            let oldValue = target[key];
+            if (isReadonly(oldValue) && isRef(oldValue) && !isRef(value)) {
+                return false;
+            }
+            if (!shallow) {
+                if (!isShallow(value) && !isReadonly(value)) {
+                    oldValue = toRaw(oldValue);
+                    value = toRaw(value);
+                }
+                if (!isArray(target) && isRef(oldValue) && !isRef(value)) {
+                    oldValue.value = value;
+                    return true;
+                }
+            }
+            const hadKey = isArray(target) && isIntegerKey(key)
+                ? Number(key) < target.length
+                : hasOwn(target, key);
+            const result = Reflect.set(target, key, value, receiver);
+            // don't trigger if target is something up in the prototype chain of original
+            if (target === toRaw(receiver)) {
+                if (!hadKey) {
+                    trigger$1(target, "add" /* TriggerOpTypes.ADD */, key, value);
+                }
+                else if (hasChanged(value, oldValue)) {
+                    trigger$1(target, "set" /* TriggerOpTypes.SET */, key, value);
+                }
+            }
+            return result;
+        };
+    }
+    function deleteProperty(target, key) {
+        const hadKey = hasOwn(target, key);
+        target[key];
+        const result = Reflect.deleteProperty(target, key);
+        if (result && hadKey) {
+            trigger$1(target, "delete" /* TriggerOpTypes.DELETE */, key, undefined);
+        }
+        return result;
+    }
+    function has(target, key) {
+        const result = Reflect.has(target, key);
+        if (!isSymbol(key) || !builtInSymbols.has(key)) {
+            track(target, "has" /* TrackOpTypes.HAS */, key);
+        }
+        return result;
+    }
+    function ownKeys(target) {
+        track(target, "iterate" /* TrackOpTypes.ITERATE */, isArray(target) ? 'length' : ITERATE_KEY);
+        return Reflect.ownKeys(target);
+    }
+    const mutableHandlers = {
+        get,
+        set,
+        deleteProperty,
+        has,
+        ownKeys
+    };
+    const readonlyHandlers = {
+        get: readonlyGet,
+        set(target, key) {
+            return true;
+        },
+        deleteProperty(target, key) {
+            return true;
+        }
+    };
+
+    const reactiveMap = new WeakMap();
+    const shallowReactiveMap = new WeakMap();
+    const readonlyMap = new WeakMap();
+    const shallowReadonlyMap = new WeakMap();
+    function targetTypeMap(rawType) {
+        switch (rawType) {
+            case 'Object':
+            case 'Array':
+                return 1 /* TargetType.COMMON */;
+            case 'Map':
+            case 'Set':
+            case 'WeakMap':
+            case 'WeakSet':
+                return 2 /* TargetType.COLLECTION */;
+            default:
+                return 0 /* TargetType.INVALID */;
+        }
+    }
+    function getTargetType(value) {
+        return value["__v_skip" /* ReactiveFlags.SKIP */] || !Object.isExtensible(value)
+            ? 0 /* TargetType.INVALID */
+            : targetTypeMap(toRawType(value));
+    }
+    function reactive(target) {
+        // if trying to observe a readonly proxy, return the readonly version.
+        if (isReadonly(target)) {
+            return target;
+        }
+        return createReactiveObject(target, false, mutableHandlers, null, reactiveMap);
+    }
+    /**
+     * Creates a readonly copy of the original object. Note the returned copy is not
+     * made reactive, but `readonly` can be called on an already reactive object.
+     */
+    function readonly(target) {
+        return createReactiveObject(target, true, readonlyHandlers, null, readonlyMap);
+    }
+    function createReactiveObject(target, isReadonly, baseHandlers, collectionHandlers, proxyMap) {
+        if (!isObject(target)) {
+            return target;
+        }
+        // target is already a Proxy, return it.
+        // exception: calling readonly() on a reactive object
+        if (target["__v_raw" /* ReactiveFlags.RAW */] &&
+            !(isReadonly && target["__v_isReactive" /* ReactiveFlags.IS_REACTIVE */])) {
+            return target;
+        }
+        // target already has corresponding Proxy
+        const existingProxy = proxyMap.get(target);
+        if (existingProxy) {
+            return existingProxy;
+        }
+        // only specific value types can be observed.
+        const targetType = getTargetType(target);
+        if (targetType === 0 /* TargetType.INVALID */) {
+            return target;
+        }
+        const proxy = new Proxy(target, targetType === 2 /* TargetType.COLLECTION */ ? collectionHandlers : baseHandlers);
+        proxyMap.set(target, proxy);
+        return proxy;
+    }
+    function isReadonly(value) {
+        return !!(value && value["__v_isReadonly" /* ReactiveFlags.IS_READONLY */]);
+    }
+    function isShallow(value) {
+        return !!(value && value["__v_isShallow" /* ReactiveFlags.IS_SHALLOW */]);
+    }
+    function toRaw(observed) {
+        const raw = observed && observed["__v_raw" /* ReactiveFlags.RAW */];
+        return raw ? toRaw(raw) : observed;
+    }
+    function isRef(r) {
+        return !!(r && r.__v_isRef === true);
+    }
+
+    let queued = false;
+    const queue = [];
+    const p = Promise.resolve();
+    const nextTick = (fn) => p.then(fn);
+    const queueJob = (job) => {
+      if (!queue.includes(job))
+        queue.push(job);
+      if (!queued) {
+        queued = true;
+        nextTick(flushJobs);
+      }
+    };
+    const flushJobs = () => {
+      for (const job of queue) {
+        job();
+      }
+      queue.length = 0;
+      queued = false;
     };
 
     const forceAttrRE = /^(spellcheck|draggable|form|list|type|onclick)$/;
@@ -719,7 +727,7 @@ var PetiteVue = (function (exports) {
       modifiers
     }) => {
       let prevValue;
-      if (el.className) {
+      if (arg === "class") {
         el._class = el.className;
       }
       effect(() => {
@@ -1028,7 +1036,6 @@ var PetiteVue = (function (exports) {
       try {
         return fn(scope, el);
       } catch (e) {
-        console.warn(`Error when evaluating expression "${exp}":`);
         console.error(e);
       }
     };
@@ -1036,8 +1043,7 @@ var PetiteVue = (function (exports) {
       try {
         return new Function(`$data`, `$el`, `with($data){${exp}}`);
       } catch (e) {
-        console.warn(`Error when evaluating expression "${exp}":`);
-        console.error(e);
+        console.error(`${e.message} in expression: ${exp}`);
         return () => {
         };
       }
