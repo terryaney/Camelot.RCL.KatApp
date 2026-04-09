@@ -369,6 +369,7 @@ class KatApp implements IKatApp {
 				}
 			});
 		};
+		const ensureNonBlank = (value: string | undefined) => value == undefined || value.trim() == "" ? undefined : value;
 
 		const state: IState = {
 			kaId: this.id,
@@ -443,9 +444,11 @@ class KatApp implements IKatApp {
 					const stringParams = argList.filter(i => typeof i != "boolean");
 					const table = argList[0];
 
-					const v = stringParams.length == 1
-						? this.value("rbl-value", table) ?? this.value("rbl-display", table) ?? this.value("rbl-disabled", table) ?? this.value("rbl-skip", table)
-						: getValue(...stringParams);
+					const v = ensureNonBlank(
+						stringParams.length == 1
+							? this.value("rbl-value", table) ?? this.value("rbl-display", table) ?? this.value("rbl-disabled", table) ?? this.value("rbl-skip", table)
+							: getValue(...stringParams)
+					);
 
 					const valueWhenMissing = argList.find(i => typeof i == "boolean");
 
@@ -455,10 +458,10 @@ class KatApp implements IKatApp {
 
 					return isTrue(v);
 				},
-				text() { return that.getLocalizedString(getValue(...arguments)); },
+				text() { return that.getLocalizedString(ensureNonBlank(getValue(...arguments))); },
 				value() { return getValue(...arguments); },
 				number() {
-					const v = +(getValue(...arguments) ?? 0);
+					const v = +(ensureNonBlank(getValue(...arguments)) ?? 0);
 					return isNaN(v) ? 0 : v;
 				},
 				source(table, calcEngine, tab, predicate) {

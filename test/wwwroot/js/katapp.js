@@ -269,6 +269,7 @@ class KatApp {
                 }
             });
         };
+        const ensureNonBlank = (value) => value == undefined || value.trim() == "" ? undefined : value;
         const state = {
             kaId: this.id,
             application: this,
@@ -324,19 +325,19 @@ class KatApp {
                     const argList = [...arguments];
                     const stringParams = argList.filter(i => typeof i != "boolean");
                     const table = argList[0];
-                    const v = stringParams.length == 1
+                    const v = ensureNonBlank(stringParams.length == 1
                         ? this.value("rbl-value", table) ?? this.value("rbl-display", table) ?? this.value("rbl-disabled", table) ?? this.value("rbl-skip", table)
-                        : getValue(...stringParams);
+                        : getValue(...stringParams));
                     const valueWhenMissing = argList.find(i => typeof i == "boolean");
                     if (v == undefined && valueWhenMissing != undefined) {
                         return valueWhenMissing;
                     }
                     return isTrue(v);
                 },
-                text() { return that.getLocalizedString(getValue(...arguments)); },
+                text() { return that.getLocalizedString(ensureNonBlank(getValue(...arguments))); },
                 value() { return getValue(...arguments); },
                 number() {
-                    const v = +(getValue(...arguments) ?? 0);
+                    const v = +(ensureNonBlank(getValue(...arguments)) ?? 0);
                     return isNaN(v) ? 0 : v;
                 },
                 source(table, calcEngine, tab, predicate) {
