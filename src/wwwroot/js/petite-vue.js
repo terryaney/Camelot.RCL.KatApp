@@ -719,9 +719,6 @@ var PetiteVue = (function (exports) {
       modifiers
     }) => {
       let prevValue;
-      if (arg === "class") {
-        el._class = el.className;
-      }
       effect(() => {
         let value = get();
         if (arg) {
@@ -744,6 +741,9 @@ var PetiteVue = (function (exports) {
     };
     const setProp = (el, key, value, prevValue) => {
       if (key === "class") {
+        if (!("_class" in el)) {
+          el._class = el.className;
+        }
         el.setAttribute(
           "class",
           normalizeClass(el._class ? [el._class, value] : value) || ""
