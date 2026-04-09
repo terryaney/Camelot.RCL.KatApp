@@ -719,7 +719,7 @@ var PetiteVue = (function (exports) {
       modifiers
     }) => {
       let prevValue;
-      if (!el._class && el.className) {
+      if (arg === "class") {
         el._class = el.className;
       }
       effect(() => {
