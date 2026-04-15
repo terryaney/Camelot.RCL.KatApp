@@ -6192,13 +6192,14 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
     ];
     const getEventType = (type) => standardEventTypes.find(t => t === type.split(".")[0]) ?? type;
     EventTarget.prototype.addEventListener = function (type, listener, options) {
-        this._addEventListener(getEventType(type), listener, options);
+        const normalized = String(type);
+        this._addEventListener(getEventType(normalized), listener, options);
         if (this.kaEventListeners == undefined)
             this.kaEventListeners = {};
-        if (this.kaEventListeners[type] == undefined)
-            this.kaEventListeners[type] = [];
+        if (this.kaEventListeners[normalized] == undefined)
+            this.kaEventListeners[normalized] = [];
         const eListener = { type, listener, options };
-        this.kaEventListeners[type].push(eListener);
+        this.kaEventListeners[normalized].push(eListener);
         return eListener;
     };
     EventTarget.prototype.removeEventListener = function (type, listenerOrEventListener, options) {
@@ -6213,7 +6214,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
         else {
             l = listenerOrEventListener;
             o = options;
-            t = type;
+            t = String(type);
         }
         this._removeEventListener(getEventType(t), l, o);
         if (this.kaEventListeners == undefined || this.kaEventListeners[t] == undefined)

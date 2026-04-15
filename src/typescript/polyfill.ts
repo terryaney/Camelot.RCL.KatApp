@@ -13,14 +13,18 @@
 	];
 	const getEventType = (type: string): string => standardEventTypes.find(t => t === type.split(".")[0]) ?? type;
 
+	// Not thrilled about String() hack, but LivePerson was passing true/false (boolean) as event type
+	// in what I claimed was a bug (waiting for confirmation), so until they fix, I had to protected 
+	// against that.
 	EventTarget.prototype.addEventListener = function (type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): ElementEventListener {
-		this._addEventListener(getEventType(type), listener, options);
+		const normalized = String(type);
+		this._addEventListener(getEventType(normalized), listener, options);
 
 		if (this.kaEventListeners == undefined) this.kaEventListeners = {};
-		if (this.kaEventListeners[type] == undefined) this.kaEventListeners[type] = [];
+		if (this.kaEventListeners[normalized] == undefined) this.kaEventListeners[normalized] = [];
         
 		const eListener: ElementEventListener = { type, listener, options };
-		this.kaEventListeners[type].push(eListener);
+		this.kaEventListeners[normalized].push(eListener);
 
 		return eListener;
 	};
@@ -38,7 +42,7 @@
         else {
 			l = listenerOrEventListener;
 			o = options;
-			t = type as string;
+			t = String(type);
         }
 
 		this._removeEventListener(getEventType(t), l, o);
