@@ -93,7 +93,7 @@ declare class KatApp implements IKatApp {
     allowCalculation(ceKey: string, enabled: boolean): void;
     cloneOptions(includeManualResults: boolean): IKatAppOptions;
     getCloneHostSetting(el: HTMLElement): string | boolean;
-    showModalAsync(options: IModalOptions, triggerLink?: HTMLElement): Promise<IModalResponse>;
+    showModalAsync(options: IModalOptions, currentTarget?: HTMLElement): Promise<IModalResponse>;
     private cacheInputsAsync;
     private getSubmitApiConfigurationAsync;
     private getCeName;
@@ -1036,6 +1036,7 @@ interface IKaModalModel extends IModalOptions {
     catchAsync?: (e: unknown | undefined, application: IKatApp) => Promise<void>;
     closed?: (application: IKatApp) => void;
     model?: string;
+    currentTarget?: string | HTMLElement;
 }
 interface IKaAppModel {
     selector?: string;

@@ -12,6 +12,8 @@
 		"declaration": false, 					  /* Generates corresponding '.d.ts' file. */
 		// "declarationMap": true,                /* Generates a sourcemap for each corresponding '.d.ts' file. */
 		"sourceMap": false, 					  /* Generates corresponding '.map' file. */
+		"rootDir": "./typescript",
+		"ignoreDeprecations": "6.0",
 		"outFile": "./wwwroot/js/katapp.js",      /* Concatenate and emit output to single file. */
 		// "outDir": "./wwwroot/js",              /* Redirect output structure to the directory. */
 		// "rootDir": "./",                       /* Specify the root directory of input files. Use to control the output directory structure with --outDir. */

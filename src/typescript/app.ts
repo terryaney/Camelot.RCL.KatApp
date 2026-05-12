@@ -2273,7 +2273,7 @@ Type 'help' to see available options displayed in the console.`;
 		return cloneHost;
 	}
 
-	public async showModalAsync(options: IModalOptions, triggerLink?: HTMLElement): Promise<IModalResponse> {
+	public async showModalAsync(options: IModalOptions, currentTarget?: HTMLElement): Promise<IModalResponse> {
 		let cloneHost: boolean | string = false;
 
 		let selectorContent: HTMLElement | undefined;
@@ -2304,9 +2304,9 @@ Type 'help' to see available options displayed in the console.`;
 
 		this.blockUI();
 
-		if (triggerLink != undefined) {
-			triggerLink.setAttribute("disabled", "true");
-			triggerLink.classList.add("disabled", "kaModalInit");
+		if (currentTarget != undefined) {
+			currentTarget.setAttribute("disabled", "true");
+			currentTarget.classList.add("disabled", "kaModalInit");
 			document.querySelector("body")!.classList.add("kaModalInit");
 		}
 
@@ -2328,7 +2328,7 @@ Type 'help' to see available options displayed in the console.`;
 					hostApplication: this.selector.startsWith( "#popover" ) ? this.options.hostApplication : this,
 					cloneHost: cloneHost,
 					modalAppOptions: KatApps.Utils.extend<IModalAppOptions>(
-						{ promise: { resolve, reject }, triggerLink: triggerLink },
+						{ promise: { resolve, reject }, triggerLink: currentTarget },
 						KatApps.Utils.clone(options, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v)
 					),
 					inputs: {
@@ -2359,9 +2359,10 @@ Type 'help' to see available options displayed in the console.`;
 		} catch (e) {
 			this.unblockUI();
 
-			if (triggerLink != undefined) {
-				triggerLink.removeAttribute("disabled");
-				triggerLink.classList.remove("disabled", "kaModalInit");
+			if (currentTarget != undefined) {
+				currentTarget.removeAttribute("disabled");
+				currentTarget.classList.remove("disabled", "kaModalInit");
+				currentTarget.focus({ focusVisible: true });
 				document.querySelector("body")!.classList.remove("kaModalInit");
 			}
 

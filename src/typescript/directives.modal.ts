@@ -9,13 +9,17 @@
 					e.preventDefault();
 
 					try {
+						if (typeof scope.currentTarget == "string") {
+							scope.currentTarget = application.selectElement( scope.currentTarget );
+						}
+
 						if (scope.beforeOpenAsync != undefined) {
 							await scope.beforeOpenAsync(application);
 						}
 
 						const response = await application.showModalAsync(
 							Utils.clone(scope, (k, v) => ["beforeOpenAsync", "confirmedAsync", "cancelledAsync", "catchAsync"].indexOf(k) > -1 ? undefined : v),
-							e.currentTarget as HTMLInputElement
+							(scope.currentTarget ?? e.currentTarget) as HTMLInputElement
 						);
 
 						if (response.confirmed) {
@@ -54,7 +58,11 @@
 
 					try {
 						if (scope.model != undefined) {
+							const ct = scope.currentTarget;
 							scope = ctx.get(scope.model);
+							if (ct != undefined) {
+								scope.currentTarget = ct;
+							}
 						}
 					} catch (e) {
 						Utils.trace(application, "DirectiveKaModal", "getDefinition", `Unable to compile 'model' property: ${scope.model}`, TraceVerbosity.None, e);

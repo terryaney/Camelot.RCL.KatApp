@@ -1,4 +1,4 @@
-﻿interface ITraceVerbosity {
+﻿ interface ITraceVerbosity {
     None: number;
     Quiet: number;
     Minimal: number;
@@ -508,6 +508,7 @@ interface IKaModalModel extends IModalOptions {
 	catchAsync?: (e: unknown | undefined, application: IKatApp) => Promise<void>;
 	closed?: (application: IKatApp) => void;
 	model?: string;
+	currentTarget?: string | HTMLElement;
 }
 interface IKaAppModel {
 	selector?: string;

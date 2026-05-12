@@ -1667,7 +1667,7 @@ Type 'help' to see available options displayed in the console.`;
         }
         return cloneHost;
     }
-    async showModalAsync(options, triggerLink) {
+    async showModalAsync(options, currentTarget) {
         let cloneHost = false;
         let selectorContent;
         if (options.contentSelector != undefined) {
@@ -1687,9 +1687,9 @@ Type 'help' to see available options displayed in the console.`;
             throw new Error("You can not use the showModalAsync method if you have markup on the page already containing the class kaModal.");
         }
         this.blockUI();
-        if (triggerLink != undefined) {
-            triggerLink.setAttribute("disabled", "true");
-            triggerLink.classList.add("disabled", "kaModalInit");
+        if (currentTarget != undefined) {
+            currentTarget.setAttribute("disabled", "true");
+            currentTarget.classList.add("disabled", "kaModalInit");
             document.querySelector("body").classList.add("kaModalInit");
         }
         try {
@@ -1705,7 +1705,7 @@ Type 'help' to see available options displayed in the console.`;
                     currentPage: options.view ?? this.options.currentPage,
                     hostApplication: this.selector.startsWith("#popover") ? this.options.hostApplication : this,
                     cloneHost: cloneHost,
-                    modalAppOptions: KatApps.Utils.extend({ promise: { resolve, reject }, triggerLink: triggerLink }, KatApps.Utils.clone(options, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v)),
+                    modalAppOptions: KatApps.Utils.extend({ promise: { resolve, reject }, triggerLink: currentTarget }, KatApps.Utils.clone(options, (k, v) => propertiesToSkip.indexOf(k) > -1 ? undefined : v)),
                     inputs: {
                         iModalApplication: "1"
                     }
@@ -1724,9 +1724,10 @@ Type 'help' to see available options displayed in the console.`;
         }
         catch (e) {
             this.unblockUI();
-            if (triggerLink != undefined) {
-                triggerLink.removeAttribute("disabled");
-                triggerLink.classList.remove("disabled", "kaModalInit");
+            if (currentTarget != undefined) {
+                currentTarget.removeAttribute("disabled");
+                currentTarget.classList.remove("disabled", "kaModalInit");
+                currentTarget.focus({ focusVisible: true });
                 document.querySelector("body").classList.remove("kaModalInit");
             }
             throw e;
@@ -4877,10 +4878,13 @@ var KatApps;
                 const showModal = async function (e) {
                     e.preventDefault();
                     try {
+                        if (typeof scope.currentTarget == "string") {
+                            scope.currentTarget = application.selectElement(scope.currentTarget);
+                        }
                         if (scope.beforeOpenAsync != undefined) {
                             await scope.beforeOpenAsync(application);
                         }
-                        const response = await application.showModalAsync(KatApps.Utils.clone(scope, (k, v) => ["beforeOpenAsync", "confirmedAsync", "cancelledAsync", "catchAsync"].indexOf(k) > -1 ? undefined : v), e.currentTarget);
+                        const response = await application.showModalAsync(KatApps.Utils.clone(scope, (k, v) => ["beforeOpenAsync", "confirmedAsync", "cancelledAsync", "catchAsync"].indexOf(k) > -1 ? undefined : v), (scope.currentTarget ?? e.currentTarget));
                         if (response.confirmed) {
                             if (scope.confirmedAsync != undefined) {
                                 await scope.confirmedAsync(response.data, application);
@@ -4916,7 +4920,11 @@ var KatApps;
                     scope = ctx.get();
                     try {
                         if (scope.model != undefined) {
+                            const ct = scope.currentTarget;
                             scope = ctx.get(scope.model);
+                            if (ct != undefined) {
+                                scope.currentTarget = ct;
+                            }
                         }
                     }
                     catch (e) {
