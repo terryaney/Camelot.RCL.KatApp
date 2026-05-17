@@ -71,13 +71,20 @@ declare const KatApps: KatAppsStatic;
 			});
 			validationSummary.id = application.id + "_Host_ModelerValidationTable";
 
-			template = document.createElement('template');
-			template.innerHTML = `<li>${application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.")}</li>`;
-			validationSummary.querySelector<HTMLElement>("ul")!.append(template.content.firstElementChild!);
+			// Some configureUI calcs call backend endpoints that return error messages
+			const errors = application.hasErrors()
+				? application.state.errors
+				: [ { id: "unexpectedError", text: application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.") ?? "An unexpected error has occurred.  Please try again and if the problem persists, contact technical support." } as IValidationRow ];
+			
+			errors.forEach(error => {
+				template = document.createElement('template');
+				template.innerHTML = `<li>${error.text}</li>`;
+				validationSummary.querySelector<HTMLElement>("ul")!.append(template.content.firstElementChild!);
 
-			template = document.createElement('template');
-			template.innerHTML = `<p>${application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.")}</p>`;
-			validationSummary.querySelector<HTMLElement>(".visually-hidden")!.append(template.content.firstElementChild!);
+				template = document.createElement('template');
+				template.innerHTML = `<p>${error.text}</p>`;
+				validationSummary.querySelector<HTMLElement>(".visually-hidden")!.append(template.content.firstElementChild!);
+			});
 
 			document.querySelector<HTMLElement>(".katapp-host .summary-container")!.append(validationSummary);
 

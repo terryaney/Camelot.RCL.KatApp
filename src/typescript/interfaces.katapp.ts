@@ -112,6 +112,8 @@ interface IKatApp {
 	blockUI(): void;
 	unblockUI(): void;
 
+	hasErrors(): boolean;
+
 	getInputs(customInputs?: ICalculationInputs): ICalculationInputs;
 	getInputValue(name: string, allowDisabled?: boolean): string | undefined;
 	setInputValue(name: string, value: string | undefined, calculate?: boolean): Array<HTMLInputElement> | undefined;

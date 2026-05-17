@@ -45,12 +45,17 @@
                 }
             });
             validationSummary.id = application.id + "_Host_ModelerValidationTable";
-            template = document.createElement('template');
-            template.innerHTML = `<li>${application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.")}</li>`;
-            validationSummary.querySelector("ul").append(template.content.firstElementChild);
-            template = document.createElement('template');
-            template.innerHTML = `<p>${application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.")}</p>`;
-            validationSummary.querySelector(".visually-hidden").append(template.content.firstElementChild);
+            const errors = application.hasErrors()
+                ? application.state.errors
+                : [{ id: "unexpectedError", text: application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.") ?? "An unexpected error has occurred.  Please try again and if the problem persists, contact technical support." }];
+            errors.forEach(error => {
+                template = document.createElement('template');
+                template.innerHTML = `<li>${error.text}</li>`;
+                validationSummary.querySelector("ul").append(template.content.firstElementChild);
+                template = document.createElement('template');
+                template.innerHTML = `<p>${error.text}</p>`;
+                validationSummary.querySelector(".visually-hidden").append(template.content.firstElementChild);
+            });
             document.querySelector(".katapp-host .summary-container").append(validationSummary);
             document.querySelectorAll(".katapp-host .summary-container .validation-summary, .katapp-host .validation-container").forEach(e => e.style.display = "");
             document.querySelector(".katapp-host .loader-container").style.display = "none";

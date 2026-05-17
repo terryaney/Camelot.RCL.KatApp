@@ -54,6 +54,7 @@ declare class KatApp implements IKatApp {
     notifyAsync(from: KatApp, name: string, information?: IStringAnyIndexer): Promise<void>;
     checkValidity(): boolean;
     apiAsync(endpoint: string, apiOptions?: IApiOptions, trigger?: HTMLElement, calculationSubmitApiConfiguration?: ISubmitApiOptions): Promise<IStringAnyIndexer | undefined>;
+    processApiErrorResponse(errorResponse: IApiErrorResponse): void;
     hasErrors(predicate?: (error: IValidationRow) => boolean): boolean;
     errorIs(predicate: (error: IValidationRow) => boolean): boolean;
     clearValidations(includeWarnings?: boolean, predicate?: (error: IValidationRow) => boolean): void;
@@ -701,6 +702,7 @@ interface IKatApp {
     navigateAsync(navigationId: string, options?: INavigationOptions): void;
     blockUI(): void;
     unblockUI(): void;
+    hasErrors(): boolean;
     getInputs(customInputs?: ICalculationInputs): ICalculationInputs;
     getInputValue(name: string, allowDisabled?: boolean): string | undefined;
     setInputValue(name: string, value: string | undefined, calculate?: boolean): Array<HTMLInputElement> | undefined;

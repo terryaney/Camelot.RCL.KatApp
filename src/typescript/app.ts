@@ -636,7 +636,7 @@ class KatApp implements IKatApp {
 				} catch (error) {
 					// apiAsync already traces error, so I don't need to do again
 					if (!(error instanceof ApiError)) {
-						 KatApps.Utils.trace(this, "KatApp", "triggerEventAsync", `Error calling ${eventName}: ${error}`, TraceVerbosity.None, error);
+						KatApps.Utils.trace(this, "KatApp", "triggerEventAsync", `Error calling ${eventName}: ${error}`, TraceVerbosity.None, error);
 						this.addUnexpectedError(error);
 					}
 				}
@@ -949,8 +949,12 @@ class KatApp implements IKatApp {
 				this.handleEvents(events => {
 					events.calculationErrors = async (key, exception) => {
 						if (key == "SubmitCalculation.ConfigureUI") {
-							this.addUnexpectedError(exception);
-							 KatApps.Utils.trace(this, "KatApp", "mountAsync", isModalApplication ? "KatApp Modal Exception" : "KatApp Exception", TraceVerbosity.None, exception);
+							// Some calculations may trigger backend 'api calls' and if those return errors, just show them.
+							if (!this.hasErrors()) {
+								this.addUnexpectedError(exception);
+							}
+
+							KatApps.Utils.trace(this, "KatApp", "mountAsync", isModalApplication ? "KatApp Modal Exception" : "KatApp Exception", TraceVerbosity.None, exception instanceof ApiError ? exception.apiResponse : exception);
 						}
 					};
 				});
@@ -1527,7 +1531,10 @@ Type 'help' to see available options displayed in the console.`;
 							 KatApps.Utils.trace(this, "KatApp", "calculateAsync", `Exception: ${(error instanceof Error ? error.message : error + "")}`, TraceVerbosity.None, error);
 						}
 					}
-
+					else {
+						// Some calculations may trigger backend 'api calls' and if those return errors, just show them.
+						this.processApiErrorResponse(error.apiResponse);
+					}
 					await this.triggerEventAsync("calculationErrors", "SubmitCalculation" + (isConfigureUICalculation ? ".ConfigureUI" : ""), error instanceof Error ? error : undefined);
 				}
 				finally {
@@ -1693,21 +1700,7 @@ Type 'help' to see available options displayed in the console.`;
 		} catch (e) {
 			errorResponse = e as IApiErrorResponse ?? {};
 
-			if (errorResponse.errors != undefined) {
-				for (var id in errorResponse.errors) {
-					this.addError(id, this.getLocalizedString(errorResponse.errors[id][0])!, errorResponse.errorsDependsOn?.[id]);
-				}
-			}
-
-			if (errorResponse.warnings != undefined) {
-				for (var id in errorResponse.warnings) {
-					this.addWarning(id, this.getLocalizedString(errorResponse.warnings[id][0])!, errorResponse.warningsDependsOn?.[id]);
-				}
-			}
-
-			if (!this.hasErrors() && this.state.warnings.length == 0) {
-				this.addUnexpectedError(errorResponse);
-			}
+			this.processApiErrorResponse(errorResponse);
 
 			KatApps.Utils.trace(this, "KatApp", "apiAsync", "Unable to process " + endpoint, TraceVerbosity.None, errorResponse);
 
@@ -1720,6 +1713,24 @@ Type 'help' to see available options displayed in the console.`;
 			this.nextCalculation.saveLocations = this.nextCalculation.saveLocations.filter(l => !l.serverSideOnly);
 			// this.triggerEvent("onActionComplete", endpoint, apiOptions, trigger);
 			this.unblockUI();
+		}
+	}
+
+	processApiErrorResponse(errorResponse: IApiErrorResponse): void {
+		if (errorResponse.errors != undefined) {
+			for (var id in errorResponse.errors) {
+				this.addError(id, this.getLocalizedString(errorResponse.errors[id][0])!, errorResponse.errorsDependsOn?.[id]);
+			}
+		}
+
+		if (errorResponse.warnings != undefined) {
+			for (var id in errorResponse.warnings) {
+				this.addWarning(id, this.getLocalizedString(errorResponse.warnings[id][0])!, errorResponse.warningsDependsOn?.[id]);
+			}
+		}
+
+		if (!this.hasErrors() && this.state.warnings.length == 0) {
+			this.addUnexpectedError(errorResponse);
 		}
 	}
 

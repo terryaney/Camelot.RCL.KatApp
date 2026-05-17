@@ -678,8 +678,10 @@ class KatApp {
                 this.handleEvents(events => {
                     events.calculationErrors = async (key, exception) => {
                         if (key == "SubmitCalculation.ConfigureUI") {
-                            this.addUnexpectedError(exception);
-                            KatApps.Utils.trace(this, "KatApp", "mountAsync", isModalApplication ? "KatApp Modal Exception" : "KatApp Exception", TraceVerbosity.None, exception);
+                            if (!this.hasErrors()) {
+                                this.addUnexpectedError(exception);
+                            }
+                            KatApps.Utils.trace(this, "KatApp", "mountAsync", isModalApplication ? "KatApp Modal Exception" : "KatApp Exception", TraceVerbosity.None, exception instanceof ApiError ? exception.apiResponse : exception);
                         }
                     };
                 });
@@ -1117,6 +1119,9 @@ Type 'help' to see available options displayed in the console.`;
                             KatApps.Utils.trace(this, "KatApp", "calculateAsync", `Exception: ${(error instanceof Error ? error.message : error + "")}`, TraceVerbosity.None, error);
                         }
                     }
+                    else {
+                        this.processApiErrorResponse(error.apiResponse);
+                    }
                     await this.triggerEventAsync("calculationErrors", "SubmitCalculation" + (isConfigureUICalculation ? ".ConfigureUI" : ""), error instanceof Error ? error : undefined);
                 }
                 finally {
@@ -1239,19 +1244,7 @@ Type 'help' to see available options displayed in the console.`;
         }
         catch (e) {
             errorResponse = e ?? {};
-            if (errorResponse.errors != undefined) {
-                for (var id in errorResponse.errors) {
-                    this.addError(id, this.getLocalizedString(errorResponse.errors[id][0]), errorResponse.errorsDependsOn?.[id]);
-                }
-            }
-            if (errorResponse.warnings != undefined) {
-                for (var id in errorResponse.warnings) {
-                    this.addWarning(id, this.getLocalizedString(errorResponse.warnings[id][0]), errorResponse.warningsDependsOn?.[id]);
-                }
-            }
-            if (!this.hasErrors() && this.state.warnings.length == 0) {
-                this.addUnexpectedError(errorResponse);
-            }
+            this.processApiErrorResponse(errorResponse);
             KatApps.Utils.trace(this, "KatApp", "apiAsync", "Unable to process " + endpoint, TraceVerbosity.None, errorResponse);
             await this.triggerEventAsync("apiFailed", apiUrl.endpoint, errorResponse, trigger, apiOptions);
             throw new ApiError("Unable to complete API submitted to " + endpoint, e instanceof Error ? e : undefined, errorResponse);
@@ -1259,6 +1252,21 @@ Type 'help' to see available options displayed in the console.`;
         finally {
             this.nextCalculation.saveLocations = this.nextCalculation.saveLocations.filter(l => !l.serverSideOnly);
             this.unblockUI();
+        }
+    }
+    processApiErrorResponse(errorResponse) {
+        if (errorResponse.errors != undefined) {
+            for (var id in errorResponse.errors) {
+                this.addError(id, this.getLocalizedString(errorResponse.errors[id][0]), errorResponse.errorsDependsOn?.[id]);
+            }
+        }
+        if (errorResponse.warnings != undefined) {
+            for (var id in errorResponse.warnings) {
+                this.addWarning(id, this.getLocalizedString(errorResponse.warnings[id][0]), errorResponse.warningsDependsOn?.[id]);
+            }
+        }
+        if (!this.hasErrors() && this.state.warnings.length == 0) {
+            this.addUnexpectedError(errorResponse);
         }
     }
     hasErrors(predicate) {
@@ -2292,7 +2300,7 @@ var KatApps;
                 return { results: successResponses, endpointDiagnostics: calculationResults.endpointDiagnostics };
             }
             catch (e) {
-                if (e instanceof CalculationError) {
+                if (e instanceof CalculationError || e instanceof ApiError) {
                     throw e;
                 }
                 const exception = {
@@ -2316,23 +2324,25 @@ var KatApps;
         }
         static async submitCalculationAsync(application, serviceUrl, inputs, submitData) {
             try {
-                let calculationResults = await fetch(serviceUrl, {
+                const response = await fetch(serviceUrl, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(submitData)
-                }).then(async (response) => {
-                    const responseText = await response.text();
-                    const result = responseText == "" ? undefined : JSON.parse(responseText);
-                    if (!response.ok) {
-                        throw result ?? { exceptions: [{ message: "No additional details available." }] };
-                    }
-                    return result;
                 });
+                const responseText = await response.text();
+                const result = responseText == "" ? undefined : JSON.parse(responseText);
+                if (!response.ok) {
+                    throw result ?? { exceptions: [{ message: "No additional details available." }] };
+                }
                 KatApps.Utils.trace(application, "Calculation", "calculateAsync", "Received Success Response", TraceVerbosity.Detailed);
-                return calculationResults;
+                return result;
             }
             catch (e) {
                 const errorResponse = e;
+                const isValidationProblemDetails = errorResponse.errors !== undefined;
+                if (isValidationProblemDetails) {
+                    throw new ApiError("Unable to complete calculation process(es)", undefined, errorResponse);
+                }
                 const exceptions = errorResponse.exceptions ?? [errorResponse];
                 const response = {
                     calcEngine: submitData.configuration.calcEngines.map(c => c.name).join(", "),

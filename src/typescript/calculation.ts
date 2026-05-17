@@ -136,7 +136,7 @@
 				}
 				return { results: successResponses, endpointDiagnostics: calculationResults.endpointDiagnostics };
 			} catch (e) {
-				if (e instanceof CalculationError) {
+				if (e instanceof CalculationError || e instanceof ApiError) {
 					throw e;
 				}
 	
@@ -168,28 +168,31 @@
 			submitData: ISubmitApiData
 		): Promise<IRblCalculationSuccessResponses> {
 			try {
-	
-				let calculationResults: IRblCalculationSuccessResponses = await fetch(serviceUrl, {
+				const response = await fetch(serviceUrl, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(submitData)
-				}).then(async response => {
-					const responseText = await response.text();
-					const result = responseText == "" ? undefined : JSON.parse(responseText);
-	
-					if (!response.ok) {
-						throw result ?? { exceptions: [{ message: "No additional details available." } as IExceptionDetail] } as IApiErrorResponse;
-					}
-	
-					return result;
 				});
-				
+
+				const responseText = await response.text();
+				const result = responseText == "" ? undefined : JSON.parse(responseText);
+
+				if (!response.ok) {
+					throw result ?? { exceptions: [{ message: "No additional details available." } as IExceptionDetail] } as IApiErrorResponse;
+				}
+
 				Utils.trace(application, "Calculation", "calculateAsync", "Received Success Response", TraceVerbosity.Detailed);
-	
-				return calculationResults;
-	
+
+				return result as IRblCalculationSuccessResponses;
 			} catch (e) {
 				const errorResponse = e as IApiErrorResponse;
+				const isValidationProblemDetails = (errorResponse as any).errors !== undefined;
+
+				// Some calculations may trigger backend 'api calls' and if those return errors, just show them.
+				if (isValidationProblemDetails) {
+					throw new ApiError("Unable to complete calculation process(es)", undefined, errorResponse);
+				}
+
 				const exceptions = errorResponse.exceptions ?? [errorResponse as unknown as IExceptionDetail];
 
 				const response: ICalculationFailedResponse = {
