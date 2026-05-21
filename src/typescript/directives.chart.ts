@@ -531,7 +531,7 @@
 				const valueFormatted = KatApps.Utils.formatNumber(this.application.options.intl, value, configuration.plotOptions.dataLabels.format);
 				element.setAttribute("ka-chart-highlight-key", seriesConfig.text);
 				element.setAttribute("aria-label", `${seriesConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`);
-
+				element.setAttribute("role", "region");
 				return element;
 			};
 
@@ -780,6 +780,7 @@
 					: this.createPath(`M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`, "none", 0, configuration.series[index].color);
 
 				path.setAttribute("aria-label", `${item.name}, ${valueFormatted}.`);
+				path.setAttribute("role", "region");
 				path.setAttribute("ka-chart-highlight-key", item.name);
 
 				if (configuration.plotOptions.tip.show) {
@@ -1330,6 +1331,7 @@
 				const valueFormatted = KatApps.Utils.formatNumber(this.application.options.intl, point.value, configuration.plotOptions.dataLabels.format);
 
 				diamond.setAttribute("aria-label", `${point.seriesConfig.text}, ${valueFormatted}. ${this.getHeader(configuration.plotOptions, point.name)}.`);
+				diamond.setAttribute("role", "region");
 				diamond.setAttribute("ka-chart-point", `${point.x},${point.y}`);
 
 				return diamond;
