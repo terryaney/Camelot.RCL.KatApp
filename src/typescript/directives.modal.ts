@@ -6,6 +6,7 @@
 				let scope: IKaModalModel;
 
 				const showModal = async function (e: Event) {
+					e.stopPropagation();
 					e.preventDefault();
 
 					try {

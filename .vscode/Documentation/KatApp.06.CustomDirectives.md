@@ -495,7 +495,7 @@ Render an upload control and corresponding comment control.
         uploadEndpoint: 'document-center/upload' 
     }"></div>
     <div class="mt-2">
-        <a href="#" @click.prevent="handlers.processUpload" class='btn btn-primary'>
+        <a href="#" @click.stop.prevent="handlers.processUpload" class='btn btn-primary'>
             <i class="fa-solid fa-upload"></i> Upload
         </a>
     </div>
@@ -783,7 +783,7 @@ Sample two column 'textbox' input.  Illustrates how to access scope properties v
             <div class="col-md-6" v-if="inputs.iScenarios > 1">
                 <div class="d-block d-sm-none m-1 scenario-header-mobile">
                     <span>Scenario 2 </span>
-                    <a href="#" @click.prevent="inputs.iScenarios = 1;  needsCalculation = true;" class="text-danger">
+                    <a href="#" @click.stop.prevent="inputs.iScenarios = 1;  needsCalculation = true;" class="text-danger">
                         <i class="fa-light fa-square-xmark"></i>
                     </a>
                 </div>
@@ -1754,7 +1754,7 @@ A worse scenario is when a page with inputs and a submit button *also display ca
 To aleviate this issue, the Kaml Views can decorate 'submit buttons' with a `v-ka-needs-calc` attribute which will ultimately take advantage of the [state.needsCalculation](./KatApp.03.State.md#istate-properties) property.  The directive can be applied with or without a value.  When a value is provided, it is the label of the 'cloned button' (otherwise `Refresh` is the default label).  An example will better illustrate this.
 
 ```html
-<a v-ka-needs-calc href="#" class="btn btn-primary btn-sm" @click.prevent="console.log('save inputs')">Save Inputs</a>
+<a v-ka-needs-calc href="#" class="btn btn-primary btn-sm" @click.stop.prevent="console.log('save inputs')">Save Inputs</a>
 
 <!-- 
     KatApp Framework Changes this to:
@@ -1764,7 +1764,7 @@ To aleviate this issue, the Kaml Views can decorate 'submit buttons' with a `v-k
         b. Assigns the 'text' of the button
         c. Adds v-if="needsCalculation"
  -->
-<a v-if="!needsCalculation" href="#" class="btn btn-primary btn-sm" @click.prevent="console.log('save inputs')">Save Inputs</a>
+<a v-if="!needsCalculation" href="#" class="btn btn-primary btn-sm" @click.stop.prevent="console.log('save inputs')">Save Inputs</a>
 <a v-if="needsCalculation" href="#" class="btn btn-primary btn-sm">Refresh</a>
 ```
 
@@ -1772,10 +1772,10 @@ After KatApp Framework has created the required directives and elements, when a 
 
 ```html
 <a v-ka-needs-calc="Click to Refresh" href="#" class="btn btn-primary btn-sm" 
-    @click.prevent="console.log('save inputs')">Save Inputs</a>
+    @click.stop.prevent="console.log('save inputs')">Save Inputs</a>
 
 <!-- When a value is provided in the directive, that text is used as the label of the button -->
-<a v-if="!needsCalculation" href="#" class="btn btn-primary btn-sm" @click.prevent="console.log('save inputs')">Save Inputs</a>
+<a v-if="!needsCalculation" href="#" class="btn btn-primary btn-sm" @click.stop.prevent="console.log('save inputs')">Save Inputs</a>
 <a v-if="needsCalculation" href="#" class="btn btn-primary btn-sm">Click to Refresh</a>
 ```
 
@@ -1840,8 +1840,8 @@ The `v-ka-rbl-no-calc` directive has the same effect as the [`IKaInputModel.isNo
 			<div v-ka-input="{ name: 'iPayIncreaseYear2', template: 'input-textbox-nexgen', label: 'Year' }" class="col-sm-6"></div>
 			<div v-ka-input="{ name: 'iPayIncreaseRate2', template: 'input-textbox-nexgen', label: 'Rate', suffix: '%' }" class="col-sm-6"></div>
 			<div class="col-12">
-				<button @click.prevent="model.worksheet = undefined" type="button" class="btn btn-primary btn-default">Cancel</button>
-				<button @click.prevent="handlers.closeWorksheetAsync" type="button" class="btn btn-primary btn-default">Use Values</button>
+				<button type="button" @click="model.worksheet = undefined" class="btn btn-primary btn-default">Cancel</button>
+				<button type="button" @click="handlers.closeWorksheetAsync" class="btn btn-primary btn-default">Use Values</button>
 			</div>
 		</div>
 	</div>
@@ -1868,8 +1868,8 @@ The `v-ka-rbl-exclude` directive has the same effect as the [`IKaInputModel.isEx
 			<div v-ka-input="{ name: 'iPayIncreaseYear2', template: 'input-textbox-nexgen', label: 'Year' }" class="col-sm-6"></div>
 			<div v-ka-input="{ name: 'iPayIncreaseRate2', template: 'input-textbox-nexgen', label: 'Rate', suffix: '%' }" class="col-sm-6"></div>
 			<div class="col-12">
-				<button @click.prevent="model.worksheet = undefined" type="button" class="btn btn-primary btn-default">Cancel</button>
-				<button @click.prevent="handlers.closeWorksheetAsync" type="button" class="btn btn-primary btn-default">Use Values</button>
+				<button type="button" @click="model.worksheet = undefined" class="btn btn-primary btn-default">Cancel</button>
+				<button type="button" @click="handlers.closeWorksheetAsync" class="btn btn-primary btn-default">Use Values</button>
 			</div>
 		</div>
 	</div>
@@ -1899,8 +1899,8 @@ Using `v-ka-unmount-clears-inputs` is useful if a `v-for` generates `v-ka-inputs
 			<div v-ka-input="{ name: 'iPayIncreaseYear2', template: 'input-textbox-nexgen', label: 'Year' }" class="col-sm-6"></div>
 			<div v-ka-input="{ name: 'iPayIncreaseRate2', template: 'input-textbox-nexgen', label: 'Rate', suffix: '%' }" class="col-sm-6"></div>
 			<div class="col-12">
-				<button @click.prevent="model.worksheet = undefined" type="button" class="btn btn-primary btn-default">Cancel</button>
-				<button @click.prevent="handlers.closeWorksheetAsync" type="button" class="btn btn-primary btn-default">Use Values</button>
+				<button type="button" @click="model.worksheet = undefined" class="btn btn-primary btn-default">Cancel</button>
+				<button type="button" @click="handlers.closeWorksheetAsync" class="btn btn-primary btn-default">Use Values</button>
 			</div>
 		</div>
 	</div>

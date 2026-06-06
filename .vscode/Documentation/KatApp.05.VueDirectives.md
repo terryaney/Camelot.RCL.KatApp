@@ -424,16 +424,16 @@ The following are equivalent; providing a 'function' to the directive.
 
 When listening to native DOM events, the method receives the native event as the only argument.
 -->
-<button v-on:click="handlers.doThat"></button>
-<button @click="handlers.doThat"></button>
+<button type="button" v-on:click="handlers.doThat"></button>
+<button type="button" @click="handlers.doThat"></button>
 
 <!-- 
 The following are equivalent; using an 'inline statement' with the directive.
 
 When using inline statement, the statement has access to the special $event and $el properties.
 -->
-<button v-on:click="handlers.doThat($event, 'hello')"></button>
-<button @click="handlers.doThat($event, 'hello')"></button>
+<button type="button" v-on:click="handlers.doThat($event, 'hello')"></button>
+<button type="button" @click="handlers.doThat($event, 'hello')"></button>
 ```
 
 ### v-on Modifiers
@@ -456,7 +456,7 @@ Vue has the concept of event 'modifiers' (via `.modifier` after event name) that
 When button is clicked, automatically call 'event.preventDefault()' and
 the event should only run one time.
  -->
-<button @click.prevent.once="handlers.doThat($event, 'hello')"></button>
+<button type="button" @click.once="handlers.doThat($event, 'hello')"></button>
 ```
 
 ### v-on Element Lifecycle Events

@@ -85,15 +85,15 @@
 				</div>
 			</div>
 
-			<button type="button" @click.prevent="cancelEdit">Cancel</button>
-			<button type="button" @click.prevent="saveBenefit">Save Benefit</button>
+			<button type="button" @click="cancelEdit">Cancel</button>
+			<button type="button" @click="saveBenefit">Save Benefit</button>
 		</div>
 		<div v-if="model.showConfirm">
-			<button type="button" @click.prevent="acceptBenefit">Accept Confirm</button>
+			<button type="button" @click="acceptBenefit">Accept Confirm</button>
 		</div>
 	</div>
 	<div v-if="model.currentBenefit == undefined">
 		<h3>No Benefit</h3>
-		<button type="button" @click.prevent="startEdit($event, { name: 'Health Benefit' })">Edit Benefit</button>
+		<button type="button" @click="startEdit($event, { name: 'Health Benefit' })">Edit Benefit</button>
 	</div>
 </div>
