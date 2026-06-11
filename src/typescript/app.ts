@@ -1203,10 +1203,16 @@ Type 'help' to see available options displayed in the console.`;
 			this.options.view ??
 			(this.options.modalAppOptions.contentSelector != undefined ? `selector: ${this.options.modalAppOptions.contentSelector}` : "static content");
 		
+		// There are some automatic replacements of kaModalLabel done to get -id suffix.  This is needed b/c some pages
+		// were leveraging v-pre with nested modal content and needed a way to have unique aria-label ids.  And instead of adding
+		// a property of passing a custom id in options (could leverage this later) made view content automatically replace any instance of 
+		// 'kaModalLabel' with 'kaModalLabel-{id}'
+		//
+		// If used in a v-pre, they should setup like :id="`kaModalLabel-${kaId}`"
 		const modalHtml =
-`<div v-scope class="modal fade kaModal ${options.css!.modal}" tabindex="-1" aria-modal="true" aria-labelledby="kaModalLabel" role="dialog" data-bs-backdrop="static"
-	:data-bs-keyboard="application.options.modalAppOptions.allowKeyboardDismiss"
-	data-view-name="${viewName}">
+`<div v-scope class="modal fade kaModal ${options.css!.modal}" tabindex="-1" aria-modal="true" aria-labelledby="kaModalLabel-${this.id}" role="dialog" data-bs-backdrop="static"
+	:data-bs-keyboard="application.options.modalAppOptions.allowKeyboardDismiss" data-view-name="${viewName}" 
+	@vue:mounted="if (application.selectElement('#kaModalLabel-${this.id}') == undefined) { $el.removeAttribute('aria-labelledby'); }">
 	
 	<div class="modal-dialog">
 		<div class="modal-content" v-scope="{
@@ -1217,7 +1223,7 @@ Type 'help' to see available options displayed in the console.`;
 			<div v-if="uiBlocked" class="ui-blocker"></div>
 			<div v-if="title != undefined || hasHeaderTemplate"
 				:class="['modal-header', { 'invalid-content': hasInitializationError, 'valid-content': !hasInitializationError }]">
-				<h2 id="kaModalLabel" class="modal-title" v-html="title ?? ''"></h2>
+				<h2 id="kaModalLabel-${this.id}" class="modal-title" v-html="title ?? ''"></h2>
 				<button v-if="application.options.modalAppOptions.allowKeyboardDismiss != false" type="button" class="btn-close" :aria-label="application.getLocalizedString('Close')"></button>
 			</div>
 			<div class="modal-body"></div>
@@ -2938,12 +2944,19 @@ Type 'help' to see available options displayed in the console.`;
 
 		if (this.options.view != undefined) {
 			const viewResource = await KatApps.KamlRepository.getViewResourceAsync(this);
+			
+			KatApps.Utils.trace(this, "KatApp", "getViewElementAsync", `Resource Returned`, TraceVerbosity.Detailed);
 
-			 KatApps.Utils.trace(this, "KatApp", "getViewElementAsync", `Resource Returned`, TraceVerbosity.Detailed);
-
+			// Replace following in the content before processing
+			// - {id} with unique application id
+			// - thisApplication with unique application css class to scope styles
+			// - ` id="kaModalLabel"` with ` id="kaModalLabel-${this.id}"`
+			//		Need this one b/c of v-pre 'modal content' support and can't have duplicate id's on the page0
 			const viewContent =
 				viewResource[this.options.view]
 					.replace(/{id}/g, this.id)
+					.replace(/ id=(['"])kaModalLabel\1/g, ` id=$1kaModalLabel-${this.id}$1`)
+					// .replace(/ :id="'kaModalLabel'"/g, ' :id="`kaModalLabel-${kaId}`"')
 					.replace(/thisApplication/g, this.applicationCss);
 
 			viewElement.innerHTML = viewContent;

@@ -885,9 +885,9 @@ Type 'help' to see available options displayed in the console.`;
         const cssContinue = options.css.continue;
         const viewName = this.options.view ??
             (this.options.modalAppOptions.contentSelector != undefined ? `selector: ${this.options.modalAppOptions.contentSelector}` : "static content");
-        const modalHtml = `<div v-scope class="modal fade kaModal ${options.css.modal}" tabindex="-1" aria-modal="true" aria-labelledby="kaModalLabel" role="dialog" data-bs-backdrop="static"
-	:data-bs-keyboard="application.options.modalAppOptions.allowKeyboardDismiss"
-	data-view-name="${viewName}">
+        const modalHtml = `<div v-scope class="modal fade kaModal ${options.css.modal}" tabindex="-1" aria-modal="true" aria-labelledby="kaModalLabel-${this.id}" role="dialog" data-bs-backdrop="static"
+	:data-bs-keyboard="application.options.modalAppOptions.allowKeyboardDismiss" data-view-name="${viewName}" 
+	@vue:mounted="if (application.selectElement('#kaModalLabel-${this.id}') == undefined) { $el.removeAttribute('aria-labelledby'); }">
 	
 	<div class="modal-dialog">
 		<div class="modal-content" v-scope="{
@@ -898,7 +898,7 @@ Type 'help' to see available options displayed in the console.`;
 			<div v-if="uiBlocked" class="ui-blocker"></div>
 			<div v-if="title != undefined || hasHeaderTemplate"
 				:class="['modal-header', { 'invalid-content': hasInitializationError, 'valid-content': !hasInitializationError }]">
-				<h2 id="kaModalLabel" class="modal-title" v-html="title ?? ''"></h2>
+				<h2 id="kaModalLabel-${this.id}" class="modal-title" v-html="title ?? ''"></h2>
 				<button v-if="application.options.modalAppOptions.allowKeyboardDismiss != false" type="button" class="btn-close" :aria-label="application.getLocalizedString('Close')"></button>
 			</div>
 			<div class="modal-body"></div>
@@ -2129,6 +2129,7 @@ Type 'help' to see available options displayed in the console.`;
             KatApps.Utils.trace(this, "KatApp", "getViewElementAsync", `Resource Returned`, TraceVerbosity.Detailed);
             const viewContent = viewResource[this.options.view]
                 .replace(/{id}/g, this.id)
+                .replace(/ id=(['"])kaModalLabel\1/g, ` id=$1kaModalLabel-${this.id}$1`)
                 .replace(/thisApplication/g, this.applicationCss);
             viewElement.innerHTML = viewContent;
             if (viewElement.querySelectorAll("rbl-config").length !== 1) {
@@ -4889,6 +4890,7 @@ var KatApps;
             return ctx => {
                 let scope;
                 const showModal = async function (e) {
+                    e.stopPropagation();
                     e.preventDefault();
                     try {
                         if (typeof scope.currentTarget == "string") {
