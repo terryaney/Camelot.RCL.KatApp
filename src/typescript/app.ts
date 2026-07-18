@@ -1816,6 +1816,31 @@ Type 'help' to see available options displayed in the console.`;
 		};
 	}
 
+	// Default markup processing...think about creating a public method that triggers calculation
+	// in case KAMLs have code that needs to run inside calculation handler? Or create another
+	// event that is called from this new public method AND from calculation workflow and then
+	// KAML could put code in there...b/c this isn't really 'calculation' if they just call
+	// 'processModel'
+	private preventDefault = (e: Event) => e.preventDefault();
+
+	private reflowElementCharts = (el: HTMLElement) => {
+		el.querySelectorAll<HTMLElement>("[data-highcharts-chart]").forEach(c => {
+			const chart = Highcharts.charts[+c.getAttribute("data-highcharts-chart")!];
+			chart?.reflow();
+		});
+	};
+
+	// Had to move this logic here from Highcharts directive b/c when the directive's
+	// effect() was triggering, if the highchart was inside a v-if (especially, maybe even
+	// normal rendering) it wasn't yet connected to the DOM (isConnect = false), so trying to 
+	// walk up the ancestor tree always failed.  Putting it here was only way to ensure that
+	// it was injected in the dom and would correctly work.
+	private reflowTabCharts = (e: Event) => {
+		var tab = e.target as HTMLElement;
+		var pane = this.selectElement<HTMLElement>(tab.getAttribute("data-bs-target")!)!;
+		this.reflowElementCharts(pane);
+	};
+
 	private async processDomElementsAsync() {
 		// console.log(this.selector + " domUpdated: " + this.domElementQueue.length);
 		const addUiBlockerWrapper = function (el: HTMLElement): void {
@@ -1825,47 +1850,23 @@ Type 'help' to see available options displayed in the console.`;
 		};
 
 		for (const el of this.domElementQueue) {
-			// Default markup processing...think about creating a public method that triggers calculation
-			// in case KAMLs have code that needs to run inside calculation handler? Or create another
-			// event that is called from this new public method AND from calculation workflow and then
-			// KAML could put code in there...b/c this isn't really 'calculation' if they just call
-			// 'processModel'
-			const preventDefault = (e: Event) => e.preventDefault();
-			
 			this.selectElements("a[href='#']")
 				.forEach(a => {
-					a.removeEventListener("click", preventDefault);
-					a.addEventListener("click", preventDefault);
+					a.removeEventListener("click", this.preventDefault);
+					a.addEventListener("click", this.preventDefault);
 				});
 
 			KatApps.HelpTips.processHelpTips(el);
 
-			const reflowElementCharts = (el: HTMLElement) => {
-				el.querySelectorAll<HTMLElement>("[data-highcharts-chart]").forEach(c => {
-					const chart = Highcharts.charts[+c.getAttribute("data-highcharts-chart")!];
-					chart?.reflow();
-				});
-			};
-			reflowElementCharts(el);
-
-			// Had to move this logic here from Highcharts directive b/c when the directive's
-			// effect() was triggering, if the highchart was inside a v-if (especially, maybe even
-			// normal rendering) it wasn't yet connected to the DOM (isConnect = false), so trying to 
-			// walk up the ancestor tree always failed.  Putting it here was only way to ensure that
-			// it was injected in the dom and would correctly work.
-			const reflowTabCharts = (e: Event) => {
-				var tab = e.target as HTMLElement;
-				var pane = this.selectElement<HTMLElement>(tab.getAttribute("data-bs-target")!)!;
-				reflowElementCharts(pane);
-			};
+			this.reflowElementCharts(el);
 			
 			el.querySelectorAll<HTMLElement>("[data-highcharts-chart]").forEach(c => {
 				// if inside tabs, need to reflow chart when tab is shown
 				const navItemId = this.closestElement(c, ".tab-pane, [role='tabpanel']")?.getAttribute("aria-labelledby");
 				if (navItemId != undefined) {
 					const navItem = this.selectElement("#" + navItemId);
-					navItem?.removeEventListener('shown.bs.tab', reflowTabCharts);
-					navItem?.addEventListener('shown.bs.tab', reflowTabCharts);
+					navItem?.removeEventListener('shown.bs.tab', this.reflowTabCharts);
+					navItem?.addEventListener('shown.bs.tab', this.reflowTabCharts);
 				}
 			});
 

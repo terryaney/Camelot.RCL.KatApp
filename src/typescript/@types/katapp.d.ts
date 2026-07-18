@@ -67,6 +67,9 @@ declare class KatApp implements IKatApp {
         url: string;
         endpoint: string;
     };
+    private preventDefault;
+    private reflowElementCharts;
+    private reflowTabCharts;
     private processDomElementsAsync;
     getInputValue(name: string, allowDisabled?: boolean): string | undefined;
     setInputValue(name: string, value: string | undefined, calculate?: boolean): Array<HTMLInputElement> | undefined;

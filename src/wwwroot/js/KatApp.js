@@ -1320,6 +1320,18 @@ Type 'help' to see available options displayed in the console.`;
             endpoint: url.split("?")[0].substring(4)
         };
     }
+    preventDefault = (e) => e.preventDefault();
+    reflowElementCharts = (el) => {
+        el.querySelectorAll("[data-highcharts-chart]").forEach(c => {
+            const chart = Highcharts.charts[+c.getAttribute("data-highcharts-chart")];
+            chart?.reflow();
+        });
+    };
+    reflowTabCharts = (e) => {
+        var tab = e.target;
+        var pane = this.selectElement(tab.getAttribute("data-bs-target"));
+        this.reflowElementCharts(pane);
+    };
     async processDomElementsAsync() {
         const addUiBlockerWrapper = function (el) {
             if (el.parentElement != undefined) {
@@ -1327,31 +1339,19 @@ Type 'help' to see available options displayed in the console.`;
             }
         };
         for (const el of this.domElementQueue) {
-            const preventDefault = (e) => e.preventDefault();
             this.selectElements("a[href='#']")
                 .forEach(a => {
-                a.removeEventListener("click", preventDefault);
-                a.addEventListener("click", preventDefault);
+                a.removeEventListener("click", this.preventDefault);
+                a.addEventListener("click", this.preventDefault);
             });
             KatApps.HelpTips.processHelpTips(el);
-            const reflowElementCharts = (el) => {
-                el.querySelectorAll("[data-highcharts-chart]").forEach(c => {
-                    const chart = Highcharts.charts[+c.getAttribute("data-highcharts-chart")];
-                    chart?.reflow();
-                });
-            };
-            reflowElementCharts(el);
-            const reflowTabCharts = (e) => {
-                var tab = e.target;
-                var pane = this.selectElement(tab.getAttribute("data-bs-target"));
-                reflowElementCharts(pane);
-            };
+            this.reflowElementCharts(el);
             el.querySelectorAll("[data-highcharts-chart]").forEach(c => {
                 const navItemId = this.closestElement(c, ".tab-pane, [role='tabpanel']")?.getAttribute("aria-labelledby");
                 if (navItemId != undefined) {
                     const navItem = this.selectElement("#" + navItemId);
-                    navItem?.removeEventListener('shown.bs.tab', reflowTabCharts);
-                    navItem?.addEventListener('shown.bs.tab', reflowTabCharts);
+                    navItem?.removeEventListener('shown.bs.tab', this.reflowTabCharts);
+                    navItem?.addEventListener('shown.bs.tab', this.reflowTabCharts);
                 }
             });
             if (el.classList.contains("ui-blocker")) {
@@ -4890,6 +4890,7 @@ var KatApps;
             return ctx => {
                 let scope;
                 const showModal = async function (e) {
+                    KatApps.HelpTips.hideVisiblePopover();
                     e.stopPropagation();
                     e.preventDefault();
                     try {

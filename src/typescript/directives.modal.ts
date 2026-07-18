@@ -6,6 +6,7 @@
 				let scope: IKaModalModel;
 
 				const showModal = async function (e: Event) {
+					HelpTips.hideVisiblePopover();
 					e.stopPropagation();
 					e.preventDefault();
 
