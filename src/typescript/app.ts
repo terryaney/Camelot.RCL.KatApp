@@ -1013,14 +1013,6 @@ class KatApp implements IKatApp {
 			if (this.options.hostApplication != undefined && this.options.inputs?.iNestedApplication == "1") {
 				await ( this.options.hostApplication as KatApp ).triggerEventAsync("nestedAppRendered", this, initializationErrors ? this.state.errors : undefined);
 			}
-		} catch (ex) {
-			if (ex instanceof KatApps.KamlRepositoryError) {
-				 KatApps.Utils.trace(this, "KatApp", "mountAsync", "Error during resource download", TraceVerbosity.None,
-					...ex.results.map(r => `${r.resource}: ${r.errorMessage}` )
-				);
-			}
-
-			throw ex;
 		}
 		finally {
 			 KatApps.Utils.trace(this, "KatApp", "mountAsync", `Complete`, TraceVerbosity.Detailed);

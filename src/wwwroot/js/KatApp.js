@@ -729,12 +729,6 @@ class KatApp {
                 await this.options.hostApplication.triggerEventAsync("nestedAppRendered", this, initializationErrors ? this.state.errors : undefined);
             }
         }
-        catch (ex) {
-            if (ex instanceof KatApps.KamlRepositoryError) {
-                KatApps.Utils.trace(this, "KatApp", "mountAsync", "Error during resource download", TraceVerbosity.None, ...ex.results.map(r => `${r.resource}: ${r.errorMessage}`));
-            }
-            throw ex;
-        }
         finally {
             KatApps.Utils.trace(this, "KatApp", "mountAsync", `Complete`, TraceVerbosity.Detailed);
         }
@@ -2258,7 +2252,7 @@ var KatApps;
                     var r = calculationResults.results[i];
                     const cacheKey = r.cacheKey;
                     if (cacheKey != undefined) {
-                        if (r.result.exception != undefined) {
+                        if (r.result.exceptions != undefined) {
                             KatApps.Utils.trace(application, "Calculation", "calculateAsync", `(RBL exception) Remove cache for ${r.calcEngine}`, TraceVerbosity.Detailed);
                             KatApps.Utils.removeSessionItem(application.options, `RBLCache:${cacheKey}`);
                         }
@@ -2269,24 +2263,18 @@ var KatApps;
                     }
                 }
                 const mergedResults = calculationResults;
-                mergedResults.results.filter(r => r.result.exception != undefined).forEach(r => {
+                mergedResults.results.filter(r => r.result.exceptions != undefined).forEach(r => {
                     const response = {
                         calcEngine: r.calcEngine,
                         diagnostics: r.result.diagnostics,
                         configuration: submitConfiguration,
                         inputs: inputs,
-                        exceptions: [{
-                                message: r.result.exception.message,
-                                type: r.result.exception.type,
-                                traceId: r.result.exception.traceId,
-                                requestId: r.result.exception.requestId,
-                                stackTrace: r.result.exception.stackTrace
-                            }]
+                        exceptions: r.result.exceptions
                     };
                     failedResponses.push(response);
                 });
                 mergedResults.results
-                    .filter(r => r.result.exception == undefined)
+                    .filter(r => r.result.exceptions == undefined)
                     .forEach(r => {
                     const tabDefs = r.result.RBL.Profile.Data.TabDef;
                     successResponses.push({
@@ -2342,24 +2330,21 @@ var KatApps;
                 const errorResponse = e;
                 const isValidationProblemDetails = errorResponse.errors !== undefined;
                 if (isValidationProblemDetails) {
-                    throw new ApiError("Unable to complete calculation process(es)", undefined, errorResponse);
+                    throw new ApiError("Unable to complete API calls before calculation process(es).", undefined, errorResponse);
                 }
                 const exceptions = errorResponse.exceptions ?? [errorResponse];
                 const response = {
                     calcEngine: submitData.configuration.calcEngines.map(c => c.name).join(", "),
                     configuration: submitData.configuration,
                     inputs: inputs,
-                    exceptions: exceptions.map(ex => ({
-                        message: ex.message,
-                        type: ex.type ?? "Unknown type",
-                        traceId: ex.traceId,
-                        requestId: ex.requestId,
-                        stackTrace: ex.stackTrace,
-                        apiResult: errorResponse.apiResult,
-                        apiPayload: errorResponse.apiPayload,
-                        innerException: ex.innerException
-                    }))
+                    exceptions: exceptions
                 };
+                if (errorResponse.apiResult != undefined || errorResponse.apiPayload != undefined) {
+                    response.exceptions.forEach(e => {
+                        e.apiResult = errorResponse.apiResult;
+                        e.apiPayload = errorResponse.apiPayload;
+                    });
+                }
                 throw new CalculationError("Unable to complete calculation(s)", [response]);
             }
         }
@@ -6021,7 +6006,7 @@ var KatApps;
             this.resourceRequests[resourceKey].forEach(c => c());
             delete this.resourceRequests[resourceKey];
         }
-        static async downloadResourceAsync(url, tryLocalWebServer, isRetry = false) {
+        static async downloadResourceAsync(application, url, tryLocalWebServer, isRetry = false) {
             const requestHeaders = new Headers(!tryLocalWebServer ? { 'Cache-Control': 'max-age=0' } : {});
             const response = await fetch(url, {
                 method: "GET",
@@ -6032,16 +6017,18 @@ var KatApps;
                 const statusText = response.status == 404 ? "Resource not found." :
                     response.status == 400 ? (await response.json()).detail :
                         `Status: ${response.status}, StatusText: ${response.statusText}`;
-                console.error({
+                const resourceName = url.split("/").slice(-1)[0].split("?")[0];
+                const exception = {
                     url: url,
                     cache: !tryLocalWebServer,
                     status: response.status,
                     statusText: statusText,
                     requestHeaders: Object.fromEntries(requestHeaders.entries()),
                     responseHeaders: Object.fromEntries(response.headers.entries())
-                });
+                };
+                KatApps.Utils.trace(application, "KamlRepository", "downloadResourceAsync", `Unable to download ${resourceName}`, TraceVerbosity.None, exception);
                 return !isRetry && (response.status == 500 || response.status == 415)
-                    ? await this.downloadResourceAsync(url, tryLocalWebServer, true)
+                    ? await this.downloadResourceAsync(application, url, tryLocalWebServer, true)
                     : { errorMessage: statusText };
             }
             return { data: await response.text() };
@@ -6088,7 +6075,7 @@ var KatApps;
                         resourceUrl = resourceUrl.split("?")[0] + "?" + cacheableUrlParts[1];
                     }
                 }
-                lastResult = await this.downloadResourceAsync(resourceUrl, tryLocalWebServer);
+                lastResult = await this.downloadResourceAsync(application, resourceUrl, tryLocalWebServer);
                 if (lastResult.data != undefined) {
                     let content = lastResult.data;
                     if (tryLocalWebServer) {
@@ -6099,9 +6086,9 @@ var KatApps;
                         const resourceTypesToProcess = content.match(/local-kaml-package=\"(.*?)\"/)?.[1].split(",").map(k => k.trim().toLowerCase()) ?? [];
                         const processTemplateItems = resourcePath.toLowerCase().indexOf("templates") > -1 || resourceTypesToProcess.indexOf("template.items") > -1;
                         if (fileName.endsWith(".kaml") && (resourceTypesToProcess.length > 0 || processTemplateItems)) {
-                            const jsResult = resourceTypesToProcess.indexOf("js") == -1 ? undefined : await this.downloadResourceAsync(resourceUrl.replace(fileName, fileName + ".js"), true);
-                            const cssResult = resourceTypesToProcess.indexOf("css") == -1 ? undefined : await this.downloadResourceAsync(resourceUrl.replace(fileName, fileName + ".css"), true);
-                            const templateResult = resourceTypesToProcess.indexOf("templates") == -1 ? undefined : await this.downloadResourceAsync(resourceUrl.replace(fileName, fileName + ".templates"), true);
+                            const jsResult = resourceTypesToProcess.indexOf("js") == -1 ? undefined : await this.downloadResourceAsync(application, resourceUrl.replace(fileName, fileName + ".js"), true);
+                            const cssResult = resourceTypesToProcess.indexOf("css") == -1 ? undefined : await this.downloadResourceAsync(application, resourceUrl.replace(fileName, fileName + ".css"), true);
+                            const templateResult = resourceTypesToProcess.indexOf("templates") == -1 ? undefined : await this.downloadResourceAsync(application, resourceUrl.replace(fileName, fileName + ".templates"), true);
                             const lines = content.split("\n");
                             const templateScriptPattern = /^\s*<template[^>]* id="[^"]+"([^>]* script="(?<script>[^"]+)")?([^>]* script\.setup="(?<setup>[^"]+)")?([^>]* css="(?<css>[^"]+)")?[^>]*>\s*$/;
                             let templateMatch = null;
@@ -6134,7 +6121,7 @@ ${cssResult.data.split("\n").map(cssLine => "\t" + cssLine).join("\n")}
                                     const css = templateMatch.groups?.css;
                                     if (setup != undefined) {
                                         const scriptFileName = `${fileName}.${setup}.js`;
-                                        const templateScriptFile = await this.downloadResourceAsync(resourceUrl.replace(fileName, scriptFileName), true);
+                                        const templateScriptFile = await this.downloadResourceAsync(application, resourceUrl.replace(fileName, scriptFileName), true);
                                         if (templateScriptFile?.data != undefined) {
                                             line += `
 	<script setup>
@@ -6146,7 +6133,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
                                     }
                                     if (script != undefined) {
                                         const scriptFileName = `${fileName}.${script}.js`;
-                                        const templateScriptFile = await this.downloadResourceAsync(resourceUrl.replace(fileName, scriptFileName), true);
+                                        const templateScriptFile = await this.downloadResourceAsync(application, resourceUrl.replace(fileName, scriptFileName), true);
                                         if (templateScriptFile?.data != undefined) {
                                             line += `
 	<script>
@@ -6158,7 +6145,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
                                     }
                                     if (css != undefined) {
                                         const scriptFileName = `${fileName}.${css}.css`;
-                                        const templateScriptFile = await this.downloadResourceAsync(resourceUrl.replace(fileName, scriptFileName), true);
+                                        const templateScriptFile = await this.downloadResourceAsync(application, resourceUrl.replace(fileName, scriptFileName), true);
                                         if (templateScriptFile?.data != undefined) {
                                             line += `
 	<style>
@@ -6447,8 +6434,11 @@ var KatApps;
                 const timePart = `${[pad2(dt.getHours()), pad2(dt.getMinutes()), pad2(dt.getSeconds())].join(':')}:${pad2(Math.floor(dt.getMilliseconds() / 10))}`;
                 const log = `${datePart} ${timePart}\t${String(startDelta).padStart(5, "0")}\t${String(lastDelta).padStart(5, "0")}\t${application.options.dataGroup}\t${katApp ?? "Unavailable"}\t${origin}\t${methodName}: ${message}`;
                 if (groupItems.length > 0) {
-                    console.group(log);
-                    groupItems.forEach(i => i instanceof Error ? console.error({ i }) : console.log(i));
+                    console.group(`${datePart} ${timePart} ${katApp ?? "Unavailable"}: ${message}`);
+                    console.log("traceGroup", {
+                        startDelta, lastDelta, dataGroup: application.options.dataGroup, origin, methodName,
+                        details: groupItems.length == 1 ? groupItems[0] : groupItems
+                    });
                     console.groupEnd();
                 }
                 else {

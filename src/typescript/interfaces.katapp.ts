@@ -487,7 +487,6 @@ interface ICalculationResponseException {
 }
 
 
-
 // Directive Options
 interface IKaResourceModel {
 	key?: string;

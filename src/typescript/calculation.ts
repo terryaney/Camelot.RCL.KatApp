@@ -83,7 +83,7 @@
 					const cacheKey = r.cacheKey;
 	
 					if (cacheKey != undefined) {
-						if (r.result!.exception != undefined) {
+						if (r.result!.exceptions != undefined) {
 							Utils.trace(application, "Calculation", "calculateAsync", `(RBL exception) Remove cache for ${r.calcEngine}`, TraceVerbosity.Detailed);
 							Utils.removeSessionItem(application.options, `RBLCache:${cacheKey}`);
 						}
@@ -102,26 +102,21 @@
 					}>;
 				};
 	
-				mergedResults.results.filter(r => r.result.exception != undefined).forEach(r => {
+				mergedResults.results.filter(r => r.result.exceptions != undefined).forEach(r => {
+
 					const response: ICalculationFailedResponse = {
 						calcEngine: r.calcEngine,
 						diagnostics: r.result.diagnostics,
 						configuration: submitConfiguration,
 						inputs: inputs,
-						exceptions: [{
-							message: r.result.exception.message,
-							type: r.result.exception.type,
-							traceId: r.result.exception.traceId,
-							requestId: r.result.exception.requestId,
-							stackTrace: r.result.exception.stackTrace
-						} as ICalculationResponseException ]
+						exceptions: r.result.exceptions
 					};
 	
 					failedResponses.push(response);
 				});
 	
 				mergedResults.results
-					.filter(r => r.result.exception == undefined)
+					.filter(r => r.result.exceptions == undefined)
 					.forEach(r => {
 						const tabDefs = r.result.RBL.Profile.Data.TabDef;
 						successResponses.push({
@@ -188,9 +183,10 @@
 				const errorResponse = e as IApiErrorResponse;
 				const isValidationProblemDetails = (errorResponse as any).errors !== undefined;
 
-				// Some calculations may trigger backend 'api calls' and if those return errors, just show them.
+				// Some calculations may trigger backend 'api calls' and if those return 'validation' errors
+				// via a ValidationProblemDetails object, just show them.
 				if (isValidationProblemDetails) {
-					throw new ApiError("Unable to complete calculation process(es)", undefined, errorResponse);
+					throw new ApiError("Unable to complete API calls before calculation process(es).", undefined, errorResponse);
 				}
 
 				const exceptions = errorResponse.exceptions ?? [errorResponse as unknown as IExceptionDetail];
@@ -199,18 +195,16 @@
 					calcEngine: (submitData.configuration as ISubmitCalculationConfiguration).calcEngines.map(c => c.name).join(", "),
 					configuration: submitData.configuration,
 					inputs: inputs,
-					exceptions: exceptions.map(ex => ({
-						message: ex.message,
-						type: ex.type ?? "Unknown type",
-						traceId: ex.traceId,
-						requestId: ex.requestId,
-						stackTrace: ex.stackTrace,
-						apiResult: errorResponse.apiResult,
-						apiPayload: errorResponse.apiPayload,
-						innerException: ex.innerException
-					} as ICalculationResponseException))
+					exceptions: exceptions
 				};
 	
+				if (errorResponse.apiResult != undefined || errorResponse.apiPayload != undefined) {
+					response.exceptions.forEach(e => {
+						(e as ICalculationResponseException).apiResult = errorResponse.apiResult;
+						(e as ICalculationResponseException).apiPayload = errorResponse.apiPayload;
+					});
+				}
+
 				throw new CalculationError("Unable to complete calculation(s)", [response]);
 			}
 		}

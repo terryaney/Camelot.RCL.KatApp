@@ -600,13 +600,13 @@ interface IRblCalculationDiagnostics {
 }
 interface IRblCalculationSuccessResponse {
     diagnostics: IRblCalculationDiagnostics;
-    exception: {
+    exceptions: Array<{
         message: string;
         type: string;
         traceId: string;
         requestId: string;
         stackTrace: Array<string>;
-    };
+    }>;
     RBL: {
         Profile: {
             Data: {

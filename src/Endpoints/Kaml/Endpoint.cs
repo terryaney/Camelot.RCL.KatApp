@@ -61,7 +61,10 @@ public partial class Endpoint( KatAppHelper katAppHelper, IKatAppOptionsProvider
 					.Where( f => kamlFileExtensions.Contains( f.Extension, StringComparer.OrdinalIgnoreCase ) )
 					.ToArray();
 
-			var lastModifiedDate = new[] { kaml.LastWriteTimeUtc }.Concat( supportingFiles.Select( f => f.LastWriteTimeUtc ) ).Max();
+			var lastModifiedDate = 
+				new[] { kaml.LastWriteTimeUtc }
+					.Concat( supportingFiles.Select( f => f.LastWriteTimeUtc ) )
+					.Max();
 
 			await SendCachedGetAsync( $"Kaml:{request.ViewName}", lastModifiedDate, async () =>
 			{

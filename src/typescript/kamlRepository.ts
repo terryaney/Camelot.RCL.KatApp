@@ -121,7 +121,7 @@ namespace KatApps {
 			delete this.resourceRequests[resourceKey];
 		}
 
-		private static async downloadResourceAsync(url: string, tryLocalWebServer: boolean, isRetry: boolean = false): Promise<{ data?: string, errorMessage?: string }> {
+		private static async downloadResourceAsync(application: KatApp, url: string, tryLocalWebServer: boolean, isRetry: boolean = false): Promise<{ data?: string, errorMessage?: string }> {
 
 			const requestHeaders = new Headers(!tryLocalWebServer ? { 'Cache-Control': 'max-age=0' } : {});
 			const response = await fetch(url, {
@@ -133,22 +133,23 @@ namespace KatApps {
 			if (!response.ok) {
 				const statusText =
 					response.status == 404 ? "Resource not found." :
-						response.status == 400 ? (await response.json()).detail :
-							`Status: ${response.status}, StatusText: ${response.statusText}`;
+					response.status == 400 ? (await response.json()).detail : // Could use "exceptions" here but we'll just take top one
+					`Status: ${response.status}, StatusText: ${response.statusText}`;
 
-				console.error(
-					{
-						url: url,
-						cache: !tryLocalWebServer,
-						status: response.status,
-						statusText: statusText,
-						requestHeaders: Object.fromEntries(requestHeaders.entries()),
-						responseHeaders: Object.fromEntries(response.headers.entries())
-					}
-				);
+				const resourceName = url.split("/").slice(-1)[0].split("?")[0];
+				const exception = {
+					url: url,
+					cache: !tryLocalWebServer,
+					status: response.status,
+					statusText: statusText,
+					requestHeaders: Object.fromEntries(requestHeaders.entries()),
+					responseHeaders: Object.fromEntries(response.headers.entries())
+				};
+
+				KatApps.Utils.trace(application, "KamlRepository", "downloadResourceAsync", `Unable to download ${resourceName}`, TraceVerbosity.None, exception )
 
 				return !isRetry && (response.status == 500 || response.status == 415)
-					? await this.downloadResourceAsync(url, tryLocalWebServer, true)
+					? await this.downloadResourceAsync(application, url, tryLocalWebServer, true)
 					: { errorMessage: statusText };
 			}
 
@@ -215,7 +216,7 @@ namespace KatApps {
 					}
 				}
 
-				lastResult = await this.downloadResourceAsync(resourceUrl, tryLocalWebServer);
+				lastResult = await this.downloadResourceAsync(application, resourceUrl, tryLocalWebServer);
 
 				if (lastResult.data != undefined) {
 					let content = lastResult.data;
@@ -231,9 +232,9 @@ namespace KatApps {
 						const processTemplateItems = resourcePath.toLowerCase().indexOf("templates") > -1 || resourceTypesToProcess.indexOf("template.items") > -1;
 
 						if (fileName.endsWith(".kaml") && (resourceTypesToProcess.length > 0 || processTemplateItems)) {
-							const jsResult = resourceTypesToProcess.indexOf("js") == -1 ? undefined : await this.downloadResourceAsync(resourceUrl.replace(fileName, fileName + ".js"), true);
-							const cssResult = resourceTypesToProcess.indexOf("css") == -1 ? undefined : await this.downloadResourceAsync(resourceUrl.replace(fileName, fileName + ".css"), true);
-							const templateResult = resourceTypesToProcess.indexOf("templates") == -1 ? undefined : await this.downloadResourceAsync(resourceUrl.replace(fileName, fileName + ".templates"), true);
+							const jsResult = resourceTypesToProcess.indexOf("js") == -1 ? undefined : await this.downloadResourceAsync(application, resourceUrl.replace(fileName, fileName + ".js"), true);
+							const cssResult = resourceTypesToProcess.indexOf("css") == -1 ? undefined : await this.downloadResourceAsync(application, resourceUrl.replace(fileName, fileName + ".css"), true);
+							const templateResult = resourceTypesToProcess.indexOf("templates") == -1 ? undefined : await this.downloadResourceAsync(application, resourceUrl.replace(fileName, fileName + ".templates"), true);
 						
 							const lines = content.split("\n");
 							const templateScriptPattern = /^\s*<template[^>]* id="[^"]+"([^>]* script="(?<script>[^"]+)")?([^>]* script\.setup="(?<setup>[^"]+)")?([^>]* css="(?<css>[^"]+)")?[^>]*>\s*$/;
@@ -272,7 +273,7 @@ ${cssResult.data.split("\n").map(cssLine => "\t" + cssLine).join("\n")}
 
 										if (setup != undefined) {
 											const scriptFileName = `${fileName}.${setup}.js`;
-											const templateScriptFile = await this.downloadResourceAsync(resourceUrl.replace(fileName, scriptFileName), true);
+											const templateScriptFile = await this.downloadResourceAsync(application, resourceUrl.replace(fileName, scriptFileName), true);
 											if (templateScriptFile?.data != undefined) {
 												line += `
 	<script setup>
@@ -284,7 +285,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
 										}
 										if (script != undefined) {
 											const scriptFileName = `${fileName}.${script}.js`;
-											const templateScriptFile = await this.downloadResourceAsync(resourceUrl.replace(fileName, scriptFileName), true);
+											const templateScriptFile = await this.downloadResourceAsync(application, resourceUrl.replace(fileName, scriptFileName), true);
 											if (templateScriptFile?.data != undefined) {
 												line += `
 	<script>
@@ -296,7 +297,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
 										}
 										if (css != undefined) {
 											const scriptFileName = `${fileName}.${css}.css`;
-											const templateScriptFile = await this.downloadResourceAsync(resourceUrl.replace(fileName, scriptFileName), true);
+											const templateScriptFile = await this.downloadResourceAsync(application, resourceUrl.replace(fileName, scriptFileName), true);
 											if (templateScriptFile?.data != undefined) {
 												line += `
 	<style>
