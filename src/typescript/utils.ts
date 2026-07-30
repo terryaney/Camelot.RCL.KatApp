@@ -1,5 +1,9 @@
 ﻿namespace KatApps {
 	export class Utils {
+		public static async notifyAsync(name: string, information?: IStringAnyIndexer) {
+			await Promise.all(KatApp.applications.map(app => app.triggerEventAsync("notification", name, information)));
+		}		
+
 		public static chunk<T>(array: Array<T>, size: number): Array<Array<T>> {
 			const chunks = [];
 			for (let i = 0; i < array.length; i += size) {

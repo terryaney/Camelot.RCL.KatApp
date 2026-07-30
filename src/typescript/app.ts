@@ -11,38 +11,6 @@
 //		- look at v-ka-inline to get idea on how to handle
 
 // TODO: Decide on modules vs iife? Modules seems better/recommended practices, but iife and static methods support console debugging better
-class KatAppEventFluentApi<T extends EventTarget> implements IKatAppEventFluentApi<T> {
-	constructor(public elements: Array<T>) { }
-	
-	public on(events: string, handler: (e: Event) => void): KatAppEventFluentApi<T> {
-		var eventTypes = events.split(" ");
-
-		this.elements.forEach(e => {
-			eventTypes.forEach(t => e.addEventListener(t, handler));
-		});
-
-		return this;
-	}
-
-	public off(events: string): KatAppEventFluentApi<T> {
-		var eventTypes = events.split(" ");
-
-		this.elements.forEach(e => {
-			if (e.kaEventListeners == undefined) return;
-			
-			eventTypes.forEach(t => {
-				const listeners = e.kaEventListeners?.[t];
-				if (listeners == undefined) return;
-				// Would like to just pass l as second param, but it isn't recognizing that overload option.
-				// See comment on the removeEventListener interface declaration in interfaces.d.ts.
-				listeners.forEach(l => e.removeEventListener(t, l.listener, l.options));
-			});
-		});
-
-		return this;
-	}
-}
-
 class KatApp implements IKatApp {
 	public static applications: Array<KatApp> = [];
 	private static globalEventConfigurations: Array<{ selector: string, events: IKatAppEventsConfiguration }> = [];
@@ -1998,13 +1966,13 @@ Type 'help' to see available options displayed in the console.`;
 	}
 
 	public on<T extends EventTarget>(target: string | T | Array<T>, events: string, handler: (e: Event) => void, context?: Element): IKatAppEventFluentApi<T> {
-		const eventFluentApi = new KatAppEventFluentApi<T>(this.getTargetItems<T>(target, context));
+		const eventFluentApi = new KatApps.KatAppEventFluentApi<T>(this.getTargetItems<T>(target, context));
 		eventFluentApi.on(events, handler);
 		return eventFluentApi;
 	}
 
  	public off<T extends EventTarget>(target: string | T | Array<T>, events: string, context?: Element): IKatAppEventFluentApi<T> {
-		const eventFluentApi = new KatAppEventFluentApi<T>(this.getTargetItems<T>(target, context));
+		const eventFluentApi = new KatApps.KatAppEventFluentApi<T>(this.getTargetItems<T>(target, context));
 		eventFluentApi.off(events);
 		return eventFluentApi;
 	}

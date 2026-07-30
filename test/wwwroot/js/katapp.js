@@ -1,31 +1,35 @@
 "use strict";
-class KatAppEventFluentApi {
-    elements;
-    constructor(elements) {
-        this.elements = elements;
-    }
-    on(events, handler) {
-        var eventTypes = events.split(" ");
-        this.elements.forEach(e => {
-            eventTypes.forEach(t => e.addEventListener(t, handler));
-        });
-        return this;
-    }
-    off(events) {
-        var eventTypes = events.split(" ");
-        this.elements.forEach(e => {
-            if (e.kaEventListeners == undefined)
-                return;
-            eventTypes.forEach(t => {
-                const listeners = e.kaEventListeners?.[t];
-                if (listeners == undefined)
-                    return;
-                listeners.forEach(l => e.removeEventListener(t, l.listener, l.options));
+var KatApps;
+(function (KatApps) {
+    class KatAppEventFluentApi {
+        elements;
+        constructor(elements) {
+            this.elements = elements;
+        }
+        on(events, handler) {
+            var eventTypes = events.split(" ");
+            this.elements.forEach(e => {
+                eventTypes.forEach(t => e.addEventListener(t, handler));
             });
-        });
-        return this;
+            return this;
+        }
+        off(events) {
+            var eventTypes = events.split(" ");
+            this.elements.forEach(e => {
+                if (e.kaEventListeners == undefined)
+                    return;
+                eventTypes.forEach(t => {
+                    const listeners = e.kaEventListeners?.[t];
+                    if (listeners == undefined)
+                        return;
+                    listeners.forEach(l => e.removeEventListener(t, l.listener, l.options));
+                });
+            });
+            return this;
+        }
     }
-}
+    KatApps.KatAppEventFluentApi = KatAppEventFluentApi;
+})(KatApps || (KatApps = {}));
 class KatApp {
     selector;
     static applications = [];
@@ -1450,12 +1454,12 @@ Type 'help' to see available options displayed in the console.`;
                         target;
     }
     on(target, events, handler, context) {
-        const eventFluentApi = new KatAppEventFluentApi(this.getTargetItems(target, context));
+        const eventFluentApi = new KatApps.KatAppEventFluentApi(this.getTargetItems(target, context));
         eventFluentApi.on(events, handler);
         return eventFluentApi;
     }
     off(target, events, context) {
-        const eventFluentApi = new KatAppEventFluentApi(this.getTargetItems(target, context));
+        const eventFluentApi = new KatApps.KatAppEventFluentApi(this.getTargetItems(target, context));
         eventFluentApi.off(events);
         return eventFluentApi;
     }
@@ -6322,6 +6326,9 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
 var KatApps;
 (function (KatApps) {
     class Utils {
+        static async notifyAsync(name, information) {
+            await Promise.all(KatApp.applications.map(app => app.triggerEventAsync("notification", name, information)));
+        }
         static chunk(array, size) {
             const chunks = [];
             for (let i = 0; i < array.length; i += size) {

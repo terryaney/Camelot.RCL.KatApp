@@ -1,8 +1,10 @@
-declare class KatAppEventFluentApi<T extends EventTarget> implements IKatAppEventFluentApi<T> {
-    elements: Array<T>;
-    constructor(elements: Array<T>);
-    on(events: string, handler: (e: Event) => void): KatAppEventFluentApi<T>;
-    off(events: string): KatAppEventFluentApi<T>;
+declare namespace KatApps {
+    class KatAppEventFluentApi<T extends EventTarget> implements IKatAppEventFluentApi<T> {
+        elements: Array<T>;
+        constructor(elements: Array<T>);
+        on(events: string, handler: (e: Event) => void): KatAppEventFluentApi<T>;
+        off(events: string): KatAppEventFluentApi<T>;
+    }
 }
 declare class KatApp implements IKatApp {
     selector: string;
@@ -1303,6 +1305,7 @@ declare namespace KatApps {
 }
 declare namespace KatApps {
     class Utils {
+        static notifyAsync(name: string, information?: IStringAnyIndexer): Promise<void>;
         static chunk<T>(array: Array<T>, size: number): Array<Array<T>>;
         static extend<T>(target: IStringAnyIndexer, ...sources: (IStringAnyIndexer | undefined)[]): T;
         static extendWithReplacer<T>(target: IStringAnyIndexer, replacer: IStringAnyIndexerReplacer, ...sources: (IStringAnyIndexer | undefined)[]): T;
