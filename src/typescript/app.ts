@@ -1144,6 +1144,7 @@ Type 'help' to see available options displayed in the console.`;
 					continue: "btn btn-primary"
 				},
 				showCancel: true,
+				showTitle: true,
 				allowKeyboardDismiss: true,
 				size: this.options.view != undefined ? "xl" : undefined,
 				scrollable: false,
@@ -1181,7 +1182,7 @@ Type 'help' to see available options displayed in the console.`;
 				get hasHeaderTemplate() { return application.options.modalAppOptions.headerTemplate != undefined; }
 			}">
 			<div v-if="uiBlocked" class="ui-blocker"></div>
-			<div v-if="title != undefined || hasHeaderTemplate"
+			<div v-if="title != undefined || hasHeaderTemplate" v-show="application.options.modalAppOptions.showTitle !== false"
 				:class="['modal-header', { 'invalid-content': hasInitializationError, 'valid-content': !hasInitializationError }]">
 				<h2 id="kaModalLabel-${this.id}" class="modal-title" v-html="title ?? ''"></h2>
 				<button v-if="application.options.modalAppOptions.allowKeyboardDismiss != false" type="button" class="btn-close" :aria-label="application.getLocalizedString('Close')"></button>

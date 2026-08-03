@@ -945,6 +945,7 @@ interface IModalOptions {
     size?: "xl" | "lg" | "md" | "sm";
     scrollable?: boolean;
     showCancel?: boolean;
+    showTitle?: boolean;
     allowKeyboardDismiss?: boolean;
     buttonsTemplate?: string;
     headerTemplate?: string;
