@@ -7,41 +7,47 @@ namespace KAT.Camelot.Infrastructure.Web;
 
 public class KatAppRclUseOptions : CamelotUseOptions
 {
-	public KatAppRclUseOptions( IWebHostEnvironment webHostEnvironment, KatAppConfigurationOptions katAppConfigurationOptions ) : base( webHostEnvironment )
+	public KatAppRclUseOptions( IWebHostEnvironment webHostEnvironment, KatAppConfigurationOptions katAppConfigurationOptions, CamelotOptions? camelotOptions = null ) : base( webHostEnvironment, camelotOptions )
 	{
-		RequestProcessing = new KatAppRclRequestProcessingOptions( webHostEnvironment, katAppConfigurationOptions );
-	} 
+		RequestProcessing = new KatAppRclRequestProcessingOptions( webHostEnvironment, katAppConfigurationOptions, camelotOptions );
+	}
 }
 
 public class KatAppRclRequestProcessingOptions : CamelotRequestProcessingOptions
 {
 	private readonly KatAppConfigurationOptions katAppConfigurationOptions;
 
-	internal KatAppRclRequestProcessingOptions( IWebHostEnvironment webHostEnvironment, KatAppConfigurationOptions katAppConfigurationOptions ) : base( webHostEnvironment )
-	{
-		this.katAppConfigurationOptions = katAppConfigurationOptions;
-		var paths = webHostEnvironment.CamelotHealthAndStaticFolders();
+	internal KatAppRclRequestProcessingOptions( IWebHostEnvironment webHostEnvironment, KatAppConfigurationOptions katAppConfigurationOptions, CamelotOptions? camelotOptions = null )
 		// /katapp option - may need to make this configurable, see comment above
 		// still want katapp handler to log activity on failures only...
-		logActivityIgnorePaths = [ .. paths.Where( p => !p.StartsWith( "/katapp", StringComparison.OrdinalIgnoreCase ) ) ];
+		: base( webHostEnvironment, camelotOptions, paths => [ .. paths.Where( p => !p.StartsWith( "/katapp", StringComparison.OrdinalIgnoreCase ) ) ] )
+	{
+		this.katAppConfigurationOptions = katAppConfigurationOptions;
 	}
 
-	public override DefaultProcessingDelegates DefaultProcessingDelegates => new()
+	protected override DefaultProcessingDelegates CreateDefaultProcessingDelegates()
 	{
-		UseErrorPages = base.DefaultProcessingDelegates.UseErrorPages,
-		LogActivity = base.DefaultProcessingDelegates.LogActivity,
-		IsApiActivity = base.DefaultProcessingDelegates.IsApiActivity,
-		LogSuccessActivity = context =>  {
-			return 
-				base.DefaultProcessingDelegates.LogSuccessActivity( context ) &&
-				!katAppConfigurationOptions.IsKatAppRoute( context );
-		},
-		UseStaticPages = context => {
-			return
-				base.DefaultProcessingDelegates.UseStaticPages( context ) &&
-				!katAppConfigurationOptions.IsKatAppRoute( context );
-		}
-	};
+		// base.CreateDefaultProcessingDelegates(), *not* base.DefaultProcessingDelegates - the latter is the cache this
+		// method is building, so reading it here would re-enter the Lazy.
+		var camelotDelegates = base.CreateDefaultProcessingDelegates();
+
+		return new()
+		{
+			UseErrorPages = camelotDelegates.UseErrorPages,
+			LogActivity = camelotDelegates.LogActivity,
+			IsApiActivity = camelotDelegates.IsApiActivity,
+			LogSuccessActivity = context =>  {
+				return
+					camelotDelegates.LogSuccessActivity( context ) &&
+					!katAppConfigurationOptions.IsKatAppRoute( context );
+			},
+			UseStaticPages = context => {
+				return
+					camelotDelegates.UseStaticPages( context ) &&
+					!katAppConfigurationOptions.IsKatAppRoute( context );
+			}
+		};
+	}
 }
 
 public static class ConfigurationExtensions
@@ -74,7 +80,7 @@ public static class ConfigurationExtensions
 
 	public static WebApplication UseKatAppRcl( this WebApplication app, Action<KatAppRclUseOptions> configure )
 	{
-		var opts = new KatAppRclUseOptions( app.Environment, app.Services.GetRequiredService<KatAppConfigurationOptions>() );
+		var opts = new KatAppRclUseOptions( app.Environment, app.Services.GetRequiredService<KatAppConfigurationOptions>(), app.Services.GetRequiredService<CamelotOptions>() );
 		configure( opts );
 
 		app.UseCamelot( options => {
