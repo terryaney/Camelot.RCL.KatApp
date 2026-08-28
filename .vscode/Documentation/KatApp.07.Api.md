@@ -27,9 +27,11 @@ Name | Description
 
 ### KatApp.createAppAsync
 
-`createAppAsync(selector: string, options: IKatAppOptions): Promise<KatApp>`
+`createAppAsync(selector: string, options: IKatAppOptions, configAction?: IConfigureDelegate): Promise<KatApp>`
 
 Asyncronous method to create a new KatApp bound to an `HTMLElement` selected via `selector`.
+
+The optional `configAction` parameter is the same delegate accepted by [`IKatApp.configure`](#ikatappconfigure).  A Kaml View never needs this; its own script calls `application.configure()`.  It exists for applications that have no Kaml View of their own — see [`IModalOptions.configure`](#contentselector-modals) for the scenario that motivated it.
 
 ```javascript
 function ready(fn) {
@@ -277,13 +279,21 @@ Name | Description
 
 #### IKatApp.configure
 
-**`configure(configAction: (config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp`**
+**`configure(configAction: IConfigureDelegate): IKatApp`**
+
+Where `IConfigureDelegate` is:
+
+```javascript
+(config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined, application: IKatApp) => void
+```
 
 The `configure` method can only be called one time and must be called before the Kaml View is 'mounted' by Vue. Allows for the Kaml View to update application options by modifying the `config` parameter.  See [`IConfigureOptions`](#iconfigureoptions) for more information.
 
 This pattern follows a similar configuration action delegate used in .NET Core application setup.
 
-The `rbl`, `model`, `inputs`, and `handlers` parameters are optional, but are passed in to allow access to the application's state properties in a shorthand syntax.
+The `rbl`, `model`, `inputs`, `handlers`, and `application` parameters are optional, but are passed in to allow access to the application's state properties in a shorthand syntax.
+
+`application` is the application being configured.  Inside a Kaml View script this is the same object as the file scoped `application` variable, so its declaration is unneeded.  It matters when the delegate is *not* declared inside the script of the application it configures — see [contentSelector Modals](#contentselector-modals) — because the `application` variable closed over from the enclosing script refers to the host application, not the one being configured.
 
 ```javascript
 /** @type {IKatApp} */
@@ -333,7 +343,13 @@ application.configure((config, rbl, model, inputs, handlers) => {
 
 #### IKatApp.handleEvents
 
-**`handleEvents(configAction: (events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp`**
+**`handleEvents(configAction: IHandleEventsDelegate): IKatApp`**
+
+Where `IHandleEventsDelegate` is:
+
+```javascript
+(events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void
+```
 
 Allows for the Kaml View to add additional event handlers to an application via the `events` parameter.  This is similar to the original `configure()` method call and assigning specific events, but is allowed to be called at any time during the application life cycle.
 
@@ -395,13 +411,18 @@ If the api endpoint returned a failure response, the `apiResponse` will be set t
 
 #### IKatApp.showModalAsync
 
-**`showModalAsync(options: IModalOptions, triggerLink?: HTMLElement): Promise<{ confirmed: boolean; response: any; }>;`**
+**`showModalAsync(options: IModalOptions, triggerLink?: HTMLElement): Promise<IModalResponse>;`**
 
-Manually show a modal dialog configured by the [`IModalOptions`](#imodaloptions) parameter and return an object indicating whether or not it was confirmed and the response returned (in both the 'confirmed' and 'cancelled' scenarios).
+Manually show a modal dialog configured by the [`IModalOptions`](#imodaloptions) parameter and return an [`IModalResponse`](#imodalresponse) indicating whether or not it was confirmed and the data returned (in both the 'confirmed' and 'cancelled' scenarios).
 
 If a `triggerLink` is provided, the link will be disabled while the modal dialog is shown and re-enabled when hidden.
 
-`showModalAsync` can throw exceptions.
+`showModalAsync` can throw exceptions, including when:
+
+1. Neither `view`, `content`, nor `contentSelector` was provided.
+1. `contentSelector` matched no element.
+1. `configure` was provided along with `view`; see [contentSelector Modals](#contentselector-modals).
+1. Markup already on the page contains the `kaModal` class.
 
 See [`v-ka-modal`](./KatApp.06.CustomDirectives.md#v-ka-modal) and [`IModalOptions` interface](#imodaloptions) for more information.
 
@@ -611,6 +632,8 @@ There are three main event lifecycles that occur during the life time of a KatAp
 When a KatApp is being created via the [`KatApp.createAppAsync`](#katappcreateappasync), the following lifecycle occurs.
 
 1. [beforeOpenAsync](#imodaloptions) - if application is a modal application *using* `contentSelector`
+1. The [`configAction` delegate](#katappcreateappasync) passed to `createAppAsync` - if provided; this is how [`IModalOptions.configure`](#contentselector-modals) is applied
+1. The Kaml View's own [`application.configure()`](#ikatappconfigure) call - if the application has a `view`; runs as the view's script is executed during mount
 1. [initialized](#ikatappinitialized)
 1. [modalAppInitialized](#ikatappmodalappinitialized) - if application is a modal application
 1. [nestedAppInitialized](#ikatappnestedappinitialized) - if application is a nested application
@@ -1193,7 +1216,8 @@ Property | Type | Description
 ---|---|---
 `view` | `string` | If the content for the modal being displayed is generated from a Kaml View, the name of the Kaml View 'id' should be assigned here.  When present, the KatApp Framework calls the `rble/verify-katapp` endpoint to ensure that the current user has access to the view before returning the content for the view.
 `content` | `string` | If the content for the modal being displayed is a HTML fragment confirmation message, the HTML markup can be passed directly as a string versus having to build a Kaml View for simple modal confirmations.
-`contentSelector`<sup>1</sup> | `string` | If the content for the modal being displayed is generated by the current application, a DOM element selector string can be passed versus having to build a Kaml View. When `contentSelector` is passed, the KatApp Framework will clone the element's content.  Add the attribute `v-pre` if the modal markup should be reactive.
+`contentSelector`<sup>1</sup> | `string` | If the content for the modal being displayed is generated by the current application, a DOM element selector string can be passed versus having to build a Kaml View. When `contentSelector` is passed, the KatApp Framework will clone the element's content.  Add the attribute [`v-pre`](./KatApp.05.VueDirectives.md#v-pre) if the modal markup should be reactive.
+`configure`<sup>3</sup> | [`IConfigureDelegate`](#ikatappconfigure) | Only applies when `contentSelector` or `content` is used; `showModalAsync` throws if `configure` is combined with `view`.  Runs the delegate against the *modal* application before it is mounted, giving a modal that has no Kaml View of its own a way to supply `model`, `handlers`, `events`, `components`, and `directives`.<br/><br/>See [contentSelector Modals](#contentselector-modals).
 `calculateOnConfirm` | `ICalculationInputs \| boolean` | When a modal application is 'confirmed', using the `calculateOnConfirm` property can instruct the KatApp Framework to automatically run a RBLe Framework calculation.<br/><br/>Setting this property to `true` or providing a [`ICalculationInputs`](#icalculationinputs) object will trigger the automatic calculation.
 `labels` | `{ title: string?; cancel: string?; continue: string? }` | Provide custom labels to be used when the KatApp framework builds the modal container.<br/><br/>1. `title` can be provided if the modal should display a title. If not provided, no modal header/title will be displayed.<br/>2. `cancel` can provide a label to use for the 'cancel' button.  Default is `Cancel`.<br/>3. `continue` can provide a label to use for the 'continue' button.  Default is `Continue`.
 `css` | `{ cancel: string?; continue: string?; modal: string? }` | Provide custom css to be used when the KatApp framework builds the modal container.<br/><br/>1. `cancel` can provide css to apply to the 'cancel' button.  Default is `btn btn-outline-primary`.<br/>2. `continue` can provide css to apply to the 'continue' button.  Default is `btn btn-primary`.<br/>3. `modal` can provide css to apply to the modal container.
@@ -1206,9 +1230,89 @@ Property | Type | Description
 `buttonsTemplate`<sup>2</sup> | `string` | By default, KatApp modals will generate a 'continue' and 'cancel' button that are always visible and simply return a `boolean` value indicating whether or not a modal was confirmed.<br/><br/>If a modal is more complex with various stages that influence the behavior (visibility or functionality) of the modal buttons, a template ID can be provided.<br/><br/>See [IModalOptions Template Samples](#imodaloptions-template-samples) for more information.
 `headerTemplate` | `string` | By default, KatApp modals simply use the `labels.title` string property to display a 'modal header'.<br/><br/>If a modal is more complex and the header is more than just a text label (i.e. links or inputs), a template ID can be provided as the content to be rendered inside the header.<br/><br/>See [IModalOptions Template Samples](#imodaloptions-template-samples) for more information.
 
-<sup>1</sup> When the `contentSelector` property is provided, but you still want to be able to use Vue directives (especially reactivity and events) in the modal dialog, you can decorate the element matched by `contentSelector` with the Vue directive of `v-pre`.  This results in none of the Vue/KatApp directives processing until the modal is actually displayed.  When the modal starts, it will receive a clone of the host application's `rbl`, `model`, and `handlers` objects. 
+<sup>1</sup> When the `contentSelector` property is provided, but you still want to be able to use Vue directives (especially reactivity and events) in the modal dialog, you can decorate the element matched by `contentSelector` with the Vue directive of [`v-pre`](./KatApp.05.VueDirectives.md#v-pre).  This results in none of the Vue/KatApp directives processing until the modal is actually displayed.  When the modal starts, it will receive a clone of the host application's `rbl`, `model`, and `handlers` objects.<br/><br/>The value of the attribute selects *which* state the modal starts with; `v-pre="selector"` clones from the named application instead of the host, and `v-pre="false"` clones nothing.  See [contentSelector Modals](#contentselector-modals).
 
 <sup>2</sup> When creating your own buttons for a modal application, it is best practice to always apply a `cancelButton` and `continueButton` class to the appropriate buttons as the KatApp framework first tries to trigger a `click` event on those buttons when the `X` in the header is clicked or `ESC` is pressed.  `cancelButton` is clicked if `showCancel` was set to true otherwise `continueButton` is clicked. If additional processing other than simply calling the [`IModalAppOptions.cancelled` or `IModalAppOptions.confirmedAsync` delegates](#imodalappoptions), make sure to apply those buttons.  If the custom toolbar *only* provides a single 'close' button, both classes can be assigned to the button to ensure that it is triggered, this eliminates the need for the caller of the modal to know the internal logic of the buttons and does not need to 'correctly' pass the `showCancel` property.
+
+<sup>3</sup> `configure` supplies the handlers a `contentSelector` modal starts with; the [`v-pre`](./KatApp.05.VueDirectives.md#v-pre) attribute value supplies the state.  See [contentSelector Modals](#contentselector-modals).
+
+#### contentSelector Modals
+
+A `contentSelector` modal has no Kaml View, and therefore no `.kaml.js` file in which to call `application.configure()`.  The [`v-pre`](./KatApp.05.VueDirectives.md#v-pre) attribute value and the `configure` property supply the two things that script would normally have provided; state and handlers.
+
+**How the content is processed.** The element matched by `contentSelector` is *cloned* — the original stays in the host's DOM, so keep it hidden — and the clone is appended to the modal's `.modal-body`.  Without `v-pre`, the host application has already processed the directives inside that element before the clone is taken, so the modal gets inert markup.  Decorating the element with `v-pre` defers all Vue/KatApp directive processing until the modal application mounts, which is what lets the modal own its own inputs, events, and button templates.
+
+**State: the `v-pre` value.** A bare `v-pre` clones the host application's `rbl`, `model`, and `handlers` into the modal.  That is the right default when the modal is a reactive view over data the host already calculated.  It is the wrong default when the modal only needs an input and a button, because:
+
+1. The clone is a snapshot taken at mount; nothing written to the modal's `model` reaches the host.
+1. The cost of the clone is proportional to the size of the host's `model` and `rbl.results`.
+
+`v-pre="false"` opts out.  The modal still defers directive processing, but starts with an empty `rbl`, `model`, and `handlers`, and the host remains reachable via `application.options.hostApplication.state.*`.  `v-pre="selector"` is the third form; it clones from the named application instead of the host.
+
+Because this is markup rather than an option passed to `showModalAsync`, the decision travels with the content it applies to, and the same element behaves identically no matter which handler opens it.
+
+**Handlers: the `configure` property.** With `v-pre="false"` the modal has no handlers, so its buttons have nothing to call.  `configure` accepts the same delegate as [`IKatApp.configure`](#ikatappconfigure) and the KatApp Framework applies it to the modal application after it is constructed and before it is mounted.
+
+Use the delegate's sixth parameter — the modal application — for anything scoped to the modal.  The `application` variable closed over from the host Kaml View's script still refers to the **host**, and the host cannot see the modal's inputs or validations and has no `modalAppOptions` of its own.
+
+Sample markup in the host Kaml View.  The wrapper is hidden with `d-none` because the original element remains in the host DOM, and `v-pre="false"` keeps everything inside it — including the buttons template — unprocessed until the modal mounts, without cloning any host state:
+
+```html
+<div class="generate-request-modal d-none" v-pre="false">
+	<template id="generate-request-modal-buttons">
+		<button 
+			type="button" 
+			@click="modalAppOptions.cancelled" 
+			:class="['cancelButton', modalAppOptions.css.cancel]">Cancel</button>
+		<button 
+			type="button" 
+			@click="handlers.confirmGenerateRequestAsync" 
+			:class="['continueButton', modalAppOptions.css.continue]">Generate</button>
+	</template>
+
+	<div v-ka-input="{ name: 'iWorksheetName', template: 'input-textbox', label: 'Worksheet Name' }"></div>
+</div>
+```
+
+Sample handler in the host Kaml View's script:
+
+```javascript
+const response = await application.showModalAsync({
+	contentSelector: ".generate-request-modal",
+	buttonsTemplate: "generate-request-modal-buttons",
+	labels: { title: "Generate Worksheet" },
+	size: "sm",
+	configure: (config, rbl, model, inputs, handlers, modalApplication) => {
+		config.handlers = {
+			confirmGenerateRequestAsync: async () => {
+				// 'modalApplication', not 'application'; the input and the validation
+				// both belong to the modal.
+				modalApplication.clearValidations();
+
+				const name = modalApplication.getInputValue("iWorksheetName");
+
+				if (!name) {
+					modalApplication.addError("iWorksheetName", "Worksheet Name is required.");
+					return;
+				}
+
+				await modalApplication.options.modalAppOptions.confirmedAsync({ name });
+			}
+		};
+	}
+});
+
+if (response.confirmed) {
+	// Whatever was passed to confirmedAsync above.
+	console.log(response.data.name);
+}
+```
+
+Notes:
+
+1. `configure` and `view` are mutually exclusive.  A Kaml View calls `application.configure()` in its own script during mount, and that call would replace anything passed here, so `showModalAsync` throws instead of silently discarding it.
+1. `config.model`, `config.events`, `config.components`, and `config.directives` work exactly as they do in a Kaml View — see [`IConfigureOptions`](#iconfigureoptions).
+1. Applying `cancelButton` and `continueButton` classes in a custom `buttonsTemplate` is best practice; see footnote 2 above.
 
 #### IModalOptions Template Samples
 

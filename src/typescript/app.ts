@@ -64,11 +64,14 @@ class KatApp implements IKatApp {
 		this.globalEventConfigurations.push({ selector: selector, events: config });
 	}
 
-	public static async createAppAsync(selector: string, options: IKatAppOptions): Promise<KatApp> {
+	public static async createAppAsync(selector: string, options: IKatAppOptions, configAction?: IConfigureDelegate): Promise<KatApp> {
 		let katApp: KatApp | undefined;
 		try {
 			katApp = new KatApp(selector, options);
 			this.applications.push(katApp);
+			if (configAction != undefined) {
+				katApp.configure(configAction);
+			}
 			await katApp.mountAsync();
 			return katApp;
 		} catch (e) {
@@ -617,7 +620,7 @@ class KatApp implements IKatApp {
 	}
 
 
-	public configure(configAction: (config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp {
+	public configure(configAction: IConfigureDelegate): IKatApp {
 		if (this.isMounted) {
 			throw new Error("You cannot call 'configure' after the KatApp has been mounted.");
 		}
@@ -626,7 +629,7 @@ class KatApp implements IKatApp {
 			events: {}
 		};
 
-		configAction(config, this.state.rbl, this.state.model, this.state.inputs, this.state.handlers);
+		configAction(config, this.state.rbl, this.state.model, this.state.inputs, this.state.handlers, this);
 
 		let hasEventHandlers = false;
         for (const propertyName in config.events) {
@@ -2244,7 +2247,11 @@ Type 'help' to see available options displayed in the console.`;
 
 		if (cloneHost) {
 			const hostName = el.getAttribute("v-pre") ?? "";
-			if (hostName != "") {
+			
+			if (hostName === "false") {
+				cloneHost = false;
+			}
+			else if (hostName != "") {
 				cloneHost = hostName;
 			}
 		}
@@ -2274,6 +2281,9 @@ Type 'help' to see available options displayed in the console.`;
 			selectorContent = selectContent.cloneWithEvents();
 		}
 
+		if (options.configure != undefined && options.contentSelector == undefined) {
+			throw new Error("You can only use 'configure' with a 'contentSelector' modal; 'view' modal's own script calls application.configure().");
+		}
 		if (selectorContent == undefined && options.content == undefined && options.view == undefined) {
 			throw new Error("You must provide content or viewId when using showModal.");
 		}
@@ -2296,7 +2306,7 @@ Type 'help' to see available options displayed in the console.`;
 			}
 
 			return new Promise<IModalResponse>(async (resolve, reject) => {
-				const propertiesToSkip = ["content", "view"];
+				const propertiesToSkip = ["content", "view", "configure"];
 				// Omitting properties that will be picked up from the .extend<> below
 				const modalOptions: Omit<IKatAppOptions, 'debug' | 'dataGroup' | 'inputCaching' | 'canProcessExternalHelpTips' | 'endpoints' | 'delegates' | 'intl'> = {
 					view: options.view,
@@ -2330,7 +2340,7 @@ Type 'help' to see available options displayed in the console.`;
 				}
 	
 				delete modalAppOptions.inputs!.iNestedApplication;
-				currentModalApp = await KatApp.createAppAsync(".kaModal", modalAppOptions);
+				currentModalApp = await KatApp.createAppAsync(".kaModal", modalAppOptions, options.configure);
 			}).finally(async () => {
 				if (currentModalApp == undefined) return;
 				await currentModalApp.triggerEventAsync("modalAppClosed", currentModalApp);

@@ -73,11 +73,14 @@ class KatApp {
         configAction(config);
         this.globalEventConfigurations.push({ selector: selector, events: config });
     }
-    static async createAppAsync(selector, options) {
+    static async createAppAsync(selector, options, configAction) {
         let katApp;
         try {
             katApp = new KatApp(selector, options);
             this.applications.push(katApp);
+            if (configAction != undefined) {
+                katApp.configure(configAction);
+            }
             await katApp.mountAsync();
             return katApp;
         }
@@ -489,7 +492,7 @@ class KatApp {
         const config = {
             events: {}
         };
-        configAction(config, this.state.rbl, this.state.model, this.state.inputs, this.state.handlers);
+        configAction(config, this.state.rbl, this.state.model, this.state.inputs, this.state.handlers, this);
         let hasEventHandlers = false;
         for (const propertyName in config.events) {
             hasEventHandlers = true;
@@ -1668,7 +1671,10 @@ Type 'help' to see available options displayed in the console.`;
         let cloneHost = el.hasAttribute("v-pre");
         if (cloneHost) {
             const hostName = el.getAttribute("v-pre") ?? "";
-            if (hostName != "") {
+            if (hostName === "false") {
+                cloneHost = false;
+            }
+            else if (hostName != "") {
                 cloneHost = hostName;
             }
         }
@@ -1686,6 +1692,9 @@ Type 'help' to see available options displayed in the console.`;
             options.buttonsTemplate ??= selectContent.getAttribute("data-button-template") ?? undefined;
             cloneHost = this.getCloneHostSetting(selectContent);
             selectorContent = selectContent.cloneWithEvents();
+        }
+        if (options.configure != undefined && options.contentSelector == undefined) {
+            throw new Error("You can only use 'configure' with a 'contentSelector' modal; 'view' modal's own script calls application.configure().");
         }
         if (selectorContent == undefined && options.content == undefined && options.view == undefined) {
             throw new Error("You must provide content or viewId when using showModal.");
@@ -1705,7 +1714,7 @@ Type 'help' to see available options displayed in the console.`;
                 KatApp.remove(currentModalApp);
             }
             return new Promise(async (resolve, reject) => {
-                const propertiesToSkip = ["content", "view"];
+                const propertiesToSkip = ["content", "view", "configure"];
                 const modalOptions = {
                     view: options.view,
                     content: selectorContent ?? options.content,
@@ -1722,7 +1731,7 @@ Type 'help' to see available options displayed in the console.`;
                     modalAppOptions.endpoints.anchoredQueryStrings = KatApps.Utils.generateQueryString(KatApps.Utils.parseQueryString(modalAppOptions.endpoints.anchoredQueryStrings), key => !key.startsWith("ki-") || modalAppOptions.inputs['i' + key.split('-').slice(1).map(segment => segment.charAt(0).toUpperCase() + segment.slice(1)).join("")] == undefined);
                 }
                 delete modalAppOptions.inputs.iNestedApplication;
-                currentModalApp = await KatApp.createAppAsync(".kaModal", modalAppOptions);
+                currentModalApp = await KatApp.createAppAsync(".kaModal", modalAppOptions, options.configure);
             }).finally(async () => {
                 if (currentModalApp == undefined)
                     return;
@@ -2438,7 +2447,8 @@ var KatApps;
             const checkValue = type == "checkbox" ? (input.hasAttribute("checked") ? "1" : "0") : undefined;
             const textValue = type == "text" ? input.getAttribute("value") : undefined;
             const exclude = isExcluded || input.hasAttribute("ka-rbl-exclude") || application.closestElement(input, "[ka-rbl-exclude]") != undefined;
-            const skipCalc = input.hasAttribute("ka-rbl-no-calc") || application.closestElement(input, "[ka-rbl-no-calc]") != undefined;
+            const skipCalc = input.hasAttribute("ka-rbl-no-calc") ||
+                application.closestElement(input, "[ka-rbl-no-calc]") != undefined;
             if (!exclude) {
                 let value = defaultValue(name) ?? checkValue ?? radioValue ?? textValue;
                 if (application.state.inputs[name] == undefined && value != undefined) {
@@ -2457,7 +2467,7 @@ var KatApps;
                     application.state.lastInputChange = Date.now();
                     application.state.inputsChanged = true;
                     application.state.inputs[name] = application.getInputValue(name);
-                    if (!skipCalc && !noCalc(name)) {
+                    if (!skipCalc && !noCalc(name) && application.calcEngines.some(i => i.enabled == true)) {
                         if (calculate) {
                             application.state.inputs.iInputTrigger = name;
                             if (debounceTimeout) {
@@ -6359,7 +6369,9 @@ var KatApps;
             return this.copyProperties({}, source, replacer);
         }
         ;
-        static copyProperties(target, source, replacer) {
+        static copyProperties(target, source, replacer, seen) {
+            seen ??= new WeakMap();
+            seen.set(source, target);
             Object.keys(source).forEach((key) => {
                 const value = replacer != undefined
                     ? replacer(key, source[key])
@@ -6370,10 +6382,15 @@ var KatApps;
                     !(value instanceof HTMLElement) &&
                     !(value instanceof Promise) &&
                     !Array.isArray(value)) {
+                    const clonedValue = seen.get(value);
+                    if (clonedValue != undefined) {
+                        target[key] = clonedValue;
+                        return;
+                    }
                     if (target[key] === undefined || typeof target[key] !== "object") {
                         target[key] = {};
                     }
-                    this.copyProperties(target[key], value, replacer);
+                    this.copyProperties(target[key], value, replacer, seen);
                 }
                 else if (value != undefined || replacer == undefined) {
                     target[key] = value;
@@ -6381,7 +6398,6 @@ var KatApps;
             });
             return target;
         }
-        ;
         static generateId = function () {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
                 const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);

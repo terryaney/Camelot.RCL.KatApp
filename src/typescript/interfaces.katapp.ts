@@ -26,6 +26,14 @@ interface IKatAppDefaultOptions {
 	canProcessExternalHelpTips: boolean; // If help tip is outside a KatApp but will be rendered via KatApps, indicates if KatApp can be used when cloning is necessary (v-pre)
 }
 
+// KatApp .configure() interfaces
+interface IConfigureDelegate {
+	(config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined, application: IKatApp): void;
+}
+interface IHandleEventsDelegate {
+	(events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined): void;
+}
+
 interface IKatAppDelegates {
 	encryptCache(data: object): string | Promise<string>;
 	decryptCache(cipher: string): object | Promise<object>;
@@ -99,8 +107,8 @@ interface IKatApp {
 	state: IState;
 	selector: string;
 
-	configure(configAction: (config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
-	handleEvents(configAction: (events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
+	configure(configAction: IConfigureDelegate): IKatApp;
+	handleEvents(configAction: IHandleEventsDelegate): IKatApp;
 	allowCalculation(ceKey: string, enabled: boolean): void;
 
 	checkValidity(): boolean;
@@ -373,7 +381,16 @@ interface IModalOptions {
 	content?: string;
 	contentSelector?: string;
 	calculateOnConfirm?: boolean | ICalculationInputs;
-
+	
+	// When v-pre is used for contentSelector modals, the host application is cloned by default. If you just
+	// want a modal that isn't processed until rendered, need button templates, etc. but doesn't need a cloned host,
+	// use v-pre="false" on the contentSelector element. You can always reach original stuff via hostApplication.state.*
+	//
+	// v-pre="false" is often used in conjunction with the configure delegate below to add handlers for buttons
+	// or input validation, since the modal has no Kaml View (and therefore no script) of its own to call configure().
+	// Cannot be combined with 'view'; showModalAsync throws.
+	configure?: IConfigureDelegate;
+	
 	labels?: {
 		title?: string;
 		cancel?: string;

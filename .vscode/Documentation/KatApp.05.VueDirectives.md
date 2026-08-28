@@ -540,7 +540,19 @@ When an element is toggled, the element and its contained directives are destroy
 
 Use the `v-pre` directive to an element that is used for [IModalOptions.contentSelector](./KatApp.07.Api.md#imodaloptions) if the markup within the element should not be processed by the host application, but instead should be processed and become reactive when the modal application is created.
 
-When this directive is applied to an element targeted with `contentSelector`, the resulting modal application's [`state`](./KatApp.State.md#istate) is a clone from the host application, so that all `v-*` and `v-ka-*` directives have all the data they need to correctly process.  The `v-pre` is discarded when the application is created and regular Vue processing/compilation correctly occurs for the modal application.
+The `v-pre` is discarded when the application is created and regular Vue processing/compilation correctly occurs for the modal application.
+
+The *value* of the attribute controls which application's [`state`](./KatApp.03.State.md) the new application starts with.  Vue itself ignores the value — the presence of the attribute is all that defers compilation — so the value is free for the KatApp Framework to use:
+
+Value | Resulting State
+---|---
+`v-pre` | The new application's `rbl`, `model`, and `handlers` are a clone of the **host** application's, so that all `v-*` and `v-ka-*` directives have the data they need to correctly process.  This is the common case.
+`v-pre="selector"` | Same as above, but the state is cloned from the application matching `selector` rather than the host.  Use when the markup is rendered inside one application but written against the state of another.
+`v-pre="false"` | **No** state is cloned; the new application starts with an empty `rbl`, `model`, and `handlers`.  Use when the content is self contained — a few inputs and a button — and does not read host state.  The host remains reachable via `application.options.hostApplication.state.*`, and [`IModalOptions.configure`](./KatApp.07.Api.md#contentselector-modals) supplies the modal's own `model` and `handlers`.
+
+Cloning host state is not free; its cost is proportional to the size of the host's `model` and `rbl.results`, and the clone is a snapshot, so nothing written to the new application's `model` reaches the host.  Prefer `v-pre="false"` when the content does not need the host's state.
+
+The same attribute and values are read from the content source element of a help tip popup.
 
 
 

@@ -33,9 +33,11 @@
 			return this.copyProperties({}, source, replacer) as T;
 		};
 
-		private static copyProperties(target: IStringAnyIndexer, source: IStringAnyIndexer, replacer?: IStringAnyIndexerReplacer): IStringAnyIndexer { // eslint-disable-line @typescript-eslint/no-explicit-any
-			Object.keys(source).forEach((key) => {
+		private static copyProperties(target: IStringAnyIndexer, source: IStringAnyIndexer, replacer?: IStringAnyIndexerReplacer, seen?: WeakMap<object, IStringAnyIndexer>): IStringAnyIndexer {
+			seen ??= new WeakMap();
+			seen.set(source, target);
 
+			Object.keys(source).forEach((key) => {
 				const value = replacer != undefined
 					? replacer(key, source[key])
 					: source[key];
@@ -49,18 +51,31 @@
 					!(value instanceof Promise) &&
 					!Array.isArray(value)
 				) {
+					// camelot.data.getReactiveTable sets filter._parent back to the table, so without a cycle
+					// guard a deep copy of state.model recurses until the stack blows.
+					// Note: deep-cloning a reactive table doesn't produce a working table even with the guard — 
+					// Object.keys invokes accessors, so get rows runs (mutating the host's _currentPage via _setPagination) 
+					// and the clone ends up with plain data properties where the original had getters. 
+					// If cloned models with reactive tables ever need to actually function, the real answer is 
+					// skipping _-prefixed keys or an explicit opt-out, not deep copy. Not needed today.
+					const clonedValue = seen!.get(value);
+					if (clonedValue != undefined) {
+						target[key] = clonedValue;
+						return;
+					}
+
 					if (target[key] === undefined || typeof target[key] !== "object") {
 						target[key] = {};
 					}
-					this.copyProperties(target[key], value, replacer);
+					this.copyProperties(target[key], value, replacer, seen);
 				}
-				// If replacer passed in and value is undefined , skip assigning property
 				else if (value != undefined || replacer == undefined) {
+					// If replacer passed in and value is undefined , skip assigning property
 					target[key] = value;
 				}
 			})
 			return target;
-		};
+		}
 
 		// https://stackoverflow.com/a/2117523
 		public static generateId = function (): string {

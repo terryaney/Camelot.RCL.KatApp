@@ -83,7 +83,9 @@ namespace KatApps {
 			const textValue = type == "text" ? input.getAttribute("value") : undefined;
 
 			const exclude = isExcluded || input.hasAttribute("ka-rbl-exclude") || application.closestElement(input, "[ka-rbl-exclude]") != undefined;
-			const skipCalc = input.hasAttribute("ka-rbl-no-calc") || application.closestElement(input, "[ka-rbl-no-calc]") != undefined;
+			const skipCalc =
+				input.hasAttribute("ka-rbl-no-calc") ||
+				application.closestElement(input, "[ka-rbl-no-calc]") != undefined;
 
 			if (!exclude) {
 				let value = defaultValue(name) ?? checkValue ?? radioValue ?? textValue;
@@ -112,7 +114,7 @@ namespace KatApps {
 					application.state.inputsChanged = true;
 					application.state.inputs[name] = application.getInputValue(name);
 				
-					if (!skipCalc && !noCalc(name)) {
+					if (!skipCalc && !noCalc(name) && application.calcEngines.some(i => i.enabled == true)) {
 						// Don't trigger calc if ka-rbl-no-calc/ka-rbl-exclude attribute as well
 						if (calculate) {
 							application.state.inputs.iInputTrigger = name;

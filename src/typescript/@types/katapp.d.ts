@@ -14,7 +14,7 @@ declare class KatApp implements IKatApp {
     static remove(item: KatApp): void;
     static get(key: string | number | Element): KatApp | undefined;
     static handleEvents(selector: string, configAction: (config: IKatAppEventsConfiguration) => void): void;
-    static createAppAsync(selector: string, options: IKatAppOptions): Promise<KatApp>;
+    static createAppAsync(selector: string, options: IKatAppOptions, configAction?: IConfigureDelegate): Promise<KatApp>;
     id: string;
     isCalculating: boolean;
     lastCalculation?: ILastCalculation;
@@ -41,7 +41,7 @@ declare class KatApp implements IKatApp {
     private constructor();
     private getCloneApplication;
     triggerEventAsync(eventName: string, ...args: (object | string | undefined | unknown)[]): Promise<boolean | undefined>;
-    configure(configAction: (config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
+    configure(configAction: IConfigureDelegate): IKatApp;
     handleEvents(configAction: (config: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
     handleDirectiveEvents(configAction: (config: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void, directiveId: string): IKatApp;
     removeDirectiveEvents(directiveId: string): IKatApp;
@@ -638,6 +638,12 @@ interface IKatAppDefaultOptions {
     inputCaching: boolean;
     canProcessExternalHelpTips: boolean;
 }
+interface IConfigureDelegate {
+    (config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined, application: IKatApp): void;
+}
+interface IHandleEventsDelegate {
+    (events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined): void;
+}
 interface IKatAppDelegates {
     encryptCache(data: object): string | Promise<string>;
     decryptCache(cipher: string): object | Promise<object>;
@@ -697,8 +703,8 @@ interface IKatApp {
     lastCalculation?: ILastCalculation;
     state: IState;
     selector: string;
-    configure(configAction: (config: IConfigureOptions, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
-    handleEvents(configAction: (events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined) => void): IKatApp;
+    configure(configAction: IConfigureDelegate): IKatApp;
+    handleEvents(configAction: IHandleEventsDelegate): IKatApp;
     allowCalculation(ceKey: string, enabled: boolean): void;
     checkValidity(): boolean;
     calculateAsync(customInputs?: ICalculationInputs, processResults?: boolean, calcEngines?: ICalcEngine[], allowLogging?: boolean): Promise<ITabDef[] | void>;
@@ -932,6 +938,7 @@ interface IModalOptions {
     content?: string;
     contentSelector?: string;
     calculateOnConfirm?: boolean | ICalculationInputs;
+    configure?: IConfigureDelegate;
     labels?: {
         title?: string;
         cancel?: string;
