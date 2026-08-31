@@ -2467,7 +2467,7 @@ var KatApps;
                     application.state.lastInputChange = Date.now();
                     application.state.inputsChanged = true;
                     application.state.inputs[name] = application.getInputValue(name);
-                    if (!skipCalc && !noCalc(name) && application.calcEngines.some(i => i.enabled == true)) {
+                    if (!skipCalc && !noCalc(name) && application.calcEngines.some(i => i.enabled == true && i.manualResult != true)) {
                         if (calculate) {
                             application.state.inputs.iInputTrigger = name;
                             if (debounceTimeout) {

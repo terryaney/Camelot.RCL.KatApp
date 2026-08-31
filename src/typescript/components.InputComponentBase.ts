@@ -114,7 +114,7 @@ namespace KatApps {
 					application.state.inputsChanged = true;
 					application.state.inputs[name] = application.getInputValue(name);
 				
-					if (!skipCalc && !noCalc(name) && application.calcEngines.some(i => i.enabled == true)) {
+					if (!skipCalc && !noCalc(name) && application.calcEngines.some(i => i.enabled == true && i.manualResult != true)) {
 						// Don't trigger calc if ka-rbl-no-calc/ka-rbl-exclude attribute as well
 						if (calculate) {
 							application.state.inputs.iInputTrigger = name;
