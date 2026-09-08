@@ -5,7 +5,7 @@ using KAT.Camelot.Domain.Services;
 
 namespace KAT.Camelot.RCL.KatApp.Endpoints.Kaml;
 
-public partial class Endpoint( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions configurationOptions, IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService ) : BaseCachedResponseEndpoint<Request>( httpContextAccessor, dateTimeService )
+public partial class Endpoint( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions configurationOptions, IHttpContextAccessor httpContextAccessor, TimeProvider timeProvider ) : BaseCachedResponseEndpoint<Request>( httpContextAccessor, timeProvider )
 {
 	static readonly Regex templateRegEx = new ( @"^\s*<template[^>]* id=""[^""]+""([^>]* script=""(?<script>[^""]+)"")?([^>]* script\.setup=""(?<setup>[^""]+)"")?([^>]* css=""(?<css>[^""]+)"")?[^>]*>\s*$", RegexOptions.Compiled );
 	private readonly KatAppHelper katAppHelper = katAppHelper;

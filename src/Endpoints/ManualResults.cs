@@ -5,7 +5,7 @@ using KAT.Camelot.Domain.Services;
 
 namespace KAT.Camelot.RCL.KatApp.Endpoints.ManualResults;
 
-public class Endpoint( IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions configurationOptions, IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService ) : BaseCachedResponseEndpointWithoutRequest<JsonNode?>( httpContextAccessor, dateTimeService )
+public class Endpoint( IKatAppOptionsProvider optionsProvider, KatAppConfigurationOptions configurationOptions, IHttpContextAccessor httpContextAccessor, TimeProvider timeProvider ) : BaseCachedResponseEndpointWithoutRequest<JsonNode?>( httpContextAccessor, timeProvider )
 {
 	private readonly IKatAppOptionsProvider optionsProvider = optionsProvider;
 	private readonly KatAppConfigurationOptions configurationOptions = configurationOptions;

@@ -7,20 +7,20 @@ using Serilog.Context;
 
 namespace KAT.Camelot.RCL.KatApp.Endpoints;
 
-public abstract class BaseCachedResponseEndpoint<TRequest>( IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService ) : BaseCachedResponseEndpoint<TRequest, object>( httpContextAccessor, dateTimeService ) where TRequest : notnull
+public abstract class BaseCachedResponseEndpoint<TRequest>( IHttpContextAccessor httpContextAccessor, TimeProvider timeProvider ) : BaseCachedResponseEndpoint<TRequest, object>( httpContextAccessor, timeProvider ) where TRequest : notnull
 {
 }
 
-public abstract class BaseCachedResponseEndpointWithoutRequest<TResponse>( IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService ) : BaseCachedResponseEndpoint<EmptyRequest, TResponse>( httpContextAccessor, dateTimeService )
+public abstract class BaseCachedResponseEndpointWithoutRequest<TResponse>( IHttpContextAccessor httpContextAccessor, TimeProvider timeProvider ) : BaseCachedResponseEndpoint<EmptyRequest, TResponse>( httpContextAccessor, timeProvider )
 {
 	public virtual Task HandleAsync( CancellationToken ct ) => throw new NotImplementedException();
 	public sealed override Task HandleAsync( EmptyRequest _, CancellationToken ct ) => HandleAsync( ct );
 }
 
-public abstract class BaseCachedResponseEndpoint<TRequest, TResponse>( IHttpContextAccessor httpContextAccessor, IDateTimeService dateTimeService ) : Endpoint<TRequest, TResponse> where TRequest : notnull
+public abstract class BaseCachedResponseEndpoint<TRequest, TResponse>( IHttpContextAccessor httpContextAccessor, TimeProvider timeProvider ) : Endpoint<TRequest, TResponse> where TRequest : notnull
 {
 	private readonly IHttpContextAccessor httpContextAccessor = httpContextAccessor;
-	private readonly IDateTimeService dateTimeService = dateTimeService;
+	private readonly TimeProvider timeProvider = timeProvider;
 
 	protected async Task SendCachedGetAsync( string id, DateTime lastModifiedDate, Func<Task> sendUpdatedResponse )
 	{
@@ -47,7 +47,7 @@ public abstract class BaseCachedResponseEndpoint<TRequest, TResponse>( IHttpCont
 		}
 
 		context.Response.Headers.LastModified = lastModifiedDate.ToString( "r" );
-		var expires = dateTimeService.Now.ToString( "r" );
+		var expires = timeProvider.GetLocalNow().LocalDateTime.ToString( "r" );
 		context.Response.Headers.Expires = expires;
 		context.Response.Headers.CacheControl = "public,max-age=0,must-revalidate,proxy-revalidate";
 
