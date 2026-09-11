@@ -709,19 +709,10 @@ class KatApp implements IKatApp {
 			
 			const viewElement = await this.getViewElementAsync();
 
-			// TODO: Should this just be 'view.kaml' instead of the 'guid' id?
-			this.viewTemplates = viewElement != undefined
-				? [...(await this.getViewTemplatesAsync(viewElement)), this.id].reverse()
-				: [this.id];
-
-			 KatApps.Utils.trace(this, "KatApp", "mountAsync", `View Templates Complete`, TraceVerbosity.Detailed);
-
-			await this.getOptionResourcesAsync();
-			
 			const inputs = this.options.inputs;
 			const mr = this.options.manualResults;
 
-			const processCalcEngineConfigTokens = (value: string | null): string | null => {
+			const processConfigSubstitutionTokens = (value: string | null): string | null => {
 				if (value == undefined) return value;
 
 				return value.replace(/{([^}]+)}/g, function (match, token) {
@@ -765,19 +756,42 @@ class KatApp implements IKatApp {
 				});
 			};
 
+			var requiredViewTemplates =
+				(viewElement?.querySelector("rbl-config")?.getAttribute("templates")?.split(",") ?? [])
+					.map(r => {
+						const resourceNameParts = (r.split(":").length > 1 ? r : "Global:" + r).split("?");
+
+						let resourceName = resourceNameParts[0];
+						if (!resourceName.endsWith(".kaml")) {
+							resourceName += ".kaml";
+						}
+
+						const tokenizedResourceName = processConfigSubstitutionTokens(resourceName)!;
+						return { resourceName: tokenizedResourceName, optional: tokenizedResourceName != resourceName };
+					});
+
+			// TODO: Should this just be 'view.kaml' instead of the 'guid' id?
+			this.viewTemplates = viewElement != undefined
+				? [...(await this.getViewTemplatesAsync(requiredViewTemplates)), this.id].reverse()
+				: [this.id];
+
+			 KatApps.Utils.trace(this, "KatApp", "mountAsync", `View Templates Complete`, TraceVerbosity.Detailed);
+
+			await this.getOptionResourcesAsync();
+
 			const cloneApplication = this.getCloneApplication(this.options);
 			this.options.hostApplication = this.options.hostApplication ?? cloneApplication;
 
 			function calcEngineFactory(c: Element, pipelineIndex?: number): ICalcEngine | IPipelineCalcEngine
 			{
-				const enabled = processCalcEngineConfigTokens(c.getAttribute("enabled"));
-				const name = processCalcEngineConfigTokens(c.getAttribute("name")) ?? c.getAttribute("key") ?? "UNAVAILABLE";
+				const enabled = processConfigSubstitutionTokens(c.getAttribute("enabled"));
+				const name = processConfigSubstitutionTokens(c.getAttribute("name")) ?? c.getAttribute("key") ?? "UNAVAILABLE";
 				return pipelineIndex == undefined
 					? {
 						key: c.getAttribute("key") ?? "default",
 						name: name,
 						inputTab: c.getAttribute("input-tab") ?? "RBLInput",
-						resultTabs: processCalcEngineConfigTokens(c.getAttribute("result-tabs"))?.split(",") ?? ["RBLResult"],
+						resultTabs: processConfigSubstitutionTokens(c.getAttribute("result-tabs"))?.split(",") ?? ["RBLResult"],
 						pipeline: [...c.querySelectorAll("pipeline")].map((p, i) => calcEngineFactory(p, i + 1)),
 						pipelineDuringApi: c.getAttribute("pipeline-during-api") == "true",
 						allowConfigureUi: c.getAttribute("configure-ui") != "false",
@@ -788,7 +802,7 @@ class KatApp implements IKatApp {
 						key: `pipeline${pipelineIndex}`,
 						name: name,
 						inputTab: c.getAttribute("input-tab"),
-						resultTab: processCalcEngineConfigTokens(c.getAttribute("result-tab"))
+						resultTab: processConfigSubstitutionTokens(c.getAttribute("result-tab"))
 					} as IPipelineCalcEngine;
 			};
 
@@ -2949,22 +2963,10 @@ Type 'help' to see available options displayed in the console.`;
 		return viewElement;
 	}
 
-	private async getViewTemplatesAsync(viewElement: Element): Promise<string[]> {
-		var requiredViewTemplates =
-			(viewElement.querySelector("rbl-config")?.getAttribute("templates")?.split(",") ?? [])
-				.map(r => {
-					const resourceNameParts = (r.split(":").length > 1 ? r : "Global:" + r).split("?");
-
-					let resourceName = resourceNameParts[0];
-					if (!resourceName.endsWith(".kaml")) {
-						resourceName += ".kaml";
-					}
-
-					return resourceName;
-				});
-
-		const viewTemplateResults = await KatApps.KamlRepository.getTemplateResourcesAsync(this, requiredViewTemplates);
+	private async getViewTemplatesAsync(requiredViewTemplates: Array<{resourceName: string, optional: boolean }>): Promise<string[]> {
+		const { resources: viewTemplateResults, ignored } = await KatApps.KamlRepository.getTemplateResourcesAsync(this, requiredViewTemplates);
 		const kamlCompiler = new KatApps.KamlCompiler(this);
+		
 		Object.keys(viewTemplateResults).forEach(k => {
 			const templateContent = document.createElement("kaml-template");
 			templateContent.innerHTML = viewTemplateResults[k];
@@ -2972,10 +2974,13 @@ Type 'help' to see available options displayed in the console.`;
 			kamlCompiler.compileMarkup(templateContent, k.replace(/\./g, "_"));
 			KatApps.KamlRepository.resolveTemplate(k);
 		});
-		return requiredViewTemplates.map(t => {
-			const keyParts = t.split(":"); // In case Rel:
-			return keyParts[keyParts.length - 1].split("?")[0].replace(/\./g, "_");
-		});
+		
+		return requiredViewTemplates
+			.filter(t => ignored.indexOf(t.resourceName) == -1)
+			.map(t => {
+				const keyParts = t.resourceName.split(":"); // In case Rel:
+				return keyParts[keyParts.length - 1].split("?")[0].replace(/\./g, "_");
+			});
 	}
 
 	private getSessionStorageInputs(): ICalculationInputs {

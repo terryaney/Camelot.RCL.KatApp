@@ -1290,7 +1290,13 @@ declare namespace KatApps {
     class KamlRepository {
         private static resourceRequests;
         static getViewResourceAsync(application: KatApp): Promise<IStringIndexer<string>>;
-        static getTemplateResourcesAsync(application: KatApp, resourceArray: string[]): Promise<IStringIndexer<string>>;
+        static getTemplateResourcesAsync(application: KatApp, resourceArray: Array<{
+            resourceName: string;
+            optional: boolean;
+        }>): Promise<{
+            resources: IStringIndexer<string>;
+            ignored: string[];
+        }>;
         private static getKamlResourcesAsync;
         static resolveTemplate(resourceKey: string): void;
         private static downloadResourceAsync;

@@ -13,20 +13,24 @@ namespace KatApps {
 		private static resourceRequests: Record<string, Array<(errorMessage?: string) => void>> = {};
 
 		static async getViewResourceAsync(application: KatApp): Promise<IStringIndexer<string>> {
-			return this.getKamlResourcesAsync(application, [application.options.view!], true);
+			return (await this.getKamlResourcesAsync(application, [ { resourceName: application.options.view!, optional: false }], true)).resources;
 		}
-		static async getTemplateResourcesAsync(application: KatApp, resourceArray: string[]): Promise<IStringIndexer<string>> {
+		static async getTemplateResourcesAsync(application: KatApp, resourceArray: Array<{resourceName: string, optional: boolean }>): Promise<{ resources: IStringIndexer<string>, ignored: string[] }> {
 			return this.getKamlResourcesAsync(application, resourceArray, false);
 		}
 
-		private static async getKamlResourcesAsync(application: KatApp, resourceArray: string[], isView: boolean): Promise<IStringIndexer<string>> {
+		private static async getKamlResourcesAsync(application: KatApp, resourceArray: Array<{resourceName: string, optional: boolean }>, isView: boolean): Promise<{ resources: IStringIndexer<string>, ignored: string[] }> {
 			const options = application.options as IKatAppRepositoryOptions;
 
 			const useLocalWebServer = options.debug.debugResourcesDomain != undefined &&
 				(options.useLocalRepository ?? (options.useLocalRepository = await Utils.checkLocalServerAsync(options)));
 
+			const optionalResources = resourceArray.filter(r => r.optional).map(r => r.resourceName);
+
 			var resourceResults = await Promise.allSettled(
-				resourceArray.map(resourceKey => {
+				resourceArray.map(resource => {
+					const resourceKey = resource.resourceName;
+
 					if (!isView) {
 						var currentRequest = KamlRepository.resourceRequests[resourceKey];
 
@@ -79,16 +83,21 @@ namespace KatApps {
 					.filter(r => r.status == "fulfilled")
 					.map(r => (r as PromiseFulfilledResult<IKamlResourceResponse>).value);
 
-			if (rejected.length > 0) {
+			if (rejected.length > 0 && !isView) {
 				// Any requests processed by this app...forward the error to any callbacks
-				if (!isView) {
-					rejected
-						.filter(r => !r.processedByOtherApp)
-						.forEach(f => {
-							KamlRepository.resourceRequests[f.resourceKey].forEach(c => c(f.errorMessage));
-							delete KamlRepository.resourceRequests[f.resourceKey];
-						});
+				rejected
+					.filter(r => !r.processedByOtherApp)
+					.forEach(f => {
+						KamlRepository.resourceRequests[f.resourceKey].forEach(c => c(f.errorMessage));
+						delete KamlRepository.resourceRequests[f.resourceKey];
+					});
+			}
 
+			// Optional resources are allowed to fail silently
+			const failures = rejected.filter(r => optionalResources.indexOf(r.resourceKey) == -1);
+
+			if (failures.length > 0) {
+				if (!isView) {
 					resolved
 						.filter(r => !r.processedByOtherApp)
 						.forEach(f => {
@@ -99,20 +108,19 @@ namespace KatApps {
 
 				throw new KamlRepositoryError(
 					"Failed to download Kaml repositoryItems.",
-					rejected.map(r => ({ resource: r.resourceKey, errorMessage: r.errorMessage! }))
+					failures.map(r => ({ resource: r.resourceKey, errorMessage: r.errorMessage! }))
 				);
 			}
-			else {
-				const results: IStringIndexer<string> = {};
 
-				resolved
-					.filter(r => !r.processedByOtherApp)
-					.forEach(r => {
-						results[r.resourceKey] = r.content!;
-					});
+			const resources: IStringIndexer<string> = {};
 
-				return results;
-			}
+			resolved
+				.filter(r => !r.processedByOtherApp)
+				.forEach(r => {
+					resources[r.resourceKey] = r.content!;
+				});
+
+			return { resources: resources, ignored: rejected.map(r => r.resourceKey) };
 		}
 
 		static resolveTemplate(resourceKey: string): void {

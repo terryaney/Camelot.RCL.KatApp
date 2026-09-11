@@ -114,7 +114,7 @@ When multiple CalcEngines or result tabs are used, additional information can be
 
 Entity | Description
 ---|---
-templates | Attribute; Comma delimitted list of Kaml Template Files required by this Kaml View.  Each template is specified in Folder:FileName syntax.
+templates | Attribute; Comma delimitted list of Kaml Template Files required by this Kaml View.  Each template is specified in Folder:FileName syntax. [Input Token Substition](#input-token-substition) is supported; see [Template Names and Token Substition](#template-names-and-token-substition).
 local-kaml-package | Attribute; When a Kaml file has been broken into individual files to be packaged up as a single Kaml file when requested, if a developer is working in [debugResourcesDomain](./KatApp.07.Api.md#ikatappdebugoptions) mode, to minimize the noise of 404 errors present in the browser console, the supporting file types to process must be specified as a comma delimitted list. The available types are `js` (file for Kaml javascript), `css` (file for Kaml CSS), `templates` (file for Kaml templates), or `template.items` (process all templates in file looking for `script`, `script.setup`, or `css` attributes which point to a supporting file). Note: Since `Template.*` files do not require a `rbl-config` element, they are always processed looking for supporting file attributes when requested.
 calc&#x2011;engine | Element; If one or more CalcEngines are used in Kaml View, specify each one via a `calc-engine` element.
 key | Attribute; When more than one CalcEngine is provided (or if you need to access [Manual Results](./KatApp.07.Api.md#imanualtabdef)), a CalcEngine is referenced by this key; usually via a `ce` property passed into a Vue directive.
@@ -135,6 +135,25 @@ If the application is given [inputs](./KatApp.07.Api.md#ikatappoptions), those i
 	<calc-engine key="Messages" name="Conduent_Nexgen_Message_SE" result-tabs="RBLMessages,{iSiteKey}Messages"></calc-engine>
 </rbl-config>
 ```
+
+In addition to input names, a `{rbl:}` token can pull a value from [Manual Results](./KatApp.07.Api.md#imanualtabdef) using the syntax `{rbl:table.id.column.keyColumn.calcEngineKey.tabName}` (i.e. `{rbl:contentTemplates.total-rewards.templateName}`).  Only `table` and `id` are required; `column` defaults to `value`, `keyColumn` defaults to `id`, and when `calcEngineKey`/`tabName` are omitted the first matching table is used.  Manual Results are the only results available because `rbl-config` is processed before any CalcEngine has been run.
+
+The two token types differ when they can not be resolved.
+
+- A `{rbl:}` token that finds no matching row (or when no Manual Results were provided) is replaced with an empty string.
+- An `{input}` token with no matching input is left in place; the literal `{input}` text remains in the value.
+
+#### Template Names and Token Substition
+
+The `templates` attribute supports token substitution as well, allowing a Kaml View to pull in a template file whose name is driven by an input or a Manual Result value.
+
+```html
+<rbl-config templates="Nexgen:Templates/Shared,Nexgen:Templates/{rbl:contentTemplates.total-rewards.templateName}"></rbl-config>
+```
+
+Because a token driven name is not guaranteed to point at an existing Kaml Template File, **any template name that was changed by token substitution is treated as optional**.  If an optional template fails to download, the error is ignored, the template file is not added to the Kaml View's template precedence list, and the KatApp continues to mount.  A template name that is unchanged after substitution processing remains required and a failed download aborts the KatApp.
+
+**Important** - Since an unresolved `{input}` token is left in place, the name is *unchanged* and therefore still treated as required.  Use a `{rbl:}` token (which resolves to an empty string) when the template is genuinely conditional.
 
 ### Attribute Evaluation
 
