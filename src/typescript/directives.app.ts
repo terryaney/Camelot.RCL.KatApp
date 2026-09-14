@@ -20,7 +20,18 @@
 				delete nestedAppOptions.inputs!.iModalApplication;
 
 				const selector = scope.selector ?? ".kaNested" + Utils.generateId();
-				ctx.el.classList.add(selector.substring(1));
+
+				// Global (static) event registrations match an application by testing its element against the
+				// registered selector, so the element has to actually satisfy the selector it is created with.
+				if (selector.startsWith("#")) {
+					ctx.el.setAttribute("id", selector.substring(1));
+				}
+				else if (/^\.[\w-]+$/.test(selector)) {
+					ctx.el.classList.add(selector.substring(1));
+				}
+				else {
+					throw new Error(`v-ka-app 'selector' must be a single class (.name) or id (#name) selector: ${selector}`);
+				}
 
 				let nestedApp: KatApp | undefined;
 

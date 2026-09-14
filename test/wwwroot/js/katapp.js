@@ -68,10 +68,16 @@ class KatApp {
         }
         return undefined;
     }
-    static handleEvents(selector, configAction) {
+    static handleEvents(selector, configAction, key) {
         const config = {};
         configAction(config);
-        this.globalEventConfigurations.push({ selector: selector, events: config });
+        if (key != undefined) {
+            this.removeEvents(selector, key);
+        }
+        this.globalEventConfigurations.push({ selector: selector, key: key, events: config });
+    }
+    static removeEvents(selector, key) {
+        this.globalEventConfigurations = this.globalEventConfigurations.filter(e => !(e.selector == selector && e.key == key));
     }
     static async createAppAsync(selector, options, configAction) {
         let katApp;
@@ -135,6 +141,7 @@ class KatApp {
             endpoints: {
                 calculation: "https://btr.lifeatworkportal.com/services/evolution/CalculationFunction.ashx",
                 katDataStore: "https://btr.lifeatworkportal.com/services/camelot/datalocker/api/kat-apps/{name}/download",
+                useKatDataStore: true,
                 kamlVerification: "api/katapp/verify-katapp"
             },
             delegates: {
@@ -175,6 +182,9 @@ class KatApp {
         this.domElementQueue = [this.el];
         this.el.setAttribute("ka-id", this.id);
         this.el.classList.add("katapp-css", this.applicationCss.substring(1));
+        if (!this.isGlobalEventMatch(this.selector)) {
+            KatApps.Utils.trace(this, "KatApp", "constructor", `Element does not match its own selector of '${this.selector}'; global events will not be raised for this application.`, TraceVerbosity.None);
+        }
         if (this.el.getAttribute("v-scope") == undefined) {
             this.el.setAttribute("v-scope", "");
         }
@@ -460,14 +470,11 @@ class KatApp {
             const eventConfigurations = this.eventConfigurations
                 .map(c => c.events)
                 .concat(KatApp.globalEventConfigurations
-                .filter(e => e.selector.split(",").map(s => s.trim()).indexOf(this.selector) > -1)
+                .filter(e => this.isGlobalEventMatch(e.selector))
                 .map(e => e.events));
             for (const ec of eventConfigurations) {
                 try {
-                    let delegateResult = ec[eventName]?.apply(this.el, eventArgs);
-                    if (delegateResult instanceof Promise) {
-                        delegateResult = await delegateResult;
-                    }
+                    const delegateResult = await ec[eventName]?.apply(this.el, eventArgs);
                     if (isReturnable(delegateResult)) {
                         return delegateResult;
                     }
@@ -483,6 +490,15 @@ class KatApp {
         }
         finally {
             KatApps.Utils.trace(this, "KatApp", "triggerEventAsync", `Complete: ${eventName}.`, TraceVerbosity.Detailed);
+        }
+    }
+    isGlobalEventMatch(selector) {
+        try {
+            return this.el.matches(selector);
+        }
+        catch {
+            KatApps.Utils.trace(this, "KatApp", "isGlobalEventMatch", `Invalid global event selector: ${selector}.`, TraceVerbosity.None);
+            return false;
         }
     }
     configure(configAction) {
@@ -3340,7 +3356,15 @@ var KatApps;
                 });
                 delete nestedAppOptions.inputs.iModalApplication;
                 const selector = scope.selector ?? ".kaNested" + KatApps.Utils.generateId();
-                ctx.el.classList.add(selector.substring(1));
+                if (selector.startsWith("#")) {
+                    ctx.el.setAttribute("id", selector.substring(1));
+                }
+                else if (/^\.[\w-]+$/.test(selector)) {
+                    ctx.el.classList.add(selector.substring(1));
+                }
+                else {
+                    throw new Error(`v-ka-app 'selector' must be a single class (.name) or id (#name) selector: ${selector}`);
+                }
                 let nestedApp;
                 (async () => {
                     try {
@@ -5976,7 +6000,7 @@ var KatApps;
                     }
                     KamlRepository.resourceRequests[resourceKey] = [];
                 }
-                return this.getResourceAsync(application, resourceKey, useLocalWebServer);
+                return this.getResourceAsync(application, resourceKey, useLocalWebServer, resource.optional);
             }));
             const rejected = resourceResults
                 .filter(r => r.status == "rejected")
@@ -6027,7 +6051,7 @@ var KatApps;
             this.resourceRequests[resourceKey].forEach(c => c());
             delete this.resourceRequests[resourceKey];
         }
-        static async downloadResourceAsync(application, url, tryLocalWebServer, isRetry = false) {
+        static async downloadResourceAsync(application, url, tryLocalWebServer, isRetry = false, optional = false) {
             const requestHeaders = new Headers(!tryLocalWebServer ? { 'Cache-Control': 'max-age=0' } : {});
             const response = await fetch(url, {
                 method: "GET",
@@ -6047,15 +6071,19 @@ var KatApps;
                     requestHeaders: Object.fromEntries(requestHeaders.entries()),
                     responseHeaders: Object.fromEntries(response.headers.entries())
                 };
-                KatApps.Utils.trace(application, "KamlRepository", "downloadResourceAsync", `Unable to download ${resourceName}`, TraceVerbosity.None, exception);
+                const verbosity = optional && response.status == 404 ? TraceVerbosity.Detailed : TraceVerbosity.None;
+                KatApps.Utils.trace(application, "KamlRepository", "downloadResourceAsync", `Unable to download ${resourceName}${optional ? " (optional)" : ""}`, verbosity, exception);
                 return !isRetry && (response.status == 500 || response.status == 415)
-                    ? await this.downloadResourceAsync(application, url, tryLocalWebServer, true)
+                    ? await this.downloadResourceAsync(application, url, tryLocalWebServer, true, optional)
                     : { errorMessage: statusText };
+            }
+            if (response.status == 204) {
+                return { errorMessage: "Resource not found." };
             }
             return { data: await response.text() };
         }
         ;
-        static async getResourceAsync(application, resourceKey, tryLocalWebServer) {
+        static async getResourceAsync(application, resourceKey, tryLocalWebServer, optional = false) {
             const relativeTemplatePath = application.options.endpoints.relativePathTemplates?.[resourceKey];
             const resourceParts = relativeTemplatePath != undefined ? relativeTemplatePath.split(":") : resourceKey.split(":");
             let resourceName = resourceParts[1];
@@ -6075,6 +6103,11 @@ var KatApps;
             for (let i = 0; i < resourceFolders.length; i++) {
                 let localWebServerFolder = resourceFolders[i];
                 const isResourceInManagementSite = String.compare(localWebServerFolder, "Rel", true) != 0;
+                if (!tryLocalWebServer && isResourceInManagementSite && application.options.endpoints.useKatDataStore === false) {
+                    lastResult = { errorMessage: "Resource not found.  'endpoints.useKatDataStore' is disabled, so resources that are not relative to the current site are unavailable." };
+                    KatApps.Utils.trace(application, "KamlRepository", "getResourceAsync", `Unable to download ${resourceName}${optional ? " (optional)" : ""}`, optional ? TraceVerbosity.Detailed : TraceVerbosity.None, { resourceKey: resourceKey, folder: resourceFolders[i], optional: optional, errorMessage: lastResult.errorMessage });
+                    continue;
+                }
                 if (!isResourceInManagementSite) {
                     const relativeResourceConfig = resourceName.split('/').slice(2);
                     localWebServerFolder = relativeResourceConfig[0];
@@ -6096,7 +6129,10 @@ var KatApps;
                         resourceUrl = resourceUrl.split("?")[0] + "?" + cacheableUrlParts[1];
                     }
                 }
-                lastResult = await this.downloadResourceAsync(application, resourceUrl, tryLocalWebServer);
+                if (optional) {
+                    resourceUrl += (resourceUrl.indexOf("?") > -1 ? "&" : "?") + "optional=true";
+                }
+                lastResult = await this.downloadResourceAsync(application, resourceUrl, tryLocalWebServer, false, optional);
                 if (lastResult.data != undefined) {
                     let content = lastResult.data;
                     if (tryLocalWebServer) {
@@ -6189,7 +6225,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
                 }
             }
             if (tryLocalWebServer) {
-                return await this.getResourceAsync(application, resourceKey, false);
+                return await this.getResourceAsync(application, resourceKey, false, optional);
             }
             throw new KamlResourceDownloadError("getResourceAsync failed requesting from " + resourceUrl + ": " + lastResult.errorMessage, resourceKey);
         }

@@ -13,6 +13,12 @@ public class KatAppConfigurationOptions
 	/// </summary>
 	public string KamlRootPath { get; set; } = "KatApp";
 	/// <summary>
+	/// Whether this site hosts any Kaml resources in the KAT Data Store.  When false, the KatApp framework does not
+	/// request resources that are not relative to this site, and <see cref="IKatAppOptionsProvider.KatDataStoreEndpoint"/>
+	/// is neither used nor sent to the browser.
+	/// </summary>
+	public bool UseKatDataStore { get; set; } = true;
+	/// <summary>
 	/// Whether or not to automatically render /css/common.css and /css/inputs.css links into the 'RCL Sections'.
 	/// </summary>
 	public bool RenderKatAppCss { get; set; } = true;
@@ -20,6 +26,11 @@ public class KatAppConfigurationOptions
 	/// Whether or not to automatically render /js/katapp.js script into the 'RCL Sections'.
 	/// </summary>
 	public bool RenderKatAppJs { get; set; } = true;
+
+	/// <summary>
+	/// Query string parameters that should be retained by the KatApp host page to generate cacheable urls.
+	/// </summary>
+	public string[] CacheableQueryStrings { get; set; } = [];
 
 	/// <summary>
 	/// Route used to access the KatApp Host Page.  Must have a {viewId?} parameter defined somehow in the route.

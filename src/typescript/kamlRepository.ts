@@ -57,7 +57,7 @@ namespace KatApps {
 						KamlRepository.resourceRequests[resourceKey] = [];
 					}
 
-					return this.getResourceAsync(application, resourceKey, useLocalWebServer);
+					return this.getResourceAsync(application, resourceKey, useLocalWebServer, resource.optional);
 				})
 			);
 
@@ -129,7 +129,7 @@ namespace KatApps {
 			delete this.resourceRequests[resourceKey];
 		}
 
-		private static async downloadResourceAsync(application: KatApp, url: string, tryLocalWebServer: boolean, isRetry: boolean = false): Promise<{ data?: string, errorMessage?: string }> {
+		private static async downloadResourceAsync(application: KatApp, url: string, tryLocalWebServer: boolean, isRetry: boolean = false, optional: boolean = false): Promise<{ data?: string, errorMessage?: string }> {
 
 			const requestHeaders = new Headers(!tryLocalWebServer ? { 'Cache-Control': 'max-age=0' } : {});
 			const response = await fetch(url, {
@@ -154,17 +154,29 @@ namespace KatApps {
 					responseHeaders: Object.fromEntries(response.headers.entries())
 				};
 
-				KatApps.Utils.trace(application, "KamlRepository", "downloadResourceAsync", `Unable to download ${resourceName}`, TraceVerbosity.None, exception )
+				// A missing optional resource is an expected outcome, not a problem, so it should not be reported
+				// at a verbosity that is always shown. Any other status is still a real failure worth reporting,
+				// as is a 404 for a required resource.
+				const verbosity = optional && response.status == 404 ? TraceVerbosity.Detailed : TraceVerbosity.None;
+
+				KatApps.Utils.trace(application, "KamlRepository", "downloadResourceAsync", `Unable to download ${resourceName}${optional ? " (optional)" : ""}`, verbosity, exception )
 
 				return !isRetry && (response.status == 500 || response.status == 415)
-					? await this.downloadResourceAsync(application, url, tryLocalWebServer, true)
+					? await this.downloadResourceAsync(application, url, tryLocalWebServer, true, optional)
 					: { errorMessage: statusText };
+			}
+
+			// A server that honors 'optional=true' reports a missing resource as '204 No Content' rather than a
+			// 404, which keeps it out of the browser console/network tab as an error. Treated exactly like the
+			// 404 it replaces, just without the trace - an empty body is never a valid Kaml resource.
+			if (response.status == 204) {
+				return { errorMessage: "Resource not found." };
 			}
 
 			return { data: await response.text() };
 		};
 
-		private static async getResourceAsync(application: KatApp, resourceKey: string, tryLocalWebServer: boolean): Promise<IKamlResourceResponse> {
+		private static async getResourceAsync(application: KatApp, resourceKey: string, tryLocalWebServer: boolean, optional: boolean = false): Promise<IKamlResourceResponse> {
 			const relativeTemplatePath = application.options.endpoints.relativePathTemplates?.[resourceKey];
 			const resourceParts = relativeTemplatePath != undefined ? relativeTemplatePath.split(":") : resourceKey.split(":");
 
@@ -195,6 +207,24 @@ namespace KatApps {
 
 				const isResourceInManagementSite = String.compare(localWebServerFolder, "Rel", true) != 0;
 
+				// Resources not relative to the current site can only come from the KAT Data Store, so when a site
+				// opts out of it there is nowhere left to look.  Fail here rather than issuing a request that
+				// cannot succeed.  A required resource in this state is a configuration problem and is always
+				// reported, while an optional one is simply an expected miss (e.g. a substitution token that did
+				// not resolve to a template that exists).
+				if (!tryLocalWebServer && isResourceInManagementSite && application.options.endpoints.useKatDataStore === false) {
+					lastResult = { errorMessage: "Resource not found.  'endpoints.useKatDataStore' is disabled, so resources that are not relative to the current site are unavailable." };
+
+					KatApps.Utils.trace(
+						application, "KamlRepository", "getResourceAsync",
+						`Unable to download ${resourceName}${optional ? " (optional)" : ""}`,
+						optional ? TraceVerbosity.Detailed : TraceVerbosity.None,
+						{ resourceKey: resourceKey, folder: resourceFolders[i], optional: optional, errorMessage: lastResult.errorMessage }
+					);
+
+					continue;
+				}
+
 				if (!isResourceInManagementSite) {
 					// If relative path used, I still need to look at local server and the path
 					// is usually Rel:Client/kaml or Rel:Container/Client/kaml.  So always just
@@ -224,7 +254,14 @@ namespace KatApps {
 					}
 				}
 
-				lastResult = await this.downloadResourceAsync(application, resourceUrl, tryLocalWebServer);
+				// Tells the server the caller can cope with the resource not existing, so it can answer '204 No
+				// Content' instead of '404 Not Found'. A 404 is a failed request as far as the browser is
+				// concerned and is reported in the console/network tab no matter what this code does with it.
+				if (optional) {
+					resourceUrl += (resourceUrl.indexOf("?") > -1 ? "&" : "?") + "optional=true";
+				}
+
+				lastResult = await this.downloadResourceAsync(application, resourceUrl, tryLocalWebServer, false, optional);
 
 				if (lastResult.data != undefined) {
 					let content = lastResult.data;
@@ -332,7 +369,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
 			}
 
 			if (tryLocalWebServer) {
-				return await this.getResourceAsync(application, resourceKey, false);
+				return await this.getResourceAsync(application, resourceKey, false, optional);
 			}
 
 			throw new KamlResourceDownloadError("getResourceAsync failed requesting from " + resourceUrl + ": " + lastResult.errorMessage, resourceKey);

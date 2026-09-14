@@ -1152,7 +1152,7 @@ The `IKaAppModel` represents the model type containing the properties that confi
 Property | Type | Description
 ---|---|---
 `view` | `string` | The Kaml View to render inside the nested KatApp.
-`selector` | `string` | If provided, a selector `string` that is used to identify that KatApp.  This property aids in debugging by allowing Kaml View developers to type in `KatApp.get({selector})` in a browser console to get a reference to their KatApp.
+`selector` | `string` | If provided, a selector `string` that is used to identify that KatApp.  This property aids in debugging by allowing Kaml View developers to type in `KatApp.get({selector})` in a browser console to get a reference to their KatApp.<br/><br/>Must be a single class (`.name`) or id (`#name`) selector; the directive assigns the class or id to the element so that the element satisfies the selector.  Any other form throws.  When omitted, a unique `.kaNested{id}` class is generated.
 `inputs` | `ICalculationInputs` | If inputs should be passed to the rendered nested application's Kaml View, provide a `ICalculationInputs` object.
 
 ## v-ka-table

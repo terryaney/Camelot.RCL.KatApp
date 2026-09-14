@@ -27,7 +27,6 @@ public class KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsPr
         viewId = (string)view[ "id" ]!;
 
 		// TODO: Put these into IKatAppOptionsProvider
-		var cacheableQueryString = HttpContext.GetQueryString( validKeys: [ "siteKey" ] ) ?? "";
 		var calculationEndpoint = options.Endpoints.Calculation[ 1.. ];
 		var jwtDataUpdatesEndpoint = options.Endpoints.JwtDataUpdates[ 1.. ];
 		var verifyKatAppEndpoint = options.Endpoints.Verify[ 1.. ];
@@ -36,9 +35,25 @@ public class KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsPr
 			: "undefined"; // indicates no results for this katapp, so no call needed
 		var resourceStringsEndpoint = options.Endpoints.ResourceStrings[ 1.. ];
 
-		// KatApp Framework expects to find a 'name' token it can replace with the requested resource
-        var katDataStoreEndpoint = katDataStoreEndpointRegex.Replace( $"{optionsProvider.KatDataStoreEndpoint}{Abstractions.Api.Contracts.DataLocker.V1.ApiEndpoints.KatApps.Download}", "{name}" );
+		// TODO: Before KatDataStore support can be turned back on...
+		//	1. optionsProvider.KatDataStoreEndpoint is an internal url that is only reachable behind the firewall,
+		//	   so a public url has to be supplied here before it can be handed to browser side javascript.
+		//	2. The framework appends 'optional=true' when downloading an optional template (one whose name came
+		//	   from a substitution token that may not resolve to a real file).  The endpoint has to honor it by
+		//	   answering '204 No Content' instead of '404 Not Found', otherwise an expected miss is reported as a
+		//	   failed request in the browser console/network tab no matter what the client does with the response.
+		//	3. Validate whether this property is needed at all - app.ts already defaults 'endpoints.katDataStore'
+		//	   to the public data store url, so this may only be worth keeping for hosts that override that default.
+		if ( options.UseKatDataStore ) throw new NotImplementedException( "Need 'public' client side url to KatDataStore endpoint (read note above)." );
+
+		// KatApp Framework expects to find a 'name' token it can replace with the requested resource.  Only sent
+		// when the site actually uses the data store, otherwise the framework default is left in place and this
+		// endpoint (which is not necessarily reachable from a browser) is kept out of the rendered page.
+		var katDataStoreEndpoint = options.UseKatDataStore
+			? $"\"{katDataStoreEndpointRegex.Replace( $"{optionsProvider.KatDataStoreEndpoint}{Abstractions.Api.Contracts.DataLocker.V1.ApiEndpoints.KatApps.Download}", "{name}" )}\""
+			: "undefined";
 		
+		var cacheableQueryString = HttpContext.GetQueryString( validKeys: options.CacheableQueryStrings ) ?? "";
 		var anchoredQueryStrings = !string.IsNullOrEmpty( httpContextAccessor.HttpContext!.Request.QueryString.ToString() )
 			? QueryHelpers.ParseQuery( httpContextAccessor.HttpContext!.Request.QueryString.Value )
 				.SelectMany( x => x.Value, ( col, value ) => $"{col.Key}={WebUtility.UrlDecode( value )}" )
@@ -107,6 +122,7 @@ public class KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsPr
                 ManualResultsEndpoint = manualResultsEndpoint,
                 ResourceStringsEndpoint = resourceStringsEndpoint,
                 KatDataStoreEndpoint = katDataStoreEndpoint,
+                UseKatDataStore = options.UseKatDataStore ? "true" : "false",
                 AnchoredQueryStrings = anchoredQueryStrings,
                 CacheableQueryStrings = cacheableQueryString,
                 ManualInputs = inputs.ToJsonString(),
@@ -147,6 +163,7 @@ public class KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsPr
         public required string VerifyKatAppEndpoint { get; init; }
 		public required string JwtDataUpdatesEndpoint { get; init; }
         public required string KatDataStoreEndpoint { get; init; }
+        public required string UseKatDataStore { get; init; }
         public required string ManualResultsEndpoint { get; init; }
 		public required string ResourceStringsEndpoint { get; init; }
         public required string AnchoredQueryStrings { get; init; }

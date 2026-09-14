@@ -5,6 +5,10 @@ namespace KAT.Camelot.RCL.KatApp;
 public interface IKatAppOptionsProvider
 {
 	bool UseCamelotOnReady { get; }
+	// TODO: Only used when KatAppConfigurationOptions.UseKatDataStore is true, yet every host has to implement it
+	// even when opting out.  Could be declared as 'string? KatDataStoreEndpoint => null;' so it becomes a default
+	// interface member, letting hosts that disable the data store skip supplying an endpoint that is never read.
+	// Doing so is a breaking change for any host with an explicit (non-nullable) implementation of this member.
 	string KatDataStoreEndpoint { get; }
 
 	string SiteName { get; }

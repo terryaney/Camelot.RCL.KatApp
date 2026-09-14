@@ -13,7 +13,7 @@
 // TODO: Decide on modules vs iife? Modules seems better/recommended practices, but iife and static methods support console debugging better
 class KatApp implements IKatApp {
 	public static applications: Array<KatApp> = [];
-	private static globalEventConfigurations: Array<{ selector: string, events: IKatAppEventsConfiguration }> = [];
+	private static globalEventConfigurations: Array<{ selector: string, key?: string, events: IKatAppEventsConfiguration }> = [];
 
 	public static getDirty(): Array<IKatApp> {
 		return this.applications.filter(a => a.state.isDirty);
@@ -58,10 +58,46 @@ class KatApp implements IKatApp {
 		return undefined;
 	}
 
-	public static handleEvents(selector: string, configAction: (config: IKatAppEventsConfiguration) => void): void {
+	/**
+	 * Attach events to an application identified by `selector`.  Can be called at any time, *even before the
+	 * application has been created and/or mounted*.
+	 *
+	 * `selector` is any CSS selector (a comma delimited list is supported) and is matched against the
+	 * application's *element*, not against the selector string the application was created with.
+	 *
+	 * Matching the element is what allows targeting a single modal application.  Every modal application is
+	 * created with a selector of `.kaModal`, so registering `.kaModal` runs for *every* modal that opens.
+	 * Target one modal instead via the `css.modal` class (`.kaModal.my-modal`) or the `data-view-name`
+	 * attribute (`[data-view-name='Common.TransactionDetails']`).
+	 *
+	 * **A Kaml View that can be rendered as a modal or nested application should always supply a `key`.**
+	 * Those applications can be created repeatedly during a single page load, and each creation re-executes
+	 * the Kaml View's script, so an unkeyed registration stacks up a duplicate every time.
+	 *
+	 * @param selector CSS selector matched against the application's element.
+	 * @param configAction Delegate that assigns the event handlers to register.
+	 * @param key Optional key making the registration replaceable and removable via `removeEvents`.
+	 */
+	public static handleEvents(selector: string, configAction: (config: IKatAppEventsConfiguration) => void, key?: string): void {
 		const config: IKatAppEventsConfiguration = {};
 		configAction(config);
-		this.globalEventConfigurations.push({ selector: selector, events: config });
+
+		// Unlike the instance level 'eventConfigurations', this list is static and outlives every application,
+		// so a caller that can register more than once per page has no way to avoid stacking up duplicates.
+		// Supplying a 'key' makes the registration replaceable (and removable) instead of purely additive.
+		if (key != undefined) {
+			this.removeEvents(selector, key);
+		}
+
+		this.globalEventConfigurations.push({ selector: selector, key: key, events: config });
+	}
+
+	/**
+	 * Removes the registration previously made via `handleEvents` with a matching `selector` and `key`.
+	 * Registrations made without a `key` cannot be removed.
+	 */
+	public static removeEvents(selector: string, key: string): void {
+		this.globalEventConfigurations = this.globalEventConfigurations.filter(e => !(e.selector == selector && e.key == key));
 	}
 
 	public static async createAppAsync(selector: string, options: IKatAppOptions, configAction?: IConfigureDelegate): Promise<KatApp> {
@@ -144,6 +180,7 @@ class KatApp implements IKatApp {
 			endpoints: {
 				calculation: "https://btr.lifeatworkportal.com/services/evolution/CalculationFunction.ashx",
 				katDataStore: "https://btr.lifeatworkportal.com/services/camelot/datalocker/api/kat-apps/{name}/download",
+				useKatDataStore: true,
 				kamlVerification: "api/katapp/verify-katapp"
 			},
 			delegates: {
@@ -202,6 +239,14 @@ class KatApp implements IKatApp {
 
 		this.el.setAttribute("ka-id", this.id);
 		this.el.classList.add("katapp-css", this.applicationCss.substring(1));
+
+		// Global (static) event registrations locate an application by matching its element, so an element that
+		// does not satisfy its own selector would silently never receive them. Every creation path satisfies this
+		// (a queried element by definition, '.kaModal' by class, v-ka-app by the class/id it assigns), so this is
+		// a tripwire for a future path that does not rather than an expected condition.
+		if (!this.isGlobalEventMatch(this.selector)) {
+			KatApps.Utils.trace(this, "KatApp", "constructor", `Element does not match its own selector of '${this.selector}'; global events will not be raised for this application.`, TraceVerbosity.None);
+		}
 
 		if (this.el.getAttribute("v-scope") == undefined) {
 			// Supposedly always need this on there...
@@ -587,19 +632,18 @@ class KatApp implements IKatApp {
 				.map(c => c.events)
 				.concat(
 					KatApp.globalEventConfigurations
-						.filter(e => e.selector.split(",").map(s => s.trim()).indexOf(this.selector) > -1)
+						.filter(e => this.isGlobalEventMatch(e.selector))
 						.map(e => e.events)
 			);
 			
 			for (const ec of eventConfigurations) {
 				try {
-					// Make application.element[0] be 'this' in the event handler
-					let delegateResult = (ec as IStringAnyIndexer)[eventName]?.apply(this.el, eventArgs);
+					// Make application.element[0] be 'this' in the event handler. Awaited unconditionally
+					// rather than guarding on 'instanceof Promise' — a cross-realm promise (iframe/modal
+					// app) or any other thenable fails that check, which would leave the handler running
+					// unawaited and its rejection escaping the catch below.
+					const delegateResult = await (ec as IStringAnyIndexer)[eventName]?.apply(this.el, eventArgs);
 
-					if (delegateResult instanceof Promise) {
-						delegateResult = await delegateResult;
-					}
-						
 					if ( isReturnable(delegateResult) ) {
 						return delegateResult;
 					}
@@ -616,6 +660,22 @@ class KatApp implements IKatApp {
 			return true;
 		} finally {
 			 KatApps.Utils.trace(this, "KatApp", "triggerEventAsync", `Complete: ${eventName}.`, TraceVerbosity.Detailed);
+		}
+	}
+
+	// Global (static) registrations are keyed by selector instead of by application, since the caller often
+	// registers before the application exists. Matching the element (rather than comparing to the selector the
+	// application was created with) is what lets a registration target a single modal: every modal application
+	// is created with a selector of '.kaModal', so a compare alone gives all modal registrations the same key
+	// and they have to self-filter. An element can be matched by the 'css.modal' class, or by the
+	// 'data-view-name' attribute written for both 'view' and 'contentSelector' modals.
+	private isGlobalEventMatch(selector: string): boolean {
+		try {
+			return this.el.matches(selector);
+		} catch {
+			// Never let one malformed registration take down event processing for every other one.
+			KatApps.Utils.trace(this, "KatApp", "isGlobalEventMatch", `Invalid global event selector: ${selector}.`, TraceVerbosity.None);
+			return false;
 		}
 	}
 

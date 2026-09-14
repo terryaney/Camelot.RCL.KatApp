@@ -23,6 +23,7 @@ Name | Description
 [`createAppAsync`](#katappcreateappasync) | Asyncronous method to create a new KatApp bound to an `HTMLElement` selected via `selector`.
 [`get`](#katappget) | Get access to an existing KatApp.
 [`handleEvents`](#katapphandleevents) | Similar to [`IKatApp.handleEvents`](#ikatapphandleevents) and allows for events to be attached to applications.  Used generic javascript libraries that want to attach events to an application, but is have direct access to an application or the application may not be created/available at the time the library wants to register the events.
+[`removeEvents`](#katappremoveevents) | Removes a *keyed* registration previously made via [`KatApp.handleEvents`](#katapphandleevents).
 [`getDirty`](#katappgetdirty) | Returns all currently running KatApps where the [`isDirty`](./KatApp.03.State.md#istate-properties) flag is `true`.
 
 ### KatApp.createAppAsync
@@ -76,9 +77,20 @@ Note: This is also the method used to investigate a KatApp during debug sessions
 
 ### KatApp.handleEvents
 
-`handleEvents(selector: string, configAction: (config: IKatAppEventsConfiguration) => void): void`
+`handleEvents(selector: string, configAction: (config: IKatAppEventsConfiguration) => void, key?: string): void`
 
 Attach events to an application given a known selector string.  Can be called at any time during the life cycle of a KatApp application, *even before the application has been created and/or mounted*.
+
+`selector` is any CSS selector (including a comma delimited list, i.e. `".katapp, .katapp-footer"`) and is matched against the application's *element*, not against the selector string the application was created with.  Every application's element satisfies the selector it was created with, so registering the application selector continues to work as expected.
+
+Matching the element is what allows a registration to target a single modal application.  Every modal application is created with a selector of `.kaModal`, so a registration of `.kaModal` runs for *every* modal that opens and has to self filter inside the handler.  Instead, target the modal with something unique to it:
+
+- `css.modal` from [`IModalOptions`](#imodaloptions), i.e. `KatApp.handleEvents(".kaModal.my-modal", ...)`.
+- The `data-view-name` attribute, which is present for both `view` and `contentSelector` modals, i.e. `KatApp.handleEvents("[data-view-name='Common.TransactionDetails']", ...)`.
+
+Since this list is static, registrations outlive the applications that use them and are purely additive by default.  A caller that could register more than once during a single page load should supply `key`, which replaces any existing registration matching the same `selector` and `key` instead of appending a duplicate.  See [`KatApp.removeEvents`](#katappremoveevents).
+
+**A Kaml View that can be rendered as a modal or nested application should always supply a `key`.**  A main application is created once per page load, so a registration made from its Kaml View script happens once.  Modal and nested applications are different; they can be created repeatedly during a single page load (opening the same modal twice, or a `v-ka-app` element that is added, removed, and added again), and each creation re-executes that Kaml View's script.  An unkeyed registration therefore stacks up a duplicate on every creation, and the handler runs once per accumulated registration.
 
 When using this method to bind events, *almost always*, the last parameter, `application`, of any given event will be required since these event handlers are often generic and don't necessarily know 'which' application is being handled.
 
@@ -95,6 +107,17 @@ When using this method to bind events, *almost always*, the last parameter, `app
 		};
 	});
 )();
+```
+
+### KatApp.removeEvents
+
+`removeEvents(selector: string, key: string): void`
+
+Removes the registration previously made via [`KatApp.handleEvents`](#katapphandleevents) with a matching `selector` and `key`.  Registrations made without a `key` cannot be removed.
+
+```javascript
+KatApp.handleEvents(".my-modal", events => { /* ... */ }, "my-modal-demo");
+KatApp.removeEvents(".my-modal", "my-modal-demo");
 ```
 
 ### KatApp.getDirty

@@ -51,6 +51,16 @@ interface IKatAppEndpoints {
 	baseUrl?: string;
 	calculation: string;
 	katDataStore: string;
+	/**
+	 * Whether resources that are not relative to the current site (i.e. any resource whose folder is not `Rel`)
+	 * should be requested from `katDataStore`.  The default is `true`.
+	 *
+	 * @remarks
+	 * Set to `false` when a site hosts no resources in the KAT Data Store.  Any resource not present in
+	 * `relativePathTemplates` then fails immediately without issuing a request that cannot succeed.  This is
+	 * silent for optional templates and reported as an error for required ones.
+	 */
+	useKatDataStore?: boolean;
 	kamlVerification: string;
 	jwtDataUpdates?: string;
 	anchoredQueryStrings?: string;
@@ -94,7 +104,38 @@ interface IKatAppStatic {
 	getDirty(): Array<IKatApp>;
 	createAppAsync(selector: string, options: IKatAppOptions): Promise<IKatApp>;
 	get(key: string | number | Element): IKatApp | undefined;
-	handleEvents(selector: string, configAction: (config: IKatAppEventsConfiguration) => void): void;
+	/**
+	 * Attach events to an application identified by `selector`.  Can be called at any time, *even before the
+	 * application has been created and/or mounted*.
+	 *
+	 * `selector` is any CSS selector (a comma delimited list is supported) and is matched against the
+	 * application's *element*, not against the selector string the application was created with.  Every
+	 * application's element satisfies the selector it was created with, so registering the application
+	 * selector works as expected.
+	 *
+	 * Matching the element is what allows targeting a single modal application.  Every modal application is
+	 * created with a selector of `.kaModal`, so registering `.kaModal` runs for *every* modal that opens.
+	 * Target one modal instead via the `css.modal` class (`.kaModal.my-modal`) or the `data-view-name`
+	 * attribute (`[data-view-name='Common.TransactionDetails']`), which is present for both `view` and
+	 * `contentSelector` modals.
+	 *
+	 * Registrations are static; they outlive the applications that use them and are purely additive unless a
+	 * `key` is supplied, which replaces any existing registration with the same `selector` and `key`.
+	 *
+	 * **A Kaml View that can be rendered as a modal or nested application should always supply a `key`.**
+	 * Those applications can be created repeatedly during a single page load, and each creation re-executes
+	 * the Kaml View's script, so an unkeyed registration stacks up a duplicate every time.
+	 *
+	 * @param selector CSS selector matched against the application's element.
+	 * @param configAction Delegate that assigns the event handlers to register.
+	 * @param key Optional key making the registration replaceable and removable via `removeEvents`.
+	 */
+	handleEvents(selector: string, configAction: (config: IKatAppEventsConfiguration) => void, key?: string): void;
+	/**
+	 * Removes the registration previously made via `handleEvents` with a matching `selector` and `key`.
+	 * Registrations made without a `key` cannot be removed.
+	 */
+	removeEvents(selector: string, key: string): void;
 }
 
 interface IKatApp {
@@ -530,6 +571,13 @@ interface IKaModalModel extends IModalOptions {
 	currentTarget?: string | HTMLElement;
 }
 interface IKaAppModel {
+	/**
+	 * Selector used to identify the nested application, i.e. `KatApp.get('.myNested')`.
+	 *
+	 * Must be a single class (`.name`) or id (`#name`) selector; the directive assigns the class or id to the
+	 * element so that the element satisfies the selector.  Any other form throws.  When omitted, a unique
+	 * `.kaNested{id}` class is generated.
+	 */
 	selector?: string;
 	view: string;
 	inputs?: ICalculationInputs;
