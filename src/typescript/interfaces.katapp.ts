@@ -497,6 +497,7 @@ interface IApiErrorResponse {
 	exceptions?: Array<IExceptionDetail>;
 	traceId?: string;
 	requestId?: string;
+	profileRequestId?: string;
 	apiResult?: IStringAnyIndexer;
 	apiPayload?: IStringAnyIndexer;
 }
@@ -539,6 +540,7 @@ interface ICalculationResponseException {
 	type: string;
 	traceId?: string;
 	requestId?: string;
+	profileRequestId?: string;
 	apiResult?: IStringAnyIndexer;
 	apiPayload?: IStringAnyIndexer;
 	stackTrace: string[];

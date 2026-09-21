@@ -1318,7 +1318,7 @@ Type 'help' to see available options displayed in the console.`;
     }
     addUnexpectedError(errorResponse) {
         this.addError("System", errorResponse.requestId != undefined
-            ? this.getLocalizedString("KatApps.AddUnexpectedErrorWithRequestId", errorResponse, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.  Please contact Customer Service and provide the following Request ID: {{requestId}}")
+            ? this.getLocalizedString("KatApps.AddUnexpectedErrorWithRequestId", { requestId: errorResponse.profileRequestId ?? errorResponse.requestId }, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution.  Please contact Customer Service and provide the following Request ID: {{requestId}}")
             : this.getLocalizedString("KatApps.AddUnexpectedError", undefined, "We apologize for the inconvenience, but we are unable to process your request at this time. The system has recorded technical details of the issue and our engineers are working on a solution."));
     }
     downloadBlob(blob, fileName) {
