@@ -33,7 +33,8 @@ public class KatApp( KatAppHelper katAppHelper, IKatAppOptionsProvider optionsPr
         var manualResultsEndpoint = optionsProvider.ManualResultsLastModified != null 
 			? $"\"{options.Endpoints.ManualResults[ 1.. ]}\"" 
 			: "undefined"; // indicates no results for this katapp, so no call needed
-		var resourceStringsEndpoint = options.Endpoints.ResourceStrings[ 1.. ];
+		var resourceStringsQueryString = optionsProvider.ResourceStringsQueryString;
+		var resourceStringsEndpoint = options.Endpoints.ResourceStrings[ 1.. ] + ( resourceStringsQueryString != null ? $"?{resourceStringsQueryString}" : "" );
 
 		// TODO: Before KatDataStore support can be turned back on...
 		//	1. optionsProvider.KatDataStoreEndpoint is an internal url that is only reachable behind the firewall,

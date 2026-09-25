@@ -29,6 +29,8 @@ public interface IKatAppOptionsProvider
 	string? RemoveSessionAction { get; }	
 
 	JsonObject AppResourceStrings { get; }
+	// Hosts serving different strings from the same url (i.e. per tenant) must vary this so browsers keep separate cache entries.
+	string? ResourceStringsQueryString => null;
 	Dictionary<string, string> GetManualInputs( JsonObject viewDefinition );
 	Task<JsonObject?> GetManualResultsAsync( CancellationToken cancellationToken = default );
 	DateTime? ManualResultsLastModified { get; }
