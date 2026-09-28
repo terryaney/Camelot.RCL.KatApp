@@ -560,6 +560,8 @@ class KatApp {
                 this.el.setAttribute("data-view-name", this.options.view);
             }
             const viewElement = await this.getViewElementAsync();
+            await this.getOptionResourcesAsync();
+            KatApps.Utils.trace(this, "KatApp", "mountAsync", `Option Resources Complete`, TraceVerbosity.Detailed);
             const inputs = this.options.inputs;
             const mr = this.options.manualResults;
             const processConfigSubstitutionTokens = (value) => {
@@ -606,7 +608,6 @@ class KatApp {
                 ? [...(await this.getViewTemplatesAsync(requiredViewTemplates)), this.id].reverse()
                 : [this.id];
             KatApps.Utils.trace(this, "KatApp", "mountAsync", `View Templates Complete`, TraceVerbosity.Detailed);
-            await this.getOptionResourcesAsync();
             const cloneApplication = this.getCloneApplication(this.options);
             this.options.hostApplication = this.options.hostApplication ?? cloneApplication;
             function calcEngineFactory(c, pipelineIndex) {
