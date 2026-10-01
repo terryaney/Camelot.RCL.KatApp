@@ -1339,6 +1339,7 @@ declare namespace KatApps {
         private showInspector;
         private applicationId;
         constructor(application: KatApp);
+        static getTemplateContainerId(resourceKey: string): string;
         compileMarkup(kaml: Element, resourceKey: string): void;
         private checkVueSyntax;
         private processMarkup;

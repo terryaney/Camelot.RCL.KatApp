@@ -3032,16 +3032,13 @@ Type 'help' to see available options displayed in the console.`;
 			const templateContent = document.createElement("kaml-template");
 			templateContent.innerHTML = viewTemplateResults[k];
 
-			kamlCompiler.compileMarkup(templateContent, k.replace(/\./g, "_"));
+			kamlCompiler.compileMarkup(templateContent, k);
 			KatApps.KamlRepository.resolveTemplate(k);
 		});
 		
 		return requiredViewTemplates
 			.filter(t => ignored.indexOf(t.resourceName) == -1)
-			.map(t => {
-				const keyParts = t.resourceName.split(":"); // In case Rel:
-				return keyParts[keyParts.length - 1].split("?")[0].replace(/\./g, "_");
-			});
+			.map(t => KatApps.KamlCompiler.getTemplateContainerId(t.resourceName));
 	}
 
 	private getSessionStorageInputs(): ICalculationInputs {

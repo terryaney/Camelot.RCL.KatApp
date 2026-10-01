@@ -8,15 +8,21 @@
 			this.applicationId = application.id;
 		}
 
+		public static getTemplateContainerId(resourceKey: string): string {
+			const keyParts = resourceKey.split("?")[0].split(":");
+			// Folder prefix (i.e. a site key) is kept so the same template file from two folders gets distinct ids; 'Rel:' paths are already unique.
+			const idParts = keyParts.length > 1 && String.compare(keyParts[0], "Rel", true) == 0 ? keyParts.slice(1) : keyParts;
+			return idParts.join("_").replace(/[^A-Za-z0-9_-]/g, "_");
+		}
+
 		public compileMarkup(kaml: Element, resourceKey: string): void {
 			const kaResources = document.querySelector("ka-resources")!;
 			const processingTemplates = resourceKey != this.applicationId;
+			const containerId = KamlCompiler.getTemplateContainerId(resourceKey);
 
 			// Put all template *file <style> blocks* (not inside a template, but at root of file) into markup if not already added from previous app (host, modal, nested)
 			if (processingTemplates) {
-				const keyParts = resourceKey.split(":"); // In case "Rel:"
-				const containerId = keyParts[keyParts.length - 1].split("?")[0].replace(/\//g, "_"); // Cache buster
-				const kamlTemplatesAdded = kaResources.querySelector(`style[ka=${containerId}]`) != undefined;
+				const kamlTemplatesAdded = kaResources.querySelector(`style[ka="${containerId}"]`) != undefined;
 
 				kaml.querySelectorAll<HTMLStyleElement>("style").forEach(s => {
 					if (kamlTemplatesAdded) {
@@ -34,12 +40,10 @@
 			// Update template ids and move them to ka-resources
 			kaml.querySelectorAll<HTMLTemplateElement>("template[id]")
 				.forEach(template => {
-					const keyParts = resourceKey.split(":"); // In case "Rel:"
-					const containerId = keyParts[keyParts.length - 1].split("?")[0].replace(/\//g, "_"); // Cache buster
 					template.id = `${template.id}_${containerId}`;
 
 					// Only process template markup once (in case same template file is requested for multiple apps on the page)
-					if (kaResources.querySelector(`template[id=${template.id}]`) == undefined) {
+					if (kaResources.querySelector(`template[id="${template.id}"]`) == undefined) {
 						this.processMarkup(template.content);
 
 						// If this is an 'input template', need attach mounted/unmounted events on all 'inputs'

@@ -2184,15 +2184,12 @@ Type 'help' to see available options displayed in the console.`;
         Object.keys(viewTemplateResults).forEach(k => {
             const templateContent = document.createElement("kaml-template");
             templateContent.innerHTML = viewTemplateResults[k];
-            kamlCompiler.compileMarkup(templateContent, k.replace(/\./g, "_"));
+            kamlCompiler.compileMarkup(templateContent, k);
             KatApps.KamlRepository.resolveTemplate(k);
         });
         return requiredViewTemplates
             .filter(t => ignored.indexOf(t.resourceName) == -1)
-            .map(t => {
-            const keyParts = t.resourceName.split(":");
-            return keyParts[keyParts.length - 1].split("?")[0].replace(/\./g, "_");
-        });
+            .map(t => KatApps.KamlCompiler.getTemplateContainerId(t.resourceName));
     }
     getSessionStorageInputs() {
         const inputCachingKey = "cachedInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "EveryOne");
@@ -5555,13 +5552,17 @@ var KatApps;
             this.showInspector = application.options.debug.showInspector != "0";
             this.applicationId = application.id;
         }
+        static getTemplateContainerId(resourceKey) {
+            const keyParts = resourceKey.split("?")[0].split(":");
+            const idParts = keyParts.length > 1 && String.compare(keyParts[0], "Rel", true) == 0 ? keyParts.slice(1) : keyParts;
+            return idParts.join("_").replace(/[^A-Za-z0-9_-]/g, "_");
+        }
         compileMarkup(kaml, resourceKey) {
             const kaResources = document.querySelector("ka-resources");
             const processingTemplates = resourceKey != this.applicationId;
+            const containerId = KamlCompiler.getTemplateContainerId(resourceKey);
             if (processingTemplates) {
-                const keyParts = resourceKey.split(":");
-                const containerId = keyParts[keyParts.length - 1].split("?")[0].replace(/\//g, "_");
-                const kamlTemplatesAdded = kaResources.querySelector(`style[ka=${containerId}]`) != undefined;
+                const kamlTemplatesAdded = kaResources.querySelector(`style[ka="${containerId}"]`) != undefined;
                 kaml.querySelectorAll("style").forEach(s => {
                     if (kamlTemplatesAdded) {
                         s.remove();
@@ -5575,10 +5576,8 @@ var KatApps;
             this.processMarkup(kaml);
             kaml.querySelectorAll("template[id]")
                 .forEach(template => {
-                const keyParts = resourceKey.split(":");
-                const containerId = keyParts[keyParts.length - 1].split("?")[0].replace(/\//g, "_");
                 template.id = `${template.id}_${containerId}`;
-                if (kaResources.querySelector(`template[id=${template.id}]`) == undefined) {
+                if (kaResources.querySelector(`template[id="${template.id}"]`) == undefined) {
                     this.processMarkup(template.content);
                     if (template.hasAttribute("input")) {
                         this.mountInputs(template.content);
