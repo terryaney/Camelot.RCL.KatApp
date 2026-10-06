@@ -6501,10 +6501,13 @@ var KatApps;
                 const log = `${datePart} ${timePart}\t${String(startDelta).padStart(5, "0")}\t${String(lastDelta).padStart(5, "0")}\t${application.options.dataGroup}\t${katApp ?? "Unavailable"}\t${origin}\t${methodName}: ${message}`;
                 if (groupItems.length > 0) {
                     console.group(`${datePart} ${timePart} ${katApp ?? "Unavailable"}: ${message}`);
-                    console.log("traceGroup", {
-                        startDelta, lastDelta, dataGroup: application.options.dataGroup, origin, methodName,
-                        details: groupItems.length == 1 ? groupItems[0] : groupItems
+                    console.log("TraceInfo", {
+                        dt: { start: `${startDelta}ms`, last: `${lastDelta}ms` },
+                        dataGroup: application.options.dataGroup,
+                        origin: origin.replace(/\t/g, " "),
+                        methodName
                     });
+                    console.log("Results", groupItems.length == 1 ? groupItems[0] : groupItems);
                     console.groupEnd();
                 }
                 else {
