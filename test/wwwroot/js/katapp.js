@@ -2144,13 +2144,22 @@ Type 'help' to see available options displayed in the console.`;
         const viewElement = document.createElement("div");
         if ((this.options.modalAppOptions != undefined || this.options.inputs?.iNestedApplication == "1") && this.options.view != undefined) {
             const view = this.options.view;
-            const apiUrl = this.getApiUrl(`${this.options.endpoints.kamlVerification}?applicationId=${view}`, true);
             try {
-                const response = await fetch(apiUrl.url, { method: "GET" });
-                if (!response.ok) {
-                    throw await response.json();
+                let data;
+                if (this.options.delegates.resolveViewAsync != undefined) {
+                    data = await this.options.delegates.resolveViewAsync(view, this);
                 }
-                const data = await response.json();
+                else {
+                    const apiUrl = this.getApiUrl(`${this.options.endpoints.kamlVerification}?applicationId=${view}`, true);
+                    const response = await fetch(apiUrl.url, { method: "GET" });
+                    if (!response.ok) {
+                        throw await response.json();
+                    }
+                    data = await response.json();
+                }
+                if (typeof data.path != "string" || data.path.trim() == "") {
+                    throw new Error("View resolution returned an empty path.");
+                }
                 KatApps.Utils.extend(this.options, { view: data.path, currentPath: view });
                 KatApps.Utils.extend(this.state.inputs, data.manualInputs);
             }
@@ -2184,12 +2193,12 @@ Type 'help' to see available options displayed in the console.`;
         Object.keys(viewTemplateResults).forEach(k => {
             const templateContent = document.createElement("kaml-template");
             templateContent.innerHTML = viewTemplateResults[k];
-            kamlCompiler.compileMarkup(templateContent, k);
-            KatApps.KamlRepository.resolveTemplate(k);
+            kamlCompiler.compileMarkup(templateContent, KatApps.KamlRepository.getTemplateResourceKey(this, k));
+            KatApps.KamlRepository.resolveTemplate(k, this);
         });
         return requiredViewTemplates
             .filter(t => ignored.indexOf(t.resourceName) == -1)
-            .map(t => KatApps.KamlCompiler.getTemplateContainerId(t.resourceName));
+            .map(t => KatApps.KamlCompiler.getTemplateContainerId(KatApps.KamlRepository.getTemplateResourceKey(this, t.resourceName)));
     }
     getSessionStorageInputs() {
         const inputCachingKey = "cachedInputs:" + this.options.currentPage + ":" + (this.options.userIdHash ?? "EveryOne");
@@ -5963,7 +5972,39 @@ ${conditions.map(c => `\t${c}`).join("\r\n")}
 var KatApps;
 (function (KatApps) {
     class KamlRepository {
-        static resourceRequests = {};
+        static resourceRequests = new Map();
+        static resourceProviderIds = new WeakMap();
+        static nextResourceProviderId = 0;
+        static getResourceRequests(application, create = true) {
+            const provider = application.options.delegates.getKamlResourceAsync;
+            let requests = this.resourceRequests.get(provider);
+            if (requests == undefined && create) {
+                requests = {};
+                this.resourceRequests.set(provider, requests);
+            }
+            return requests;
+        }
+        static clearResourceRequest(application, resourceKey) {
+            const provider = application.options.delegates.getKamlResourceAsync;
+            const requests = this.resourceRequests.get(provider);
+            if (requests == undefined)
+                return;
+            delete requests[resourceKey];
+            if (Object.keys(requests).length == 0) {
+                this.resourceRequests.delete(provider);
+            }
+        }
+        static getTemplateResourceKey(application, resourceKey) {
+            const provider = application.options.delegates.getKamlResourceAsync;
+            if (provider == undefined)
+                return resourceKey;
+            let providerId = this.resourceProviderIds.get(provider);
+            if (providerId == undefined) {
+                providerId = ++this.nextResourceProviderId;
+                this.resourceProviderIds.set(provider, providerId);
+            }
+            return `host-${providerId}:${resourceKey}`;
+        }
         static async getViewResourceAsync(application) {
             return (await this.getKamlResourcesAsync(application, [{ resourceName: application.options.view, optional: false }], true)).resources;
         }
@@ -5972,13 +6013,15 @@ var KatApps;
         }
         static async getKamlResourcesAsync(application, resourceArray, isView) {
             const options = application.options;
-            const useLocalWebServer = options.debug.debugResourcesDomain != undefined &&
+            const isHostRepository = options.delegates.getKamlResourceAsync != undefined;
+            const useLocalWebServer = !isHostRepository && options.debug.debugResourcesDomain != undefined &&
                 (options.useLocalRepository ?? (options.useLocalRepository = await KatApps.Utils.checkLocalServerAsync(options)));
+            const resourceRequests = isView || resourceArray.length == 0 ? undefined : this.getResourceRequests(application);
             const optionalResources = resourceArray.filter(r => r.optional).map(r => r.resourceName);
             var resourceResults = await Promise.allSettled(resourceArray.map(resource => {
                 const resourceKey = resource.resourceName;
                 if (!isView) {
-                    var currentRequest = KamlRepository.resourceRequests[resourceKey];
+                    var currentRequest = resourceRequests[resourceKey];
                     if (currentRequest != undefined) {
                         return new Promise((resolve, reject) => {
                             currentRequest.push((errorMessage) => {
@@ -5998,9 +6041,9 @@ var KatApps;
                             });
                         });
                     }
-                    KamlRepository.resourceRequests[resourceKey] = [];
+                    resourceRequests[resourceKey] = [];
                 }
-                return this.getResourceAsync(application, resourceKey, useLocalWebServer, resource.optional);
+                return this.getResourceAsync(application, resourceKey, useLocalWebServer, resource.optional, isView ? "view" : "template");
             }));
             const rejected = resourceResults
                 .filter(r => r.status == "rejected")
@@ -6023,8 +6066,8 @@ var KatApps;
                 rejected
                     .filter(r => !r.processedByOtherApp)
                     .forEach(f => {
-                    KamlRepository.resourceRequests[f.resourceKey].forEach(c => c(f.errorMessage));
-                    delete KamlRepository.resourceRequests[f.resourceKey];
+                    resourceRequests[f.resourceKey]?.forEach(c => c(f.errorMessage));
+                    this.clearResourceRequest(application, f.resourceKey);
                 });
             }
             const failures = rejected.filter(r => optionalResources.indexOf(r.resourceKey) == -1);
@@ -6033,8 +6076,8 @@ var KatApps;
                     resolved
                         .filter(r => !r.processedByOtherApp)
                         .forEach(f => {
-                        KamlRepository.resourceRequests[f.resourceKey].forEach(c => c());
-                        delete KamlRepository.resourceRequests[f.resourceKey];
+                        resourceRequests[f.resourceKey]?.forEach(c => c());
+                        this.clearResourceRequest(application, f.resourceKey);
                     });
                 }
                 throw new KamlRepositoryError("Failed to download Kaml repositoryItems.", failures.map(r => ({ resource: r.resourceKey, errorMessage: r.errorMessage })));
@@ -6047,9 +6090,9 @@ var KatApps;
             });
             return { resources: resources, ignored: rejected.map(r => r.resourceKey) };
         }
-        static resolveTemplate(resourceKey) {
-            this.resourceRequests[resourceKey].forEach(c => c());
-            delete this.resourceRequests[resourceKey];
+        static resolveTemplate(resourceKey, application) {
+            this.getResourceRequests(application, false)?.[resourceKey]?.forEach(c => c());
+            this.clearResourceRequest(application, resourceKey);
         }
         static async downloadResourceAsync(application, url, tryLocalWebServer, isRetry = false, optional = false) {
             const requestHeaders = new Headers(!tryLocalWebServer ? { 'Cache-Control': 'max-age=0' } : {});
@@ -6083,7 +6126,24 @@ var KatApps;
             return { data: await response.text() };
         }
         ;
-        static async getResourceAsync(application, resourceKey, tryLocalWebServer, optional = false) {
+        static async getResourceAsync(application, resourceKey, tryLocalWebServer, optional = false, kind = "template") {
+            if (application.options.delegates.getKamlResourceAsync != undefined) {
+                let content;
+                try {
+                    content = await application.options.delegates.getKamlResourceAsync({ resourceKey: resourceKey, kind: kind, optional: optional }, application);
+                }
+                catch (e) {
+                    KatApps.Utils.trace(application, "KamlRepository", "getResourceAsync", `Error loading Kaml resource ${resourceKey}`, TraceVerbosity.None, e);
+                    const errorMessage = e instanceof Error ? e.message : String(e);
+                    throw new KamlResourceDownloadError(`getKamlResourceAsync failed for ${resourceKey}: ${errorMessage}`, resourceKey);
+                }
+                if (content == undefined || content.trim() == "") {
+                    throw new KamlResourceDownloadError(content == undefined
+                        ? `getKamlResourceAsync returned no source for ${resourceKey}.`
+                        : `getKamlResourceAsync returned empty source for ${resourceKey}.`, resourceKey);
+                }
+                return { resourceKey: resourceKey, content: content, processedByOtherApp: false };
+            }
             const relativeTemplatePath = application.options.endpoints.relativePathTemplates?.[resourceKey];
             const resourceParts = relativeTemplatePath != undefined ? relativeTemplatePath.split(":") : resourceKey.split(":");
             let resourceName = resourceParts[1];
@@ -6225,7 +6285,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
                 }
             }
             if (tryLocalWebServer) {
-                return await this.getResourceAsync(application, resourceKey, false, optional);
+                return await this.getResourceAsync(application, resourceKey, false, optional, kind);
             }
             throw new KamlResourceDownloadError("getResourceAsync failed requesting from " + resourceUrl + ": " + lastResult.errorMessage, resourceKey);
         }

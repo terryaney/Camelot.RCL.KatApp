@@ -2970,16 +2970,26 @@ Type 'help' to see available options displayed in the console.`;
 		if ((this.options.modalAppOptions != undefined || this.options.inputs?.iNestedApplication == "1") && this.options.view != undefined ) {
 			const view = this.options.view;
 
-			const apiUrl = this.getApiUrl(`${this.options.endpoints.kamlVerification}?applicationId=${view}`, true );
-
 			try {
-				const response = await fetch(apiUrl.url, { method: "GET" });
-			  
-				if (!response.ok) {
-					throw await response.json();
+				let data: IKamlViewResolution;
+
+				if (this.options.delegates.resolveViewAsync != undefined) {
+					data = await this.options.delegates.resolveViewAsync(view, this);
 				}
-			  
-				const data: IKamlVerifyResult = await response.json();
+				else {
+					const apiUrl = this.getApiUrl(`${this.options.endpoints.kamlVerification}?applicationId=${view}`, true );
+					const response = await fetch(apiUrl.url, { method: "GET" });
+
+					if (!response.ok) {
+						throw await response.json();
+					}
+
+					data = await response.json();
+				}
+
+				if (typeof data.path != "string" || data.path.trim() == "") {
+					throw new Error("View resolution returned an empty path.");
+				}
 			  
 				KatApps.Utils.extend(this.options, { view: data.path, currentPath: view });
 				KatApps.Utils.extend(this.state.inputs, data.manualInputs);
@@ -3032,13 +3042,13 @@ Type 'help' to see available options displayed in the console.`;
 			const templateContent = document.createElement("kaml-template");
 			templateContent.innerHTML = viewTemplateResults[k];
 
-			kamlCompiler.compileMarkup(templateContent, k);
-			KatApps.KamlRepository.resolveTemplate(k);
+			kamlCompiler.compileMarkup(templateContent, KatApps.KamlRepository.getTemplateResourceKey(this, k));
+			KatApps.KamlRepository.resolveTemplate(k, this);
 		});
 		
 		return requiredViewTemplates
 			.filter(t => ignored.indexOf(t.resourceName) == -1)
-			.map(t => KatApps.KamlCompiler.getTemplateContainerId(t.resourceName));
+			.map(t => KatApps.KamlCompiler.getTemplateContainerId(KatApps.KamlRepository.getTemplateResourceKey(this, t.resourceName)));
 	}
 
 	private getSessionStorageInputs(): ICalculationInputs {

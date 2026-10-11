@@ -670,6 +670,15 @@ interface IConfigureDelegate {
 interface IHandleEventsDelegate {
     (events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined): void;
 }
+interface IKamlResourceRequest {
+    resourceKey: string;
+    kind: "view" | "template";
+    optional: boolean;
+}
+interface IKamlViewResolution {
+    path: string;
+    manualInputs?: Record<string, string>;
+}
 interface IKatAppDelegates {
     encryptCache(data: object): string | Promise<string>;
     decryptCache(cipher: string): object | Promise<object>;
@@ -678,6 +687,8 @@ interface IKatAppDelegates {
     getSessionItem<T = string>(key: string, oneTimeUse?: boolean): T | undefined;
     removeSessionItem(key: string): void;
     katAppNavigate?: (id: string, props?: IModalOptions, el?: HTMLElement) => void;
+    resolveViewAsync?: (view: string, application: IKatApp) => Promise<IKamlViewResolution>;
+    getKamlResourceAsync?: (request: IKamlResourceRequest, application: IKatApp) => Promise<string | undefined>;
 }
 interface IKatAppEndpoints {
     baseUrl?: string;
@@ -1366,6 +1377,11 @@ interface IKamlResourceResponse {
 declare namespace KatApps {
     class KamlRepository {
         private static resourceRequests;
+        private static resourceProviderIds;
+        private static nextResourceProviderId;
+        private static getResourceRequests;
+        private static clearResourceRequest;
+        static getTemplateResourceKey(application: KatApp, resourceKey: string): string;
         static getViewResourceAsync(application: KatApp): Promise<IStringIndexer<string>>;
         static getTemplateResourcesAsync(application: KatApp, resourceArray: Array<{
             resourceName: string;
@@ -1375,7 +1391,7 @@ declare namespace KatApps {
             ignored: string[];
         }>;
         private static getKamlResourcesAsync;
-        static resolveTemplate(resourceKey: string): void;
+        static resolveTemplate(resourceKey: string, application: KatApp): void;
         private static downloadResourceAsync;
         private static getResourceAsync;
     }

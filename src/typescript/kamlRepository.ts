@@ -10,7 +10,48 @@ interface IKamlResourceResponse {
 
 namespace KatApps {
 	export class KamlRepository {
-		private static resourceRequests: Record<string, Array<(errorMessage?: string) => void>> = {};
+		private static resourceRequests = new Map<IKatAppDelegates["getKamlResourceAsync"], Record<string, Array<(errorMessage?: string) => void>>>();
+		private static resourceProviderIds = new WeakMap<NonNullable<IKatAppDelegates["getKamlResourceAsync"]>, number>();
+		private static nextResourceProviderId = 0;
+
+		private static getResourceRequests(application: KatApp, create: boolean = true): Record<string, Array<(errorMessage?: string) => void>> | undefined {
+			const provider = application.options.delegates.getKamlResourceAsync;
+			let requests = this.resourceRequests.get(provider);
+
+			if (requests == undefined && create) {
+				requests = {};
+				this.resourceRequests.set(provider, requests);
+			}
+
+			return requests;
+		}
+
+		private static clearResourceRequest(application: KatApp, resourceKey: string): void {
+			const provider = application.options.delegates.getKamlResourceAsync;
+			const requests = this.resourceRequests.get(provider);
+
+			if (requests == undefined) return;
+
+			delete requests[resourceKey];
+			if (Object.keys(requests).length == 0) {
+				this.resourceRequests.delete(provider);
+			}
+		}
+
+		static getTemplateResourceKey(application: KatApp, resourceKey: string): string {
+			const provider = application.options.delegates.getKamlResourceAsync;
+			if (provider == undefined) return resourceKey;
+
+			// Distinct providers can return different source for the same key; isolate compiled templates/styles
+			// so ka-resources does not reuse another provider's content. Apps sharing a delegate share its prefix.
+			let providerId = this.resourceProviderIds.get(provider);
+			if (providerId == undefined) {
+				providerId = ++this.nextResourceProviderId;
+				this.resourceProviderIds.set(provider, providerId);
+			}
+
+			return `host-${providerId}:${resourceKey}`;
+		}
 
 		static async getViewResourceAsync(application: KatApp): Promise<IStringIndexer<string>> {
 			return (await this.getKamlResourcesAsync(application, [ { resourceName: application.options.view!, optional: false }], true)).resources;
@@ -21,9 +62,11 @@ namespace KatApps {
 
 		private static async getKamlResourcesAsync(application: KatApp, resourceArray: Array<{resourceName: string, optional: boolean }>, isView: boolean): Promise<{ resources: IStringIndexer<string>, ignored: string[] }> {
 			const options = application.options as IKatAppRepositoryOptions;
+			const isHostRepository = options.delegates.getKamlResourceAsync != undefined;
 
-			const useLocalWebServer = options.debug.debugResourcesDomain != undefined &&
+			const useLocalWebServer = !isHostRepository && options.debug.debugResourcesDomain != undefined &&
 				(options.useLocalRepository ?? (options.useLocalRepository = await Utils.checkLocalServerAsync(options)));
+			const resourceRequests = isView || resourceArray.length == 0 ? undefined : this.getResourceRequests(application);
 
 			const optionalResources = resourceArray.filter(r => r.optional).map(r => r.resourceName);
 
@@ -32,7 +75,7 @@ namespace KatApps {
 					const resourceKey = resource.resourceName;
 
 					if (!isView) {
-						var currentRequest = KamlRepository.resourceRequests[resourceKey];
+						var currentRequest = resourceRequests![resourceKey];
 
 						if (currentRequest != undefined) {
 							// Already being requested...add call back
@@ -54,10 +97,10 @@ namespace KatApps {
 								});
 							});
 						}
-						KamlRepository.resourceRequests[resourceKey] = [];
+						resourceRequests![resourceKey] = [];
 					}
 
-					return this.getResourceAsync(application, resourceKey, useLocalWebServer, resource.optional);
+					return this.getResourceAsync(application, resourceKey, useLocalWebServer, resource.optional, isView ? "view" : "template");
 				})
 			);
 
@@ -88,8 +131,8 @@ namespace KatApps {
 				rejected
 					.filter(r => !r.processedByOtherApp)
 					.forEach(f => {
-						KamlRepository.resourceRequests[f.resourceKey].forEach(c => c(f.errorMessage));
-						delete KamlRepository.resourceRequests[f.resourceKey];
+						resourceRequests![f.resourceKey]?.forEach(c => c(f.errorMessage));
+						this.clearResourceRequest(application, f.resourceKey);
 					});
 			}
 
@@ -101,8 +144,8 @@ namespace KatApps {
 					resolved
 						.filter(r => !r.processedByOtherApp)
 						.forEach(f => {
-							KamlRepository.resourceRequests[f.resourceKey].forEach(c => c());
-							delete KamlRepository.resourceRequests[f.resourceKey];
+							resourceRequests![f.resourceKey]?.forEach(c => c());
+							this.clearResourceRequest(application, f.resourceKey);
 						});
 				}
 
@@ -123,10 +166,10 @@ namespace KatApps {
 			return { resources: resources, ignored: rejected.map(r => r.resourceKey) };
 		}
 
-		static resolveTemplate(resourceKey: string): void {
+		static resolveTemplate(resourceKey: string, application: KatApp): void {
 			// Forward the success to any callbacks, this is only called by templates 'processed' by current application
-			this.resourceRequests[resourceKey].forEach(c => c());
-			delete this.resourceRequests[resourceKey];
+			this.getResourceRequests(application, false)?.[resourceKey]?.forEach(c => c());
+			this.clearResourceRequest(application, resourceKey);
 		}
 
 		private static async downloadResourceAsync(application: KatApp, url: string, tryLocalWebServer: boolean, isRetry: boolean = false, optional: boolean = false): Promise<{ data?: string, errorMessage?: string }> {
@@ -176,7 +219,33 @@ namespace KatApps {
 			return { data: await response.text() };
 		};
 
-		private static async getResourceAsync(application: KatApp, resourceKey: string, tryLocalWebServer: boolean, optional: boolean = false): Promise<IKamlResourceResponse> {
+		private static async getResourceAsync(application: KatApp, resourceKey: string, tryLocalWebServer: boolean, optional: boolean = false, kind: IKamlResourceRequest["kind"] = "template"): Promise<IKamlResourceResponse> {
+			if (application.options.delegates.getKamlResourceAsync != undefined) {
+				let content: string | undefined;
+
+				try {
+					content = await application.options.delegates.getKamlResourceAsync(
+						{ resourceKey: resourceKey, kind: kind, optional: optional },
+						application
+					);
+				} catch (e) {
+					Utils.trace(application, "KamlRepository", "getResourceAsync", `Error loading Kaml resource ${resourceKey}`, TraceVerbosity.None, e);
+					const errorMessage = e instanceof Error ? e.message : String(e);
+					throw new KamlResourceDownloadError(`getKamlResourceAsync failed for ${resourceKey}: ${errorMessage}`, resourceKey);
+				}
+
+				if (content == undefined || content.trim() == "") {
+					throw new KamlResourceDownloadError(
+						content == undefined
+							? `getKamlResourceAsync returned no source for ${resourceKey}.`
+							: `getKamlResourceAsync returned empty source for ${resourceKey}.`,
+						resourceKey
+					);
+				}
+
+				return { resourceKey: resourceKey, content: content, processedByOtherApp: false };
+			}
+
 			const relativeTemplatePath = application.options.endpoints.relativePathTemplates?.[resourceKey];
 			const resourceParts = relativeTemplatePath != undefined ? relativeTemplatePath.split(":") : resourceKey.split(":");
 
@@ -369,7 +438,7 @@ ${templateScriptFile.data.split("\n").map(jsLine => "\t\t" + jsLine).join("\n")}
 			}
 
 			if (tryLocalWebServer) {
-				return await this.getResourceAsync(application, resourceKey, false, optional);
+				return await this.getResourceAsync(application, resourceKey, false, optional, kind);
 			}
 
 			throw new KamlResourceDownloadError("getResourceAsync failed requesting from " + resourceUrl + ": " + lastResult.errorMessage, resourceKey);

@@ -34,6 +34,17 @@ interface IHandleEventsDelegate {
 	(events: IKatAppEventsConfiguration, rbl: IStateRbl, model: IStringAnyIndexer | undefined, inputs: ICalculationInputs, handlers: IHandlers | undefined): void;
 }
 
+interface IKamlResourceRequest {
+	resourceKey: string;
+	kind: "view" | "template";
+	optional: boolean;
+}
+
+interface IKamlViewResolution {
+	path: string;
+	manualInputs?: Record<string, string>;
+}
+
 interface IKatAppDelegates {
 	encryptCache(data: object): string | Promise<string>;
 	decryptCache(cipher: string): object | Promise<object>;
@@ -45,6 +56,8 @@ interface IKatAppDelegates {
 	removeSessionItem(key: string): void;
 
 	katAppNavigate?: (id: string, props?: IModalOptions, el?: HTMLElement) => void;
+	resolveViewAsync?: (view: string, application: IKatApp) => Promise<IKamlViewResolution>;
+	getKamlResourceAsync?: (request: IKamlResourceRequest, application: IKatApp) => Promise<string | undefined>;
 }
 
 interface IKatAppEndpoints {

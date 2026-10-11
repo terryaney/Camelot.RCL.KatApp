@@ -221,6 +221,8 @@ Property | Type | Description
 `setSessionItem` | `(key: string, value: any) => void` | Sets a session item in the browser `sessionStorage` given the requested `key` and `value`.
 ``removeSessionItem` | `(key: string) => void` | Removes a session item from the browser `sessionStorage` given the requested `key`.
 `katAppNavigate` | `(id: string, props: IModalOptions, el: HTMLElement) => void \| undefined` | To allow navigation to occur from within a KatApp (via [v-ka-navigate](./KatApp.06.CustomDirectives.md#v-ka-navigate)), a reference to a javascript function must be assigned to this property. The KatApp Framework will call this function (created by the Host Environment) when a navigation request has been issued.  It is up to the Host Environment's javascript to do the appropriate processing to initiate a successful navigation.
+`resolveViewAsync` | `(view: string, application: IKatApp) => Promise<IKamlViewResolution>` | Resolves a logical view used by a nested or view-backed modal application. The result supplies the resolved `path` and optional `manualInputs`. Root views are not verified. When omitted, the framework uses the configured KAML verification endpoint.
+`getKamlResourceAsync` | `(request: IKamlResourceRequest, application: IKatApp) => Promise<string \| undefined>` | Supplies complete KAML source for a view or template before the framework probes a local server or constructs an endpoint request. `request.kind` is `"view"` or `"template"`; `request.optional` identifies optional templates. Returning `undefined` means the optional resource is absent; required resources must return non-empty source. Rejections are reported as resource failures, with no HTTP fallback. Host-provided templates are scoped to their loader delegate so one host provider's source is not reused by another.
 
 ### IKatAppIntlOptions
 
@@ -1526,6 +1528,4 @@ Property | Type | Description
 `inputs` | [`ICalculationInputs`](#icalculationinputs) | The list of inputs submitted to the most recent calculation.
 `results` | `Array<ITabDef>` |The array of [`ITabDef`s](#itabdef) returned from the most recent calculation.
 `configuration` | [`ISubmitApiConfiguration`](#isubmitapiconfiguration) | The configuration payload submitted to the most recent calculation.
-
-
 
