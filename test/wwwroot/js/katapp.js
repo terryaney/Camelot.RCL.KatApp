@@ -6567,7 +6567,8 @@ var KatApps;
                         origin: origin.replace(/\t/g, " "),
                         methodName
                     });
-                    console.log("Results", groupItems.length == 1 ? groupItems[0] : groupItems);
+                    const results = groupItems.length == 1 ? groupItems[0] : groupItems;
+                    console.log("Results", results instanceof Error ? { error: results } : results);
                     console.groupEnd();
                 }
                 else {
