@@ -639,7 +639,7 @@ class KatApp implements IKatApp {
 			for (const ec of eventConfigurations) {
 				try {
 					// Make application.element[0] be 'this' in the event handler. Awaited unconditionally
-					// rather than guarding on 'instanceof Promise' — a cross-realm promise (iframe/modal
+					// rather than guarding on 'instanceof Promise' - a cross-realm promise (iframe/modal
 					// app) or any other thenable fails that check, which would leave the handler running
 					// unawaited and its rejection escaping the catch below.
 					const delegateResult = await (ec as IStringAnyIndexer)[eventName]?.apply(this.el, eventArgs);

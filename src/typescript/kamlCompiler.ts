@@ -187,9 +187,9 @@
 						// If the directive has v-if, fold it into the v-for source as a ternary.
 						// petite-vue crashes when v-if/v-for is a direct child of an inline <template> (DocumentFragment)
 						// because el.parentElement is null when _if/_for tries to insertBefore an anchor.
-						// Wrapping with <template v-if> doesn't work either — _if creates a Block whose cloned
+						// Wrapping with <template v-if> doesn't work either - _if creates a Block whose cloned
 						// content is a DocumentFragment, so the inner <template v-for> still has no parentElement.
-						// Instead, conditionally iterate: (condition) ? [scope] : [] — renders nothing when false.
+						// Instead, conditionally iterate: (condition) ? [scope] : [] - renders nothing when false.
 						const vIf = directive.getAttribute("v-if");
 						let forSource = `[${scope}]`;
 						if (vIf != null) {

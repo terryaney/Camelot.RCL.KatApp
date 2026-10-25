@@ -53,7 +53,7 @@
 				) {
 					// camelot.data.getReactiveTable sets filter._parent back to the table, so without a cycle
 					// guard a deep copy of state.model recurses until the stack blows.
-					// Note: deep-cloning a reactive table doesn't produce a working table even with the guard — 
+					// Note: deep-cloning a reactive table doesn't produce a working table even with the guard - 
 					// Object.keys invokes accessors, so get rows runs (mutating the host's _currentPage via _setPagination) 
 					// and the clone ends up with plain data properties where the original had getters. 
 					// If cloned models with reactive tables ever need to actually function, the real answer is 
