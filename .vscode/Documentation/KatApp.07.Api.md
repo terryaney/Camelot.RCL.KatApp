@@ -32,7 +32,7 @@ Name | Description
 
 Asyncronous method to create a new KatApp bound to an `HTMLElement` selected via `selector`.
 
-The optional `configAction` parameter is the same delegate accepted by [`IKatApp.configure`](#ikatappconfigure).  A Kaml View never needs this; its own script calls `application.configure()`.  It exists for applications that have no Kaml View of their own — see [`IModalOptions.configure`](#contentselector-modals) for the scenario that motivated it.
+The optional `configAction` parameter is the same delegate accepted by [`IKatApp.configure`](#ikatappconfigure).  A Kaml View never needs this; its own script calls `application.configure()`.  It exists for applications that have no Kaml View of their own - see [`IModalOptions.configure`](#contentselector-modals) for the scenario that motivated it.
 
 ```javascript
 function ready(fn) {
@@ -318,7 +318,7 @@ This pattern follows a similar configuration action delegate used in .NET Core a
 
 The `rbl`, `model`, `inputs`, `handlers`, and `application` parameters are optional, but are passed in to allow access to the application's state properties in a shorthand syntax.
 
-`application` is the application being configured.  Inside a Kaml View script this is the same object as the file scoped `application` variable, so its declaration is unneeded.  It matters when the delegate is *not* declared inside the script of the application it configures — see [contentSelector Modals](#contentselector-modals) — because the `application` variable closed over from the enclosing script refers to the host application, not the one being configured.
+`application` is the application being configured.  Inside a Kaml View script this is the same object as the file scoped `application` variable, so its declaration is unneeded.  It matters when the delegate is *not* declared inside the script of the application it configures - see [contentSelector Modals](#contentselector-modals) - because the `application` variable closed over from the enclosing script refers to the host application, not the one being configured.
 
 ```javascript
 /** @type {IKatApp} */
@@ -1265,7 +1265,7 @@ Property | Type | Description
 
 A `contentSelector` modal has no Kaml View, and therefore no `.kaml.js` file in which to call `application.configure()`.  The [`v-pre`](./KatApp.05.VueDirectives.md#v-pre) attribute value and the `configure` property supply the two things that script would normally have provided; state and handlers.
 
-**How the content is processed.** The element matched by `contentSelector` is *cloned* — the original stays in the host's DOM, so keep it hidden — and the clone is appended to the modal's `.modal-body`.  Without `v-pre`, the host application has already processed the directives inside that element before the clone is taken, so the modal gets inert markup.  Decorating the element with `v-pre` defers all Vue/KatApp directive processing until the modal application mounts, which is what lets the modal own its own inputs, events, and button templates.
+**How the content is processed.** The element matched by `contentSelector` is *cloned* - the original stays in the host's DOM, so keep it hidden - and the clone is appended to the modal's `.modal-body`.  Without `v-pre`, the host application has already processed the directives inside that element before the clone is taken, so the modal gets inert markup.  Decorating the element with `v-pre` defers all Vue/KatApp directive processing until the modal application mounts, which is what lets the modal own its own inputs, events, and button templates.
 
 **State: the `v-pre` value.** A bare `v-pre` clones the host application's `rbl`, `model`, and `handlers` into the modal.  That is the right default when the modal is a reactive view over data the host already calculated.  It is the wrong default when the modal only needs an input and a button, because:
 
@@ -1278,9 +1278,9 @@ Because this is markup rather than an option passed to `showModalAsync`, the dec
 
 **Handlers: the `configure` property.** With `v-pre="false"` the modal has no handlers, so its buttons have nothing to call.  `configure` accepts the same delegate as [`IKatApp.configure`](#ikatappconfigure) and the KatApp Framework applies it to the modal application after it is constructed and before it is mounted.
 
-Use the delegate's sixth parameter — the modal application — for anything scoped to the modal.  The `application` variable closed over from the host Kaml View's script still refers to the **host**, and the host cannot see the modal's inputs or validations and has no `modalAppOptions` of its own.
+Use the delegate's sixth parameter - the modal application - for anything scoped to the modal.  The `application` variable closed over from the host Kaml View's script still refers to the **host**, and the host cannot see the modal's inputs or validations and has no `modalAppOptions` of its own.
 
-Sample markup in the host Kaml View.  The wrapper is hidden with `d-none` because the original element remains in the host DOM, and `v-pre="false"` keeps everything inside it — including the buttons template — unprocessed until the modal mounts, without cloning any host state:
+Sample markup in the host Kaml View.  The wrapper is hidden with `d-none` because the original element remains in the host DOM, and `v-pre="false"` keeps everything inside it - including the buttons template - unprocessed until the modal mounts, without cloning any host state:
 
 ```html
 <div class="generate-request-modal d-none" v-pre="false">
@@ -1336,7 +1336,7 @@ if (response.confirmed) {
 Notes:
 
 1. `configure` and `view` are mutually exclusive.  A Kaml View calls `application.configure()` in its own script during mount, and that call would replace anything passed here, so `showModalAsync` throws instead of silently discarding it.
-1. `config.model`, `config.events`, `config.components`, and `config.directives` work exactly as they do in a Kaml View — see [`IConfigureOptions`](#iconfigureoptions).
+1. `config.model`, `config.events`, `config.components`, and `config.directives` work exactly as they do in a Kaml View - see [`IConfigureOptions`](#iconfigureoptions).
 1. Applying `cancelButton` and `continueButton` classes in a custom `buttonsTemplate` is best practice; see footnote 2 above.
 
 #### IModalOptions Template Samples

@@ -392,7 +392,7 @@ In addition to direct access to the [IState](#istate) properties and methods, ex
 
 Expressions have implicit access to all `state` properties (`inputs`, `rbl`, `model`, etc.) without qualification. Expressions can reference each other using `this.expressionId`.
 
-Each CalcEngine `rbl-expression` table is stateless across calculations — rows are **not** merged with results from previous runs. If any `rbl-expression` rows are returned in a given calculation, the entire expression object is rebuilt from scratch using only those rows. Therefore, a CalcEngine must return every expression row the application needs on every calculation run that returns any `rbl-expression` rows. Rows returned across multiple CalcEngines or result tabs within a single run are combined into one expressions object (last writer wins on duplicate `id` values).
+Each CalcEngine `rbl-expression` table is stateless across calculations - rows are **not** merged with results from previous runs. If any `rbl-expression` rows are returned in a given calculation, the entire expression object is rebuilt from scratch using only those rows. Therefore, a CalcEngine must return every expression row the application needs on every calculation run that returns any `rbl-expression` rows. Rows returned across multiple CalcEngines or result tabs within a single run are combined into one expressions object (last writer wins on duplicate `id` values).
 
 **CalcEngine table:**
 
