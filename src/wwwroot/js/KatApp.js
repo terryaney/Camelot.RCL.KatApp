@@ -3808,7 +3808,7 @@ var KatApps;
                 const valueFormatted = KatApps.Utils.formatNumber(this.application.options.intl, value, configuration.plotOptions.dataLabels.format);
                 element.setAttribute("ka-chart-highlight-key", seriesConfig.text);
                 element.setAttribute("aria-label", `${seriesConfig.text}, ${valueFormatted}.${headerName ? ` ${headerName}.` : ""}`);
-                element.setAttribute("role", "region");
+                element.setAttribute("role", "img");
                 return element;
             };
             const colStart = configuration.type == "columnStacked" ? data[0].data.length - 1 : 0;
@@ -3983,7 +3983,7 @@ var KatApps;
                     ? this.createCircle(radius, radius, normalizedRadius, configuration.series[index].color)
                     : this.createPath(`M ${radius} ${radius} L ${x1} ${y1} A ${normalizedRadius} ${normalizedRadius} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`, "none", 0, configuration.series[index].color);
                 path.setAttribute("aria-label", `${item.name}, ${valueFormatted}.`);
-                path.setAttribute("role", "region");
+                path.setAttribute("role", "img");
                 path.setAttribute("ka-chart-highlight-key", item.name);
                 if (configuration.plotOptions.tip.show) {
                     path.setAttribute("ka-tip-key", String(index));
@@ -4346,7 +4346,7 @@ var KatApps;
                 const diamond = this.createPointMarker(point.x, point.y, point.seriesConfig.color);
                 const valueFormatted = KatApps.Utils.formatNumber(this.application.options.intl, point.value, configuration.plotOptions.dataLabels.format);
                 diamond.setAttribute("aria-label", `${point.seriesConfig.text}, ${valueFormatted}. ${this.getHeader(configuration.plotOptions, point.name)}.`);
-                diamond.setAttribute("role", "region");
+                diamond.setAttribute("role", "img");
                 diamond.setAttribute("ka-chart-point", `${point.x},${point.y}`);
                 return diamond;
             }));
