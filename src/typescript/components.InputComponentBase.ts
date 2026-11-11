@@ -177,7 +177,9 @@ namespace KatApps {
 				});
 
 				// Textbox...
-				if (type != "radio" && input.tagName == "INPUT") {
+				const isTextArea = input.tagName == "TEXTAREA";
+
+				if (type != "radio" && (input.tagName == "INPUT" || isTextArea)) {
 					input.addEventListener("invalid", e => this.addValidityValidation(application, name, label, e.target as HTMLInputElement));
 				
 					const inputKeypressRegex = keypressRegex(name);
@@ -198,7 +200,7 @@ namespace KatApps {
 						});
 					}
 
-					if (hasMask) {
+					if (hasMask && !isTextArea) {
 						const getNumberMaskInfo = function (inputMask: string) {
 							const allowNegative = inputMask.startsWith("-");
 							const decimalPlacesString = inputMask.substring(allowNegative ? 7 : 6);

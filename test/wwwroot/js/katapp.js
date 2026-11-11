@@ -2530,7 +2530,8 @@ var KatApps;
                         application.state.needsCalculation = false;
                     }
                 });
-                if (type != "radio" && input.tagName == "INPUT") {
+                const isTextArea = input.tagName == "TEXTAREA";
+                if (type != "radio" && (input.tagName == "INPUT" || isTextArea)) {
                     input.addEventListener("invalid", e => this.addValidityValidation(application, name, label, e.target));
                     const inputKeypressRegex = keypressRegex(name);
                     if (inputKeypressRegex != null) {
@@ -2546,7 +2547,7 @@ var KatApps;
                             application.setInputValue(name, target.value = target.value.replace(kpInputRegex, ""), false);
                         });
                     }
-                    if (hasMask) {
+                    if (hasMask && !isTextArea) {
                         const getNumberMaskInfo = function (inputMask) {
                             const allowNegative = inputMask.startsWith("-");
                             const decimalPlacesString = inputMask.substring(allowNegative ? 7 : 6);
