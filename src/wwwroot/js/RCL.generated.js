@@ -30,7 +30,20 @@
             let template = document.createElement('template');
             template.innerHTML = [...summaryTemplate.children].find(e => e.classList.contains("validation-summary")).outerHTML;
             const validationSummary = template.content.firstElementChild;
-            validationSummary.querySelectorAll("li, .visually-hidden p").forEach(e => e.remove());
+            const errors = application.hasErrors()
+                ? application.state.errors
+                : [{ id: "unexpectedError", text: application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.") ?? "An unexpected error has occurred.  Please try again and if the problem persists, contact technical support." }];
+            validationSummary.querySelectorAll("[v-for]").forEach(row => {
+                errors.forEach(error => {
+                    const item = row.cloneNode();
+                    [...item.attributes]
+                        .filter(a => a.name.startsWith("v-") || a.name.startsWith(":") || a.name.startsWith("@"))
+                        .forEach(a => item.removeAttribute(a.name));
+                    item.innerHTML = error.text;
+                    row.before(item);
+                });
+                row.remove();
+            });
             validationSummary.querySelectorAll("[v-ka-resource]").forEach(e => {
                 e.innerHTML = application.getLocalizedString(e.getAttribute("v-ka-resource"));
             });
@@ -45,17 +58,6 @@
                 }
             });
             validationSummary.id = application.id + "_Host_ModelerValidationTable";
-            const errors = application.hasErrors()
-                ? application.state.errors
-                : [{ id: "unexpectedError", text: application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.") ?? "An unexpected error has occurred.  Please try again and if the problem persists, contact technical support." }];
-            errors.forEach(error => {
-                template = document.createElement('template');
-                template.innerHTML = `<li>${error.text}</li>`;
-                validationSummary.querySelector("ul").append(template.content.firstElementChild);
-                template = document.createElement('template');
-                template.innerHTML = `<p>${error.text}</p>`;
-                validationSummary.querySelector(".visually-hidden").append(template.content.firstElementChild);
-            });
             document.querySelector(".katapp-host .summary-container").append(validationSummary);
             document.querySelectorAll(".katapp-host .summary-container .validation-summary, .katapp-host .validation-container").forEach(e => e.style.display = "");
             document.querySelector(".katapp-host .loader-container").style.display = "none";

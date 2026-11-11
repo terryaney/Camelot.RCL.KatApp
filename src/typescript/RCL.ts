@@ -53,7 +53,24 @@ declare const KatApps: KatAppsStatic;
 			let template = document.createElement('template');
 			template.innerHTML = [...summaryTemplate.children].find(e => e.classList.contains("validation-summary"))!.outerHTML;
 			const validationSummary = template.content.firstElementChild!;
-			validationSummary.querySelectorAll("li, .visually-hidden p").forEach(e => e.remove());
+
+			// Some configureUI calcs call backend endpoints that return error messages
+			const errors = application.hasErrors()
+				? application.state.errors
+				: [ { id: "unexpectedError", text: application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.") ?? "An unexpected error has occurred.  Please try again and if the problem persists, contact technical support." } as IValidationRow ];
+
+			// v-for rows must be expanded before the v-ka-resource pass, which evaluates attributes outside of the v-for scope.
+			validationSummary.querySelectorAll<HTMLElement>("[v-for]").forEach(row => {
+				errors.forEach(error => {
+					const item = row.cloneNode() as HTMLElement;
+					[...item.attributes]
+						.filter(a => a.name.startsWith("v-") || a.name.startsWith(":") || a.name.startsWith("@"))
+						.forEach(a => item.removeAttribute(a.name));
+					item.innerHTML = error.text;
+					row.before(item);
+				});
+				row.remove();
+			});
 
 			validationSummary.querySelectorAll<HTMLElement>("[v-ka-resource]").forEach(e => {
 				e.innerHTML = application.getLocalizedString(e.getAttribute("v-ka-resource")!)!;
@@ -70,21 +87,6 @@ declare const KatApps: KatAppsStatic;
 				}
 			});
 			validationSummary.id = application.id + "_Host_ModelerValidationTable";
-
-			// Some configureUI calcs call backend endpoints that return error messages
-			const errors = application.hasErrors()
-				? application.state.errors
-				: [ { id: "unexpectedError", text: application.getLocalizedString("An unexpected error has occurred.  Please try again and if the problem persists, contact technical support.") ?? "An unexpected error has occurred.  Please try again and if the problem persists, contact technical support." } as IValidationRow ];
-			
-			errors.forEach(error => {
-				template = document.createElement('template');
-				template.innerHTML = `<li>${error.text}</li>`;
-				validationSummary.querySelector<HTMLElement>("ul")!.append(template.content.firstElementChild!);
-
-				template = document.createElement('template');
-				template.innerHTML = `<p>${error.text}</p>`;
-				validationSummary.querySelector<HTMLElement>(".visually-hidden")!.append(template.content.firstElementChild!);
-			});
 
 			document.querySelector<HTMLElement>(".katapp-host .summary-container")!.append(validationSummary);
 
