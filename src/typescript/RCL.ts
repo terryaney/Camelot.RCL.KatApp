@@ -51,7 +51,7 @@ declare const KatApps: KatAppsStatic;
 			const summaryTemplate = application.getTemplateContent("validation-summary");
 		
 			let template = document.createElement('template');
-			template.innerHTML = [...summaryTemplate.children].find(e => e.classList.contains("validation-summary"))!.outerHTML;
+			template.innerHTML = summaryTemplate.querySelector(".validation-summary")!.outerHTML;
 			const validationSummary = template.content.firstElementChild!;
 
 			// Some configureUI calcs call backend endpoints that return error messages
