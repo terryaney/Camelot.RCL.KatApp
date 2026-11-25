@@ -88,7 +88,9 @@ declare class KatApp implements IKatApp {
     clearValidations(includeWarnings?: boolean, predicate?: (error: IValidationRow) => boolean): void;
     clearWarnings(predicate?: (error: IValidationRow) => boolean): void;
     addError(id: string, text: string, dependsOn?: string, event?: string): void;
+    addError(error: IValidationRow): void;
     addWarning(id: string, text: string, dependsOn?: string, event?: string): void;
+    addWarning(warning: IValidationRow): void;
     private addUnexpectedError;
     private downloadBlob;
     getApiUrl(endpoint: string, isCacheableApi: boolean): {

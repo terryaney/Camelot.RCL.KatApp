@@ -1795,11 +1795,29 @@ Type 'help' to see available options displayed in the console.`;
 		this.state.warnings = predicate ? this.state.warnings.filter(r => !predicate(r)) : [];
 	}
 
-	public addError(id: string, text: string, dependsOn?: string, event?: string): void {
-		this.state.errors.push({ id, text, dependsOn, event });
+	public addError(id: string, text: string, dependsOn?: string, event?: string): void;
+	public addError(error: IValidationRow): void;
+	public addError(errorOrId: string | IValidationRow, text?: string, dependsOn?: string, event?: string): void {
+		if (typeof errorOrId == "string") {
+			if (text == undefined) {
+				throw new TypeError("addError requires validation text when called with an id.");
+			}
+			this.state.errors.push({ id: errorOrId, text, dependsOn, event });
+			return;
+		}
+		this.state.errors.push(errorOrId);
 	}
-	public addWarning(id: string, text: string, dependsOn?: string, event?: string): void {
-		this.state.warnings.push({ id, text, dependsOn, event });
+	public addWarning(id: string, text: string, dependsOn?: string, event?: string): void;
+	public addWarning(warning: IValidationRow): void;
+	public addWarning(warningOrId: string | IValidationRow, text?: string, dependsOn?: string, event?: string): void {
+		if (typeof warningOrId == "string") {
+			if (text == undefined) {
+				throw new TypeError("addWarning requires validation text when called with an id.");
+			}
+			this.state.warnings.push({ id: warningOrId, text, dependsOn, event });
+			return;
+		}
+		this.state.warnings.push(warningOrId);
 	}
 
 	private addUnexpectedError(errorResponse: any): void {

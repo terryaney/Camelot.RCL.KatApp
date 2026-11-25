@@ -1311,11 +1311,25 @@ Type 'help' to see available options displayed in the console.`;
     clearWarnings(predicate) {
         this.state.warnings = predicate ? this.state.warnings.filter(r => !predicate(r)) : [];
     }
-    addError(id, text, dependsOn, event) {
-        this.state.errors.push({ id, text, dependsOn, event });
+    addError(errorOrId, text, dependsOn, event) {
+        if (typeof errorOrId == "string") {
+            if (text == undefined) {
+                throw new TypeError("addError requires validation text when called with an id.");
+            }
+            this.state.errors.push({ id: errorOrId, text, dependsOn, event });
+            return;
+        }
+        this.state.errors.push(errorOrId);
     }
-    addWarning(id, text, dependsOn, event) {
-        this.state.warnings.push({ id, text, dependsOn, event });
+    addWarning(warningOrId, text, dependsOn, event) {
+        if (typeof warningOrId == "string") {
+            if (text == undefined) {
+                throw new TypeError("addWarning requires validation text when called with an id.");
+            }
+            this.state.warnings.push({ id: warningOrId, text, dependsOn, event });
+            return;
+        }
+        this.state.warnings.push(warningOrId);
     }
     addUnexpectedError(errorResponse) {
         this.addError("System", errorResponse.requestId != undefined
